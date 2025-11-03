@@ -2,15 +2,26 @@
   "name": "@repo/types",
   "version": "1.0.0",
   "private": true,
-  "main": "./src/index.ts",
+  "type": "module",
+  "main": "./dist/index.js",
   "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
   "scripts": {
+    "build": "esbuild src/index.ts --bundle --platform=node --packages=external --format=esm --outdir=dist",
+    "dev": "esbuild src/index.ts --bundle --platform=node --packages=external --format=esm --outdir=dist --watch",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "esbuild": "^0.25.12",
     "typescript": "^5.7.2"
   }
 }
