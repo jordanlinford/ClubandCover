@@ -1,5 +1,5 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
-import { verifySupabaseToken } from '../lib/supabase';
+import { getSupabase } from '../lib/supabase';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -26,12 +26,24 @@ export async function supabaseAuth(request: FastifyRequest, reply: FastifyReply)
   const token = authHeader.substring(7);
   
   try {
-    const user = await verifySupabaseToken(token);
+    const supabase = getSupabase();
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    
+    if (error || !user) {
+      return; // Invalid token, but auth is optional
+    }
+    
     request.user = {
       id: user.id,
       email: user.email,
     };
   } catch (error) {
+    // If Supabase is not configured, skip auth
+    if (error instanceof Error && error.message.includes('SUPABASE_URL')) {
+      request.log.warn('Supabase not configured - authentication disabled');
+      return;
+    }
+    
     // Silently fail for optional auth
     request.log.warn('Auth token verification failed:', error);
   }
