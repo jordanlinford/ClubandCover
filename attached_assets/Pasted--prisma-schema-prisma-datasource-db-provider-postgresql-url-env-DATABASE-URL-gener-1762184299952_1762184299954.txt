@@ -1,0 +1,139 @@
+// prisma/schema.prisma
+datasource db { provider = "postgresql"; url = env("DATABASE_URL") }
+generator client { provider = "prisma-client-js" }
+
+enum UserRole { READER AUTHOR CLUB_ADMIN STAFF }
+enum Tier { FREE PRO_AUTHOR PRO_CLUB PUBLISHER }
+enum BookStatus { DRAFT SEEKING_BETA PUBLISHED }
+enum ClubRole { MEMBER MOD OWNER }
+enum MemStatus { PENDING ACTIVE REJECTED }
+enum SwapStatus { REQUESTED ACCEPTED DECLINED DELIVERED VERIFIED }
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  role          UserRole @default(READER)
+  displayName   String?
+  bio           String?
+  avatarUrl     String?
+  tier          Tier     @default(FREE)
+  reputation    Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  books         Book[]
+  memberships   Membership[]
+  swapsRequested Swap[]  @relation("SwapsRequested")
+  swapsReceived  Swap[]  @relation("SwapsReceived")
+  reviews       Review[] @relation("ReviewsByReviewer")
+  messages      Message[] @relation("MessagesBySender")
+  payments      Payment[]
+}
+
+model Book {
+  id          String   @id @default(uuid())
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id])
+  title       String
+  subtitle    String?
+  genres      String[]
+  blurb       String?
+  sampleUrl   String?
+  coverUrl    String?
+  status      BookStatus @default(DRAFT)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  reviews     Review[]
+  embeddings  Embedding[]
+}
+
+model Club {
+  id          String   @id @default(uuid())
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id])
+  name        String
+  description String?
+  genres      String[]
+  isPublic    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  memberships Membership[]
+  events      ClubEvent[]
+}
+
+model ClubEvent {
+  id        String   @id @default(uuid())
+  clubId    String
+  club      Club     @relation(fields: [clubId], references: [id])
+  name      String
+  startsAt  DateTime
+  endsAt    DateTime?
+  location  String?
+  details   String?
+}
+
+model Membership {
+  id        String   @id @default(uuid())
+  clubId    String
+  userId    String
+  role      ClubRole @default(MEMBER)
+  status    MemStatus @default(PENDING)
+  createdAt DateTime @default(now())
+  club      Club @relation(fields: [clubId], references: [id])
+  user      User @relation(fields: [userId], references: [id])
+}
+
+model Swap {
+  id           String   @id @default(uuid())
+  requesterId  String
+  responderId  String
+  bookId       String
+  status       SwapStatus @default(REQUESTED)
+  dueDate      DateTime?
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  requester    User   @relation("SwapsRequested", fields: [requesterId], references: [id])
+  responder    User   @relation("SwapsReceived",  fields: [responderId], references: [id])
+  book         Book   @relation(fields: [bookId], references: [id])
+  deliverable  String?
+}
+
+model Review {
+  id         String   @id @default(uuid())
+  bookId     String
+  authorId   String
+  reviewerId String
+  rating     Int
+  text       String
+  verifiedSwap Boolean @default(false)
+  createdAt  DateTime @default(now())
+  book       Book @relation(fields: [bookId], references: [id])
+  reviewer   User @relation("ReviewsByReviewer", fields: [reviewerId], references: [id])
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  threadId  String
+  senderId  String
+  body      String
+  createdAt DateTime @default(now())
+  sender    User @relation("MessagesBySender", fields: [senderId], references: [id])
+}
+
+model Payment {
+  id        String   @id @default(uuid())
+  userId    String
+  plan      Tier
+  status    String
+  stripeId  String?
+  createdAt DateTime @default(now())
+  user      User @relation(fields: [userId], references: [id])
+}
+
+model Embedding {
+  id        String   @id @default(uuid())
+  entityId  String
+  entityType String
+  vector    Bytes
+  createdAt DateTime @default(now())
+}
