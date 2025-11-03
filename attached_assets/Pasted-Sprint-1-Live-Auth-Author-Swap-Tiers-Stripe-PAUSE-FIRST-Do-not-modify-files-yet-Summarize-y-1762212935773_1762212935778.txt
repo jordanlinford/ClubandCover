@@ -1,0 +1,332 @@
+Sprint-1: Live Auth + Author Swap + Tiers + Stripe
+PAUSE FIRST. Do not modify files yet.
+Summarize your plan (files to add/change, endpoints, DB changes, env reads, and test steps). Wait for my OK before you execute.
+Scope (no extras)
+Implement only the following:
+1) Live Supabase Auth (replace mocks)
+
+
+Enable real signup/sign-in using Supabase in apps/web.
+
+
+Keep our existing supabaseAuth (JWT verify) and ensureUser() middleware in apps/api.
+
+
+On every authenticated request, req.user is present and synced in our User table (id = jwt.sub, email from token).
+
+
+Pages that previously showed mock user must now use the real session (sign-in/sign-up, profile, gated actions).
+
+
+Frontend tasks
+
+
+Replace mock forms with supabase-js flows:
+
+
+Email/password: signUp({ email, password }), signInWithPassword({ email, password }).
+
+
+Add “Sign out”.
+
+
+
+
+useSession() (or equivalent) to provide session context to components.
+
+
+Route guards:
+
+
+/swaps, /books/new, /clubs/new require auth (redirect to sign-in).
+
+
+Show role/tier on /profile.
+
+
+
+
+Guardrail: If Supabase creds are missing, show a top banner “Auth disabled (no Supabase env)”.
+2) Author Swap lifecycle (verified reviews)
+
+
+Valid transitions: REQUESTED → ACCEPTED → DELIVERED → VERIFIED (decline from REQUESTED or ACCEPTED).
+
+
+API:
+
+
+POST /api/swaps (create request) — enforce requester ≠ responder; only authenticated Authors can request.
+
+
+PATCH /api/swaps/:id accepts { status, dueDate?, deliverable? } and enforces the state machine + ownership (only involved parties or STAFF).
+
+
+On DELIVERED: store deliverable (URL).
+
+
+On VERIFIED: auto-create a Review { verifiedSwap: true } for the book (reviewer = requester).
+
+
+
+
+UI:
+
+
+Book Detail: show “Request Swap” if viewer is authenticated and not the owner.
+
+
+Swaps page: Sent/Received tabs with contextual actions:
+
+
+Received: Accept/Decline; Mark Delivered (URL); Mark Verified.
+
+
+Sent: Cancel (if REQUESTED), Mark Verified (after delivery).
+
+
+
+
+Toasts on success/errors.
+
+
+
+
+3) Tier limits (FREE vs PRO_AUTHOR)
+
+
+Rules:
+
+
+FREE: max 3 pending swaps (status in [REQUESTED, ACCEPTED]).
+
+
+PRO_AUTHOR: max 10 pending swaps.
+
+
+
+
+Backend enforcement in POST /api/swaps:
+
+
+Count the requester’s pending swaps (by requesterId). If over the cap → 403 with { code: "SWAP_LIMIT", requiredTier: "PRO_AUTHOR" }.
+
+
+
+
+Frontend:
+
+
+If 403 with SWAP_LIMIT, show banner with Upgrade CTA linking to Billing.
+
+
+
+
+4) Stripe (checkout + webhook)
+
+
+Env already defined:
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+VITE_STRIPE_PUBLIC_KEY=
+
+
+
+Products/Prices: create test Products in code if none exist (idempotent):
+
+
+pro_author monthly (e.g., $15)
+
+
+pro_club monthly (e.g., $25)
+
+
+publisher monthly (e.g., $99) — stub for later
+
+
+
+
+API:
+
+
+POST /api/billing/checkout-session body: { plan: "PRO_AUTHOR" | "PRO_CLUB" }
+
+
+Creates a Checkout Session, success/cancel URLs → /billing?status=success|cancel.
+
+
+Session mode: subscription.
+
+
+Metadata: userId.
+
+
+
+
+POST /api/webhooks/stripe
+
+
+Verify signature.
+
+
+Handle checkout.session.completed, customer.subscription.updated, customer.subscription.deleted:
+
+
+Map plan to User.tier (PRO_AUTHOR or PRO_CLUB) and Payment record.
+
+
+
+
+
+
+
+
+Frontend /billing:
+
+
+Display current tier.
+
+
+Buttons: “Upgrade to Pro Author”, “Upgrade to Pro Club” → call /api/billing/checkout-session and redirect to Stripe.
+
+
+
+
+Guardrail: If Stripe envs are missing, keep /billing read-only with a banner “Billing disabled (no Stripe env)”.
+5) Notifications (stub ok)
+
+
+Create apps/api/src/lib/mail.ts with a notify(event, payload) that logs to console when RESEND_API_KEY missing.
+
+
+Call notify on swap events (REQUESTED, ACCEPTED, DELIVERED, VERIFIED).
+
+
+If RESEND_API_KEY present, send simple transactional emails.
+
+
+
+Implementation notes (please follow)
+
+
+No DB schema changes required beyond Sprint-0 (we already modeled Review.verifiedSwap etc.). If you think a change is needed, PAUSE and propose it first.
+
+
+Keep all API under /api/* and keep single-port serving web from API.
+
+
+All inputs/outputs must be Zod-validated and exported via @repo/types.
+
+
+Add unit tests where you already have test setup; otherwise include a manual test script in the PR body.
+
+
+
+Acceptance tests (run + report)
+
+
+Auth live
+
+
+Sign up two users in the UI. Confirm ensureUser() upserts to DB (check logs/DB).
+
+
+Profile shows email, role=READER (default), tier=FREE.
+
+
+
+
+Swap flow
+
+
+User A creates a Book. User B views Book → “Request Swap”.
+
+
+User A (receiver) Accepts. User A delivers with URL. User B marks Verified.
+
+
+A Review appears on Book with verifiedSwap=true.
+
+
+
+
+Tier limits
+
+
+With tier=FREE, attempt to create 4th pending swap → 403 SWAP_LIMIT.
+
+
+Upgrade to PRO_AUTHOR via Stripe Checkout. After webhook, tier updates; creating more swaps succeeds (up to 10).
+
+
+
+
+Billing
+
+
+/billing shows current tier.
+
+
+Checkout creates session and redirects. Webhook updates User.tier. Page reflects upgrade.
+
+
+
+
+Notifications
+
+
+On each swap transition, notify() triggers (emails if RESEND_API_KEY present; else console log).
+
+
+
+
+
+Commands & run
+
+
+If migrations are already applied:
+pnpm dev:replit
+
+
+If needed for Stripe local webhook testing (optional):
+
+
+Add script: "stripe:listen": "stripe listen --forward-to localhost:5000/api/webhooks/stripe"
+
+
+I’ll run this locally; you just implement the handler.
+
+
+
+
+
+Deliverables
+
+
+Updated code with:
+
+
+Live Supabase auth UI and protected routes.
+
+
+Swap lifecycle + verified review creation.
+
+
+Tier enforcement + helpful error object.
+
+
+Stripe checkout + webhook + tier updates.
+
+
+Notification stub with Resend integration (optional).
+
+
+
+
+A short ROUTE MAP (frontend + API) and TEST LOG showing the 5 acceptance tests passing.
+
+
+A note listing which envs were present/missing during your run.
+
+
+PAUSE after the plan summary. Once I confirm, proceed.
