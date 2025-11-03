@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation, useRoute } from 'wouter';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card } from '@repo/ui';
@@ -23,13 +23,27 @@ export function BookFormPage() {
   });
 
   const [formData, setFormData] = useState<CreateBook>({
-    title: book?.title || '',
-    author: book?.author || '',
-    isbn: book?.isbn || null,
-    description: book?.description || null,
-    condition: book?.condition || 'GOOD',
-    imageUrl: book?.imageUrl || null,
+    title: '',
+    author: '',
+    isbn: undefined,
+    description: undefined,
+    condition: 'GOOD',
+    imageUrl: undefined,
   });
+
+  // Sync form data when book loads
+  useEffect(() => {
+    if (book) {
+      setFormData({
+        title: book.title,
+        author: book.author,
+        isbn: book.isbn || undefined,
+        description: book.description || undefined,
+        condition: book.condition,
+        imageUrl: book.imageUrl || undefined,
+      });
+    }
+  }, [book]);
 
   const createMutation = useMutation({
     mutationFn: (data: CreateBook) => api.createBook(data),
@@ -102,7 +116,7 @@ export function BookFormPage() {
               <Input
                 id="isbn"
                 value={formData.isbn || ''}
-                onChange={(e) => setFormData({ ...formData, isbn: e.target.value || null })}
+                onChange={(e) => setFormData({ ...formData, isbn: e.target.value || undefined })}
                 data-testid="input-isbn"
               />
             </div>
@@ -134,7 +148,7 @@ export function BookFormPage() {
               <textarea
                 id="description"
                 value={formData.description || ''}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value || null })}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value || undefined })}
                 className="w-full px-3 py-2 border rounded-md dark:bg-gray-800 dark:border-gray-700 min-h-24"
                 data-testid="textarea-description"
               />

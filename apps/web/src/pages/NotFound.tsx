@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link } from 'wouter';
 import { Button } from '@repo/ui';
 
 export function NotFoundPage() {
@@ -7,8 +7,8 @@ export function NotFoundPage() {
       <div className="text-center">
         <h1 className="text-9xl font-bold text-primary mb-4">404</h1>
         <p className="text-2xl text-muted-foreground mb-8">Page not found</p>
-        <Link to="/">
-          <Button size="lg">Go Home</Button>
+        <Link href="/">
+          <Button size="lg" data-testid="button-home">Go Home</Button>
         </Link>
       </div>
     </div>

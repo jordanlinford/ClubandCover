@@ -14,8 +14,8 @@ export function ClubFormPage() {
 
   const [formData, setFormData] = useState<CreateClub>({
     name: '',
-    description: null,
-    imageUrl: null,
+    description: undefined,
+    imageUrl: undefined,
     maxMembers: 50,
     isPublic: true,
   });
@@ -63,7 +63,7 @@ export function ClubFormPage() {
               <textarea
                 id="description"
                 value={formData.description || ''}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value || null })}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value || undefined })}
                 className="w-full px-3 py-2 border rounded-md dark:bg-gray-800 dark:border-gray-700 min-h-24"
                 data-testid="textarea-description"
               />

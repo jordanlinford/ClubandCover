@@ -91,7 +91,7 @@ async function seed() {
     update: {},
     create: {
       id: 'seed-book-1',
-      userId: authorId,
+      ownerId: authorId,
       title: 'The Great Gatsby',
       author: 'F. Scott Fitzgerald',
       isbn: '9780743273565',
@@ -107,7 +107,7 @@ async function seed() {
     update: {},
     create: {
       id: 'seed-book-2',
-      userId: readerId,
+      ownerId: readerId,
       title: 'To Kill a Mockingbird',
       author: 'Harper Lee',
       isbn: '9780061120084',
@@ -123,7 +123,7 @@ async function seed() {
     update: {},
     create: {
       id: 'seed-book-3',
-      userId: authorId,
+      ownerId: authorId,
       title: '1984',
       author: 'George Orwell',
       isbn: '9780451524935',
@@ -144,7 +144,7 @@ async function seed() {
     update: {},
     create: {
       id: 'seed-club-1',
-      creatorId: authorId,
+      createdById: authorId,
       name: 'Classic Literature Club',
       description: 'A club for lovers of timeless classics',
       imageUrl: null,
@@ -194,8 +194,8 @@ async function seed() {
       id: 'seed-swap-1',
       requesterId: readerId,
       recipientId: authorId,
-      requestedBookId: book3.id,
-      offeredBookId: book2.id,
+      bookRequestedId: book3.id,
+      bookOfferedId: book2.id,
       status: 'PENDING',
       message: 'Would love to read 1984! Happy to trade my copy of To Kill a Mockingbird.',
     },

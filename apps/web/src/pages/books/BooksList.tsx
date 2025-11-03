@@ -3,7 +3,6 @@ import { Link } from 'wouter';
 import { Card } from '@repo/ui';
 import { Button } from '@repo/ui';
 import { PageHeader } from '@repo/ui';
-import { api } from '../../lib/api';
 import type { Book } from '@repo/types';
 
 export function BooksListPage() {

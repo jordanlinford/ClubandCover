@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'wouter';
 import { PageHeader, Button, DataTable, Card } from '@repo/ui';
 import type { User } from '@repo/types';
 import { api } from '../lib/api';
@@ -50,7 +50,7 @@ export function UsersPage() {
           description="Manage users in your application"
           actions={
             <>
-              <Link to="/">
+              <Link href="/">
                 <Button variant="outline">← Back</Button>
               </Link>
               <Button>Add User</Button>
