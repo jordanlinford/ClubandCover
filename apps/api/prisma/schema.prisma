@@ -7,12 +7,231 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Enums
+enum MembershipRole {
+  OWNER
+  ADMIN
+  MEMBER
+  PENDING
+}
+
+enum MembershipStatus {
+  PENDING
+  ACTIVE
+  DECLINED
+  REMOVED
+}
+
+enum SwapStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum BookCondition {
+  NEW
+  LIKE_NEW
+  VERY_GOOD
+  GOOD
+  ACCEPTABLE
+}
+
+// Models
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
   name      String
+  avatarUrl String?
+  bio       String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Relations
+  books              Book[]       @relation("UserBooks")
+  clubsCreated       Club[]       @relation("ClubCreator")
+  memberships        Membership[]
+  swapsRequested     Swap[]       @relation("SwapRequester")
+  swapsReceived      Swap[]       @relation("SwapRecipient")
+  reviewsGiven       Review[]     @relation("Reviewer")
+  reviewsReceived    Review[]     @relation("Reviewee")
+  messagesSent       Message[]    @relation("MessageSender")
+  messagesReceived   Message[]    @relation("MessageRecipient")
+  payments           Payment[]
+  membershipsInvited Membership[] @relation("InvitedBy")
+
   @@map("users")
+}
+
+model Book {
+  id          String        @id @default(uuid())
+  ownerId     String
+  title       String
+  author      String
+  isbn        String?
+  description String?
+  condition   BookCondition @default(GOOD)
+  imageUrl    String?
+  isAvailable Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relations
+  owner           User        @relation("UserBooks", fields: [ownerId], references: [id], onDelete: Cascade)
+  swapsOffered    Swap[]      @relation("BookOffered")
+  swapsRequested  Swap[]      @relation("BookRequested")
+  embeddings      Embedding[]
+
+  @@index([ownerId])
+  @@index([isAvailable])
+  @@map("books")
+}
+
+model Club {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  imageUrl    String?
+  createdById String
+  maxMembers  Int      @default(50)
+  isPublic    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  createdBy   User         @relation("ClubCreator", fields: [createdById], references: [id])
+  memberships Membership[]
+  messages    Message[]
+
+  @@index([createdById])
+  @@index([isPublic])
+  @@map("clubs")
+}
+
+model Membership {
+  id         String           @id @default(uuid())
+  userId     String
+  clubId     String
+  role       MembershipRole   @default(PENDING)
+  status     MembershipStatus @default(PENDING)
+  joinedAt   DateTime         @default(now())
+  invitedBy  String?
+
+  // Relations
+  user    User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  club    Club  @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  inviter User? @relation("InvitedBy", fields: [invitedBy], references: [id])
+
+  @@unique([userId, clubId])
+  @@index([userId])
+  @@index([clubId])
+  @@index([status])
+  @@map("memberships")
+}
+
+model Swap {
+  id              String     @id @default(uuid())
+  requesterId     String
+  bookOfferedId   String
+  recipientId     String
+  bookRequestedId String
+  status          SwapStatus @default(PENDING)
+  message         String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  // Relations
+  requester     User     @relation("SwapRequester", fields: [requesterId], references: [id])
+  recipient     User     @relation("SwapRecipient", fields: [recipientId], references: [id])
+  bookOffered   Book     @relation("BookOffered", fields: [bookOfferedId], references: [id])
+  bookRequested Book     @relation("BookRequested", fields: [bookRequestedId], references: [id])
+  reviews       Review[]
+  payments      Payment[]
+
+  @@index([requesterId])
+  @@index([recipientId])
+  @@index([status])
+  @@map("swaps")
+}
+
+model Review {
+  id         String   @id @default(uuid())
+  reviewerId String
+  revieweeId String
+  swapId     String
+  rating     Int // 1-5
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  // Relations
+  reviewer User @relation("Reviewer", fields: [reviewerId], references: [id])
+  reviewee User @relation("Reviewee", fields: [revieweeId], references: [id])
+  swap     Swap @relation(fields: [swapId], references: [id], onDelete: Cascade)
+
+  @@unique([swapId, reviewerId]) // One review per swap per reviewer
+  @@index([reviewerId])
+  @@index([revieweeId])
+  @@map("reviews")
+}
+
+model Message {
+  id          String    @id @default(uuid())
+  senderId    String
+  recipientId String?
+  clubId      String?
+  content     String
+  readAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  // Relations
+  sender    User  @relation("MessageSender", fields: [senderId], references: [id])
+  recipient User? @relation("MessageRecipient", fields: [recipientId], references: [id])
+  club      Club? @relation(fields: [clubId], references: [id], onDelete: Cascade)
+
+  @@index([senderId])
+  @@index([recipientId])
+  @@index([clubId])
+  @@map("messages")
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  userId          String
+  swapId          String?
+  amount          Int // in cents
+  stripePaymentId String        @unique
+  status          PaymentStatus @default(PENDING)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // Relations
+  user User  @relation(fields: [userId], references: [id])
+  swap Swap? @relation(fields: [swapId], references: [id])
+
+  @@index([userId])
+  @@index([swapId])
+  @@index([status])
+  @@map("payments")
+}
+
+model Embedding {
+  id        String   @id @default(uuid())
+  bookId    String
+  embedding String // JSON stringified vector for now, or use pgvector extension
+  createdAt DateTime @default(now())
+
+  // Relations
+  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([bookId])
+  @@index([bookId])
+  @@map("embeddings")
 }

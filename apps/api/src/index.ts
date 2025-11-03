@@ -13,7 +13,7 @@ const fastify = Fastify({
 });
 
 await fastify.register(cors, {
-  origin: process.env.CORS_ORIGIN || '*',
+  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
   credentials: true,
 });
 
@@ -23,7 +23,7 @@ await fastify.register(routes, { prefix: '/api' });
 
 const start = async () => {
   try {
-    const port = parseInt(process.env.PORT || '3001', 10);
+    const port = parseInt(process.env.PORT || '3000', 10);
     const host = process.env.HOST || '0.0.0.0';
     
     await fastify.listen({ port, host });

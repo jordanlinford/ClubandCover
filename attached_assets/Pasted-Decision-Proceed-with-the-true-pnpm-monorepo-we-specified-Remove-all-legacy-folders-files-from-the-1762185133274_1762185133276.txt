@@ -1,0 +1,56 @@
+Decision: Proceed with the true pnpm monorepo we specified. Remove all legacy folders/files from the old scaffold (e.g., client/, server/, shared/, any Express/Drizzle remnants).
+
+Reset/Align to spec:
+
+Keep only: apps/web, apps/api, packages/{types,ui,config}, pnpm-workspace.yaml, root configs.
+
+Frontend: React 18 + Vite + TS + Tailwind + React Router v7 is OK.
+
+Backend: Fastify + TS + Prisma + Zod.
+
+DB/Auth: Supabase Postgres + Supabase Auth (do not rely on Replit’s default Postgres).
+
+Ports: web 5173, api 3000.
+
+Env: use both build-time and runtime vars. Add these to .env.example (exact keys):
+
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+DATABASE_URL=
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+RESEND_API_KEY=
+OPENAI_API_KEY=
+JWT_SECRET=
+APP_URL=http://localhost:5173
+API_URL=http://localhost:3000
+VITE_API_URL=http://localhost:3000
+VITE_STRIPE_PUBLIC_KEY=
+
+
+Scripts: root pnpm dev runs web+api concurrently; pnpm build, pnpm lint, pnpm format.
+
+Prisma: Use the schema I provided earlier (User, Book, Club, Membership, Swap, Review, Message, Payment, Embedding + enums).
+
+Tasks to execute (in order):
+
+Print current folder tree.
+
+Delete all legacy scaffold files/folders not in the spec above. Reprint final tree.
+
+Ensure apps/api uses PORT=3000 and CORS allows http://localhost:5173.
+
+Wire Prisma to Supabase via DATABASE_URL (will add actual value later).
+
+Add Supabase JWT verification middleware (read Authorization: Bearer <jwt>; verify; set req.user).
+
+Add minimal routes for Sprint-0: /health, /books CRUD (owner checks), /clubs create/list, /memberships request/approve/decline, /swaps create/list/update with valid state transitions. All Zod-validated; types exported from packages/types.
+
+In apps/web, scaffold Auth (Supabase), Profile, Books (List/Create/Edit/Detail), Clubs (Directory/Create/Detail), Swaps (My Swaps page with Sent/Received tabs). Billing page = placeholder only.
+
+Create seed script: 1 Author, 1 Reader, 1 Club, 1 Book, 1 pending Swap.
+
+Output the exact commands to run: pnpm i, pnpm prisma:migrate, pnpm seed, pnpm dev.
+
+Pause before running migrations and paste the Prisma schema you’re about to apply. Wait for my OK.
