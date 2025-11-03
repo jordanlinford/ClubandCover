@@ -1,4 +1,4 @@
-// Compatibility shim - redirects to new monorepo structure
+// Replit dev:replit - Build web, then start API (single port on 5000)
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -7,33 +7,27 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const rootDir = join(__dirname, '..');
 
-console.log('🔄 Starting monorepo dev servers...\n');
-console.log('📦 Building shared packages...');
+console.log('🔄 Starting Replit dev mode (single port)...\n');
 
-// Build types package first
-const buildTypes = spawn('pnpm', ['--filter', '@repo/types', 'build'], {
+// Step 1: Build web app
+console.log('📦 Building web app...');
+const buildWeb = spawn('pnpm', ['-F', '@repo/web', 'build'], {
   cwd: rootDir,
   stdio: 'inherit',
   shell: true,
 });
 
-buildTypes.on('exit', (code) => {
+buildWeb.on('exit', (code) => {
   if (code !== 0) {
-    console.error('Failed to build types package');
+    console.error('❌ Failed to build web app');
     process.exit(code || 1);
   }
   
-  console.log('✅ Shared packages built\n');
+  console.log('✅ Web app built\n');
   
-  // Start API server
-  const api = spawn('pnpm', ['--filter', '@repo/api', 'dev'], {
-    cwd: rootDir,
-    stdio: 'inherit',
-    shell: true,
-  });
-
-  // Start web server
-  const web = spawn('pnpm', ['--filter', '@repo/web', 'dev'], {
+  // Step 2: Start API server (serves web + API on port 5000)
+  console.log('🚀 Starting API server...\n');
+  const api = spawn('pnpm', ['-F', '@repo/api', 'dev'], {
     cwd: rootDir,
     stdio: 'inherit',
     shell: true,
@@ -41,19 +35,11 @@ buildTypes.on('exit', (code) => {
 
   process.on('SIGINT', () => {
     api.kill();
-    web.kill();
     process.exit();
   });
 
   api.on('exit', (code) => {
     console.log(`API exited with code ${code}`);
-    web.kill();
-    process.exit(code || 0);
-  });
-
-  web.on('exit', (code) => {
-    console.log(`Web exited with code ${code}`);
-    api.kill();
     process.exit(code || 0);
   });
 });
