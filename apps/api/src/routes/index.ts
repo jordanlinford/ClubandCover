@@ -3,6 +3,7 @@ import { bookRoutes } from './books';
 import { clubRoutes } from './clubs';
 import { membershipRoutes } from './memberships';
 import { swapRoutes } from './swaps';
+import { billingRoutes } from './billing';
 
 export async function routes(fastify: FastifyInstance) {
   fastify.get('/health', async () => {
@@ -13,4 +14,5 @@ export async function routes(fastify: FastifyInstance) {
   await fastify.register(clubRoutes, { prefix: '/clubs' });
   await fastify.register(membershipRoutes, { prefix: '/memberships' });
   await fastify.register(swapRoutes, { prefix: '/swaps' });
+  await fastify.register(billingRoutes, { prefix: '/billing' });
 }
