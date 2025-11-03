@@ -1,10 +1,16 @@
 import type { FastifyInstance } from 'fastify';
-import { userRoutes } from './users';
+import { bookRoutes } from './books';
+import { clubRoutes } from './clubs';
+import { membershipRoutes } from './memberships';
+import { swapRoutes } from './swaps';
 
 export async function routes(fastify: FastifyInstance) {
   fastify.get('/health', async () => {
     return { status: 'ok', timestamp: new Date().toISOString() };
   });
 
-  await fastify.register(userRoutes, { prefix: '/users' });
+  await fastify.register(bookRoutes, { prefix: '/books' });
+  await fastify.register(clubRoutes, { prefix: '/clubs' });
+  await fastify.register(membershipRoutes, { prefix: '/memberships' });
+  await fastify.register(swapRoutes, { prefix: '/swaps' });
 }

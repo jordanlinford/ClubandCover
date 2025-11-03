@@ -1,20 +1,28 @@
 import { z } from 'zod';
 
 export const UserSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string(),
   email: z.string().email(),
-  name: z.string().min(1),
+  name: z.string(),
+  avatarUrl: z.string().url().nullable(),
+  bio: z.string().nullable(),
   createdAt: z.date(),
   updatedAt: z.date(),
 });
 
-export const CreateUserSchema = UserSchema.omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
+export const CreateUserSchema = z.object({
+  id: z.string(),
+  email: z.string().email(),
+  name: z.string().min(1, 'Name is required'),
+  avatarUrl: z.string().url().optional(),
+  bio: z.string().max(500).optional(),
 });
 
-export const UpdateUserSchema = CreateUserSchema.partial();
+export const UpdateUserSchema = z.object({
+  name: z.string().min(1).optional(),
+  avatarUrl: z.string().url().optional(),
+  bio: z.string().max(500).optional(),
+});
 
 export type User = z.infer<typeof UserSchema>;
 export type CreateUser = z.infer<typeof CreateUserSchema>;

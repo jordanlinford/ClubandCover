@@ -47,7 +47,7 @@ enum BookCondition {
 
 // Models
 model User {
-  id        String   @id @default(uuid())
+  id        String   @id
   email     String   @unique
   name      String
   avatarUrl String?
@@ -130,7 +130,7 @@ model Membership {
   club    Club  @relation(fields: [clubId], references: [id], onDelete: Cascade)
   inviter User? @relation("InvitedBy", fields: [invitedBy], references: [id])
 
-  @@unique([userId, clubId])
+  @@unique([clubId, userId])
   @@index([userId])
   @@index([clubId])
   @@index([status])
@@ -158,6 +158,8 @@ model Swap {
 
   @@index([requesterId])
   @@index([recipientId])
+  @@index([bookOfferedId])
+  @@index([bookRequestedId])
   @@index([status])
   @@map("swaps")
 }

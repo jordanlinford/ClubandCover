@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import { config } from 'dotenv';
 import { routes } from './routes';
 import { supabaseAuth } from './middleware/auth';
+import { ensureUser } from './middleware/ensureUser';
 
 config();
 
@@ -18,6 +19,7 @@ await fastify.register(cors, {
 });
 
 fastify.addHook('onRequest', supabaseAuth);
+fastify.addHook('onRequest', ensureUser);
 
 await fastify.register(routes, { prefix: '/api' });
 
