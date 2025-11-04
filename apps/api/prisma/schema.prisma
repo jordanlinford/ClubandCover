@@ -70,6 +70,8 @@ model User {
   tier                 Tier      @default(FREE)
   stripeCustomerId     String?
   stripeSubscriptionId String?
+  aiCallsToday         Int       @default(0)
+  aiCallsResetAt       DateTime  @default(now())
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
@@ -95,7 +97,9 @@ model Book {
   id          String        @id @default(uuid())
   ownerId     String
   title       String
+  subtitle    String?
   author      String
+  genres      String[]      @default([])
   isbn        String?
   description String?
   condition   BookCondition @default(GOOD)
@@ -120,6 +124,7 @@ model Club {
   id          String   @id @default(uuid())
   name        String
   description String?
+  genres      String[] @default([])
   imageUrl    String?
   createdById String
   maxMembers  Int      @default(50)
@@ -131,6 +136,7 @@ model Club {
   createdBy   User         @relation("ClubCreator", fields: [createdById], references: [id])
   memberships Membership[]
   messages    Message[]
+  embeddings  Embedding[]
 
   @@index([createdById])
   @@index([isPublic])
@@ -253,15 +259,19 @@ model Payment {
 }
 
 model Embedding {
-  id        String   @id @default(uuid())
-  bookId    String
-  embedding String // JSON stringified vector for now, or use pgvector extension
-  createdAt DateTime @default(now())
+  id         String   @id @default(uuid())
+  entityType String // "BOOK" or "CLUB"
+  bookId     String?
+  clubId     String?
+  embedding  String // JSON stringified vector
+  createdAt  DateTime @default(now())
 
   // Relations
-  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  book Book? @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  club Club? @relation(fields: [clubId], references: [id], onDelete: Cascade)
 
   @@unique([bookId])
-  @@index([bookId])
+  @@unique([clubId])
+  @@index([entityType])
   @@map("embeddings")
 }

@@ -15,6 +15,7 @@ export function ClubFormPage() {
   const [formData, setFormData] = useState<CreateClub>({
     name: '',
     description: undefined,
+    genres: [],
     imageUrl: undefined,
     maxMembers: 50,
     isPublic: true,

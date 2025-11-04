@@ -307,6 +307,9 @@ importers:
       fastify:
         specifier: ^5.2.0
         version: 5.6.1
+      openai:
+        specifier: ^6.8.0
+        version: 6.8.0(ws@8.18.3(bufferutil@4.0.9))(zod@3.25.76)
       resend:
         specifier: ^6.4.1
         version: 6.4.1
@@ -3145,6 +3148,18 @@ packages:
   on-headers@1.1.0:
     resolution: {integrity: sha512-737ZY3yNnXy37FHkQxPzt4UZ2UWPWiCZWLvFZ4fu5cueciegX0zGPnrlY6bwRg4FdQOe9YU8MkmJwGhoMybl8A==}
     engines: {node: '>= 0.8'}
+
+  openai@6.8.0:
+    resolution: {integrity: sha512-GQUpzb9FoNkh1wqJuDIQ8e/Sq8dW+T3GakG6wJTXBE8Lufx1GaUcgZd087vhm8f/MiOzsTEkfRamYxzJ/jOoiw==}
+    hasBin: true
+    peerDependencies:
+      ws: ^8.18.0
+      zod: ^3.25 || ^4.0
+    peerDependenciesMeta:
+      ws:
+        optional: true
+      zod:
+        optional: true
 
   package-json-from-dist@1.0.1:
     resolution: {integrity: sha512-UEZIS3/by4OC8vL3P2dTXRETpebLI2NiI5vIrjaD/5UtrkFX/tNbwjTSRAGC/+7CAo2pIcBaRgWmcBBHcsaCIw==}
@@ -6544,6 +6559,11 @@ snapshots:
       ee-first: 1.1.1
 
   on-headers@1.1.0: {}
+
+  openai@6.8.0(ws@8.18.3(bufferutil@4.0.9))(zod@3.25.76):
+    optionalDependencies:
+      ws: 8.18.3(bufferutil@4.0.9)
+      zod: 3.25.76
 
   package-json-from-dist@1.0.1: {}
 

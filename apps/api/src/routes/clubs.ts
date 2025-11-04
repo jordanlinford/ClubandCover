@@ -1,7 +1,8 @@
 import type { FastifyInstance } from 'fastify';
-import { prisma } from '../lib/prisma';
+import { prisma } from '../lib/prisma.js';
 import { CreateClubSchema, UpdateClubSchema } from '@repo/types';
 import type { ApiResponse } from '@repo/types';
+import { isAIEnabled, generateEmbedding, getEmbeddingText } from '../lib/ai.js';
 
 export async function clubRoutes(fastify: FastifyInstance) {
   // List all clubs (public only for non-members)
@@ -79,6 +80,24 @@ export async function clubRoutes(fastify: FastifyInstance) {
         },
         include: { memberships: true },
       });
+
+      // Auto-index embedding if AI is enabled
+      if (isAIEnabled()) {
+        try {
+          const embeddingText = getEmbeddingText(club);
+          const vector = await generateEmbedding(embeddingText);
+          await prisma.embedding.create({
+            data: {
+              entityType: 'CLUB',
+              clubId: club.id,
+              embedding: JSON.stringify(vector),
+            },
+          });
+        } catch (error) {
+          // Log error but don't fail club creation
+          fastify.log.error('Failed to generate embedding for club', error);
+        }
+      }
 
       reply.code(201);
       return { success: true, data: club } as ApiResponse;

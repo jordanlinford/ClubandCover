@@ -7,6 +7,7 @@ import { dirname, resolve } from 'path';
 import { routes } from './routes/index.js';
 import { supabaseAuth } from './middleware/auth.js';
 import { ensureStripeProducts } from './lib/stripe.js';
+import { initializeOpenAI } from './lib/ai.js';
 
 config();
 
@@ -54,6 +55,9 @@ await fastify.register(routes, { prefix: '/api' });
 
 // Initialize Stripe products on startup
 await ensureStripeProducts();
+
+// Initialize OpenAI (optional - will warn if missing)
+initializeOpenAI();
 
 const start = async () => {
   try {

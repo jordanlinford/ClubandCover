@@ -12,7 +12,9 @@ export const BookSchema = z.object({
   id: z.string().uuid(),
   ownerId: z.string(),
   title: z.string(),
+  subtitle: z.string().nullable(),
   author: z.string(),
+  genres: z.array(z.string()),
   isbn: z.string().nullable(),
   description: z.string().nullable(),
   condition: BookConditionSchema,
@@ -24,7 +26,9 @@ export const BookSchema = z.object({
 
 export const CreateBookSchema = z.object({
   title: z.string().min(1, 'Title is required'),
+  subtitle: z.string().optional(),
   author: z.string().min(1, 'Author is required'),
+  genres: z.array(z.string()).default([]),
   isbn: z.string().optional(),
   description: z.string().optional(),
   condition: BookConditionSchema.default('GOOD'),

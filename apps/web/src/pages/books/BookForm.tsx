@@ -24,7 +24,9 @@ export function BookFormPage() {
 
   const [formData, setFormData] = useState<CreateBook>({
     title: '',
+    subtitle: undefined,
     author: '',
+    genres: [],
     isbn: undefined,
     description: undefined,
     condition: 'GOOD',
@@ -36,7 +38,9 @@ export function BookFormPage() {
     if (book) {
       setFormData({
         title: book.title,
+        subtitle: book.subtitle || undefined,
         author: book.author,
+        genres: book.genres || [],
         isbn: book.isbn || undefined,
         description: book.description || undefined,
         condition: book.condition,

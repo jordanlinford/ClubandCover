@@ -1,7 +1,8 @@
 import type { FastifyInstance } from 'fastify';
-import { prisma } from '../lib/prisma';
+import { prisma } from '../lib/prisma.js';
 import { CreateBookSchema, UpdateBookSchema } from '@repo/types';
 import type { ApiResponse } from '@repo/types';
+import { isAIEnabled, generateEmbedding, getEmbeddingText } from '../lib/ai.js';
 
 export async function bookRoutes(fastify: FastifyInstance) {
   // List all available books
@@ -83,6 +84,24 @@ export async function bookRoutes(fastify: FastifyInstance) {
           ownerId: request.user.id,
         },
       });
+
+      // Auto-index embedding if AI is enabled
+      if (isAIEnabled()) {
+        try {
+          const embeddingText = getEmbeddingText(book);
+          const vector = await generateEmbedding(embeddingText);
+          await prisma.embedding.create({
+            data: {
+              entityType: 'BOOK',
+              bookId: book.id,
+              embedding: JSON.stringify(vector),
+            },
+          });
+        } catch (error) {
+          // Log error but don't fail book creation
+          fastify.log.error('Failed to generate embedding for book', error);
+        }
+      }
 
       reply.code(201);
       return { success: true, data: book } as ApiResponse;

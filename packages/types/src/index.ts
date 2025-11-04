@@ -7,3 +7,4 @@ export * from './swap';
 export * from './role';
 export * from './review';
 export * from './billing';
+export * from './ai';
