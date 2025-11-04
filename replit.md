@@ -4,6 +4,8 @@ This is a book club and book swap platform built as a modern full-stack monorepo
 
 The platform is designed for book enthusiasts who want to share, discover, and exchange books within clubs and communities. Users can catalog their books, participate in reading groups, and facilitate peer-to-peer book swaps.
 
+**Sprint-2 AI & Discovery:** The application now includes AI-powered features for book description generation, semantic search, and intelligent matching between books and clubs. These features use OpenAI's GPT-4o-mini and text-embedding-3-small models, with graceful degradation when the API key is not configured.
+
 # User Preferences
 
 Preferred communication style: Simple, everyday language.
@@ -66,11 +68,12 @@ Preferred communication style: Simple, everyday language.
 **ORM**: Prisma for type-safe database access with schema-first modeling
 
 **Schema Design**:
-- `User`: User accounts synced with Supabase Auth (id, email, name, avatarUrl, bio)
-- `Book`: Book catalog with ownership, condition tracking, and availability status
-- `Club`: Book clubs with privacy settings and member limits
+- `User`: User accounts synced with Supabase Auth (id, email, name, avatarUrl, bio, tier, aiCallsToday, aiCallsResetAt)
+- `Book`: Book catalog with ownership, condition tracking, availability status, genres[], and subtitle
+- `Club`: Book clubs with privacy settings, member limits, and genres[]
 - `Membership`: Join table for users and clubs with roles (OWNER, ADMIN, MEMBER, PENDING) and status tracking
 - `Swap`: Book exchange requests with state management (PENDING, ACCEPTED, DECLINED, COMPLETED, CANCELLED)
+- `Embedding`: Vector embeddings for books and clubs (entityType: BOOK | CLUB, embedding as JSON string)
 
 **Migration Strategy**: Prisma migrations with `prisma migrate` for production and `prisma db push` for development.
 
@@ -113,13 +116,18 @@ Preferred communication style: Simple, everyday language.
 
 ## Additional External APIs
 
-**Resend** (Planned):
-- Purpose: Transactional email service
+**Resend**:
+- Purpose: Transactional email service for swap notifications
 - Environment Variable: `RESEND_API_KEY`
+- Status: Integrated in Sprint-1
 
-**OpenAI** (Planned):
-- Purpose: Book recommendations and content features
+**OpenAI** (Sprint-2):
+- Purpose: AI-powered blurb generation, embeddings, and book/club matching
+- Models: GPT-4o-mini (text generation), text-embedding-3-small (embeddings)
 - Environment Variable: `OPENAI_API_KEY`
+- Rate Limits: FREE tier 10/day, PRO_AUTHOR 50/day
+- Graceful Degradation: Server starts without API key, endpoints return 501
+- Status: Backend complete, frontend UI components pending
 
 ## Key Libraries
 
@@ -139,3 +147,52 @@ Preferred communication style: Simple, everyday language.
 **Shared**:
 - TypeScript: Type safety across the stack
 - Zod: Shared validation schemas ensure contract consistency
+# Recent Changes
+
+## Sprint-2: AI & Discovery (November 4, 2025)
+
+**Backend Implementation Complete:**
+
+### AI Library (`apps/api/src/lib/ai.ts`)
+- OpenAI client initialization with graceful degradation
+- `isAIEnabled()`: Check if OPENAI_API_KEY is configured
+- `generateBlurb()`: Generate book descriptions using GPT-4o-mini
+- `generateEmbedding()`: Create vector embeddings using text-embedding-3-small
+- `getEmbeddingText()`: Extract searchable text from books/clubs
+- `cosineSimilarity()`: Calculate similarity between vectors
+
+### Database Schema Updates
+- **Book**: Added `genres` (string array) and `subtitle` fields
+- **Club**: Added `genres` (string array) field  
+- **Embedding**: Extended to support both BOOK and CLUB entities
+- **User**: Added `aiCallsToday` and `aiCallsResetAt` for rate limiting
+
+### API Routes (`/api/ai/*`)
+- `POST /api/ai/generate-blurb`: Generate book blurbs from title/author (rate limited)
+- `POST /api/ai/index-one`: Generate embedding for single book/club (rate limited)
+- `POST /api/ai/reindex`: Regenerate all embeddings (STAFF only, rate limited)
+- `POST /api/ai/match`: Find top 5 similar books/clubs based on embeddings
+
+### Middleware
+- `aiRateLimit`: Enforces tier-based rate limits (FREE: 10/day, PRO_AUTHOR: 50/day)
+- Returns 429 with error code `AI_RATE_LIMIT` when exceeded
+- Daily reset based on `aiCallsResetAt` timestamp
+
+### Auto-Indexing
+- Books automatically generate embeddings on create when OPENAI_API_KEY is configured
+- Clubs automatically generate embeddings on create when OPENAI_API_KEY is configured
+- Errors logged but don't fail the creation request
+
+### Graceful Degradation
+- Server starts without OPENAI_API_KEY (logs warning message)
+- All AI endpoints return 501 "AI features are not available" when disabled
+- Application continues to function normally without AI features
+
+**Frontend Updates:**
+- Book/Club form state updated with genres and subtitle fields
+- UI components pending: GenerateBlurbButton, RecommendedMatches, AIDisabledBanner
+
+**Documentation:**
+- Route map updated with AI endpoints (`docs/ROUTE_MAP.md`)
+- Test log updated with Sprint-2 results (`docs/TEST_LOG.md`)
+- Sprint plan updated to reflect backend completion (`docs/sprint-plan.md`)
