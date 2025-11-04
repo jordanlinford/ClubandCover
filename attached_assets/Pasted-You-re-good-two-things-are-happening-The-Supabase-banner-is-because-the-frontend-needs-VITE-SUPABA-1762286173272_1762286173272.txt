@@ -1,0 +1,71 @@
+You’re good—two things are happening:
+
+The Supabase banner is because the frontend needs VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.
+
+The Agent invented TESTING_… Stripe keys. We don’t need those—use the real test keys you already set (STRIPE_SECRET_KEY, VITE_STRIPE_PUBLIC_KEY, STRIPE_WEBHOOK_SECRET).
+
+Do this now (60 seconds)
+
+A) Add the two Vite vars (frontend) in Replit → Secrets
+
+VITE_SUPABASE_URL=https://wubjeyjkamywayyawekz.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+
+Then restart: pnpm dev:replit.
+
+B) Tell the Agent to stop asking for TESTING_ keys*
+
+Copy-paste to the Agent:
+
+Use existing secrets; do not introduce TESTING_ keys.*
+Frontend (Vite): VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, VITE_STRIPE_PUBLIC_KEY
+Backend: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET.
+If any code references TESTING_STRIPE_SECRET_KEY or TESTING_VITE_STRIPE_PUBLIC_KEY, replace them with STRIPE_SECRET_KEY and VITE_STRIPE_PUBLIC_KEY respectively.
+Proceed to run Sprint-1 acceptance tests after confirming the two Vite Supabase vars are present.
+
+Optional: make the app resilient to Agent’s TESTING_* names
+
+If you want to be future-proof without changing code everywhere, ask the Agent to add this tiny env aliasing (API startup), without logging secrets:
+
+// apps/api/src/config/env.ts
+export const env = {
+  SUPABASE_URL: process.env.SUPABASE_URL,
+  SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
+  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  STRIPE_SECRET_KEY: process.env.TESTING_STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY,
+  STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
+  // ...
+};
+
+
+And in the web app (if it ever referenced TESTING names), change to:
+
+const STRIPE_PK = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
+
+Quick config self-check (no secrets leaked)
+
+Ask the Agent to add a diagnostic endpoint and print booleans only:
+
+// apps/api/src/routes/debug.ts
+fastify.get('/api/debug/config', async () => ({
+  supabaseBackend: !!(process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY),
+  supabaseFrontend: !!(process.env.VITE_SUPABASE_URL && process.env.VITE_SUPABASE_ANON_KEY),
+  stripeBackend: !!(process.env.STRIPE_SECRET_KEY),
+  stripeWebhook: !!(process.env.STRIPE_WEBHOOK_SECRET),
+  stripeFrontend: !!(process.env.VITE_STRIPE_PUBLIC_KEY),
+}));
+
+After restart, you should see
+
+No “Supabase not configured” banner.
+
+/api/debug/config shows all true except Resend if you didn’t add it.
+
+Final step—kick the Agent
+
+After you add the two VITE_SUPABASE_* secrets and restart, paste this to the Agent:
+
+The two Vite Supabase vars are set. Do not use TESTING_* envs—use the existing keys. Run the Sprint-1 acceptance tests and post the route map and a short test log showing: live signup works; full swap flow to VERIFIED with a verified review; FREE plan blocks 4th pending swap with SWAP_LIMIT; Stripe checkout + webhook upgrades tier to PRO_AUTHOR; notifications fired (email if RESEND_API_KEY, else console log). If any test fails, pause with the failing request/response and relevant logs.
+
+If anything still complains after this, send me the first ~20 lines of the server log (no secrets), and I’ll patch fast.
