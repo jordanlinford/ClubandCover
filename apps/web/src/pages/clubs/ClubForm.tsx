@@ -7,6 +7,7 @@ import { Input } from '@repo/ui';
 import { PageHeader } from '@repo/ui';
 import { api } from '../../lib/api';
 import type { CreateClub } from '@repo/types';
+import { AIDisabledBanner } from '../../components/ai/AIDisabledBanner';
 
 export function ClubFormPage() {
   const [, setLocation] = useLocation();
@@ -43,6 +44,8 @@ export function ClubFormPage() {
         />
 
         <Card className="p-6 mt-6">
+          <AIDisabledBanner />
+          
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="name" className="block text-sm font-medium mb-2">
@@ -66,8 +69,33 @@ export function ClubFormPage() {
                 value={formData.description || ''}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value || undefined })}
                 className="w-full px-3 py-2 border rounded-md dark:bg-gray-800 dark:border-gray-700 min-h-24"
+                placeholder="Describe your book club..."
                 data-testid="textarea-description"
               />
+            </div>
+
+            <div>
+              <label htmlFor="genres" className="block text-sm font-medium mb-2">
+                Genres
+              </label>
+              <Input
+                id="genres"
+                value={formData.genres.join(', ')}
+                onChange={(e) => {
+                  const genres = e.target.value
+                    .split(',')
+                    .map(g => g.trim())
+                    .filter(g => g.length > 0)
+                    .map(g => g.toLowerCase());
+                  const uniqueGenres = Array.from(new Set(genres));
+                  setFormData({ ...formData, genres: uniqueGenres });
+                }}
+                placeholder="Fiction, Mystery, Thriller (comma-separated)"
+                data-testid="input-genres"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Enter genres this club focuses on, separated by commas
+              </p>
             </div>
 
             <div>

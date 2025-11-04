@@ -4,6 +4,7 @@ import { Card } from '@repo/ui';
 import { Button } from '@repo/ui';
 import { PageHeader } from '@repo/ui';
 import type { Club } from '@repo/types';
+import { RecommendedMatches } from '../../components/ai/RecommendedMatches';
 
 export function ClubDetailPage() {
   const [match, params] = useRoute('/clubs/:id');
@@ -93,6 +94,9 @@ export function ClubDetailPage() {
                   No recent activity yet. Be the first to join!
                 </p>
               </Card>
+
+              {/* Recommended Books Panel */}
+              <RecommendedMatches entityType="CLUB" id={club.id} />
             </div>
           </>
         ) : (

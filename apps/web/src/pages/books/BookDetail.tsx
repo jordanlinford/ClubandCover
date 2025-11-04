@@ -4,6 +4,7 @@ import { Card } from '@repo/ui';
 import { Button } from '@repo/ui';
 import { PageHeader } from '@repo/ui';
 import type { Book } from '@repo/types';
+import { RecommendedMatches } from '../../components/ai/RecommendedMatches';
 
 export function BookDetailPage() {
   const [match, params] = useRoute('/books/:id');
@@ -100,6 +101,9 @@ export function BookDetailPage() {
                   </Button>
                 </div>
               </Card>
+
+              {/* Recommended Clubs Panel */}
+              <RecommendedMatches entityType="BOOK" id={book.id} />
             </div>
           </>
         ) : (

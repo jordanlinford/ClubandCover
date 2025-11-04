@@ -7,6 +7,8 @@ import { Input } from '@repo/ui';
 import { PageHeader } from '@repo/ui';
 import { api } from '../../lib/api';
 import type { Book, CreateBook, BookCondition } from '@repo/types';
+import { GenerateBlurbButton } from '../../components/ai/GenerateBlurbButton';
+import { AIDisabledBanner } from '../../components/ai/AIDisabledBanner';
 
 const CONDITIONS: BookCondition[] = ['NEW', 'LIKE_NEW', 'VERY_GOOD', 'GOOD', 'ACCEPTABLE'];
 
@@ -86,6 +88,8 @@ export function BookFormPage() {
         />
 
         <Card className="p-6 mt-6">
+          <AIDisabledBanner />
+          
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="title" className="block text-sm font-medium mb-2">
@@ -101,6 +105,19 @@ export function BookFormPage() {
             </div>
 
             <div>
+              <label htmlFor="subtitle" className="block text-sm font-medium mb-2">
+                Subtitle
+              </label>
+              <Input
+                id="subtitle"
+                value={formData.subtitle || ''}
+                onChange={(e) => setFormData({ ...formData, subtitle: e.target.value || undefined })}
+                placeholder="Optional subtitle"
+                data-testid="input-subtitle"
+              />
+            </div>
+
+            <div>
               <label htmlFor="author" className="block text-sm font-medium mb-2">
                 Author *
               </label>
@@ -111,6 +128,30 @@ export function BookFormPage() {
                 required
                 data-testid="input-author"
               />
+            </div>
+
+            <div>
+              <label htmlFor="genres" className="block text-sm font-medium mb-2">
+                Genres
+              </label>
+              <Input
+                id="genres"
+                value={formData.genres.join(', ')}
+                onChange={(e) => {
+                  const genres = e.target.value
+                    .split(',')
+                    .map(g => g.trim())
+                    .filter(g => g.length > 0)
+                    .map(g => g.toLowerCase());
+                  const uniqueGenres = Array.from(new Set(genres));
+                  setFormData({ ...formData, genres: uniqueGenres });
+                }}
+                placeholder="Fiction, Mystery, Thriller (comma-separated)"
+                data-testid="input-genres"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Enter genres separated by commas
+              </p>
             </div>
 
             <div>
@@ -146,14 +187,26 @@ export function BookFormPage() {
             </div>
 
             <div>
-              <label htmlFor="description" className="block text-sm font-medium mb-2">
-                Description
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label htmlFor="description" className="block text-sm font-medium">
+                  Description
+                </label>
+                <GenerateBlurbButton
+                  title={formData.title}
+                  subtitle={formData.subtitle}
+                  author={formData.author}
+                  genres={formData.genres}
+                  value={formData.description || ''}
+                  onChange={(blurb) => setFormData({ ...formData, description: blurb })}
+                  disabled={isPending}
+                />
+              </div>
               <textarea
                 id="description"
                 value={formData.description || ''}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value || undefined })}
                 className="w-full px-3 py-2 border rounded-md dark:bg-gray-800 dark:border-gray-700 min-h-24"
+                placeholder="Book description or blurb..."
                 data-testid="textarea-description"
               />
             </div>
