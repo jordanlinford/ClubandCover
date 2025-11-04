@@ -1,0 +1,134 @@
+Create/maintain a living sprint plan.
+Add a new folder docs/ and the file docs/sprint-plan.md with the content below.
+Also ensure these exist (create if missing):
+
+docs/ROUTE_MAP.md (auto-regenerate on each sprint end)
+
+docs/TEST_LOG.md (append latest acceptance run at the top)
+
+Going forward: at the end of each sprint, append results to docs/TEST_LOG.md and update docs/sprint-plan.md status checkboxes and dates.
+
+# BookPitch – Sprint Plan (Living Doc)
+
+**Owner:** Jordan (Vision) • **PM/SM:** ChatGPT • **Lead Dev:** Replit Agent  
+**Repo:** Monorepo (apps/web, apps/api, packages/…) • **Env:** Replit (single port 5000), Supabase, Stripe, Resend
+
+---
+
+## High-Level Roadmap
+
+- ✅ **Sprint 0 – Infrastructure & Seed**
+  - Monorepo (pnpm), React/Vite/Tailwind, Fastify/Prisma/Zod
+  - Single-port serve (API + built web), seed data
+  - **Status:** Completed (date: ___)
+
+- ✅ **Sprint 1 – Live Auth + Swap + Tiers + Billing**
+  - Supabase auth (frontend + backend), swap lifecycle (REQUESTED→ACCEPTED→DELIVERED→VERIFIED)
+  - Tier limits (FREE=3, PRO_AUTHOR=10), Stripe checkout + webhook, notify() w/ Resend
+  - **Status:** Completed (date: ___) • **Test log:** see `docs/TEST_LOG.md`
+
+- ⏳ **Sprint 2 – AI & Discovery**
+  - Blurb generator, embeddings, book↔club matching, AI rate limits
+  - **Planned window:** ___ → ___
+
+- ⏳ **Sprint 3 – Messaging & Moderation**
+  - In-app threads, email relay, AI toxicity filter, report/resolve
+
+- ⏳ **Sprint 4 – Analytics & Admin**
+  - Admin KPIs (MAU, swaps→reviews, upgrades), audit logs
+
+- ⏳ **Sprint 5 – Launch & Scale**
+  - QA hardening, production deploy, onboarding emails, marketing page
+
+---
+
+## Current Sprint (S2) – AI & Discovery
+
+**Goal:** Add intelligence that helps books find clubs and vice-versa.
+
+**Deliverables**
+- `POST /api/ai/generate-blurb` → concise PG-13 blurb (<120 words)
+- `Embedding` indexing for Books & Clubs (auto on create/update + on demand)
+- `POST /api/ai/match` → top 5 matches w/ score + 1-sentence “Why”
+- Staff tools: `POST /api/ai/reindex`, `POST /api/ai/index-one`
+- UI: “✨ Generate blurb” on Book form; “Recommended Clubs/Books” panels
+- Rate limits: FREE 10/day, PRO_AUTHOR 50/day (error `{ code: "AI_RATE_LIMIT" }`)
+- Graceful off when `OPENAI_API_KEY` missing (501 + UI banner)
+
+**Acceptance Criteria**
+- Blurb endpoint returns usable text; button fills field
+- Creating/editing Book indexes embedding; `index-one` works for Club
+- `match` returns ≥1 relevant item with score; panels render
+- 11th blurb on FREE returns 429 + `AI_RATE_LIMIT`
+- Removing OpenAI key → endpoints 501; UI shows “AI disabled”
+
+**Key Risks / Mitigations**
+- Cost spikes → rate limit & short prompts
+- Irrelevant matches → combine genre filters + cosine similarity
+- Latency → background index (defer noncritical), cache vectors
+
+**Milestones**
+- Day 1–2: endpoints + types + UI button
+- Day 3–4: embeddings + match panels
+- Day 5: rate limits + banners + tests & docs
+
+---
+
+## Engineering Ground Rules
+
+**Envs (Replit Secrets)**  
+`SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, DATABASE_URL, VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, VITE_STRIPE_PUBLIC_KEY, RESEND_API_KEY (opt), OPENAI_API_KEY (opt)`
+
+**Run Commands**
+- Dev (Replit): `pnpm dev:replit`
+- Local dual-port (if used): `pnpm dev:local`
+- Prisma: `pnpm -F @apps/api prisma migrate dev`
+- Seed: `pnpm seed`
+
+**Debug**
+- Config health: `GET /api/debug/config` → booleans (no secrets)
+- Health: `GET /api/health`
+
+**Change Control**
+- All inputs/outputs Zod-validated (shared types in `@repo/types`)
+- Mount **API under `/api/*`**; serve web at `/`
+- Keep `ensureUser()` syncing Supabase `jwt.sub → User.id`
+
+---
+
+## Definition of Done (per sprint)
+
+- All acceptance tests pass (recorded in `docs/TEST_LOG.md`)
+- `docs/ROUTE_MAP.md` updated (frontend + API)
+- Security pass: secrets not logged, role/tier guards enforced
+- Minimal e2e flow recorded (steps + screenshots if relevant)
+- Changelog appended below
+
+---
+
+## Quick QA Checklist (always run)
+
+- `/api/debug/config` → all `true` (except optional keys)
+- Auth: Sign up/in works, `User` upserted, role/tier correct
+- Swap: REQUESTED→ACCEPTED→DELIVERED→VERIFIED, verified review appears
+- Tier: FREE blocks 4th pending (403 `SWAP_LIMIT`); upgrade lifts cap
+- Billing: checkout URL; webhook updates `User.tier`
+- Email: notifications log or send (depending on `RESEND_API_KEY`)
+- AI (when present): blurb, index, match, rate limit, graceful off
+
+---
+
+## Changelog
+
+- **Sprint 1 (date)** – Live auth + swap + tiers + Stripe + email. Test log added.
+- **Sprint 0 (date)** – Monorepo, single-port serve, seed, base routes.
+
+
+
+After creating these files:
+
+Move any existing ROUTE_MAP.md and SPRINT1_TEST_LOG.md into docs/ (rename SPRINT1_TEST_LOG.md → TEST_LOG.md and keep prior content).
+
+Print the final paths created/updated and a one-line summary for each.
+
+Pause and show me the first 30 lines of docs/sprint-plan.md.
