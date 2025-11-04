@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Card } from '@repo/ui';
 import { Button } from '@repo/ui';
 import { RefreshCw, Sparkles } from 'lucide-react';
-import { api } from '../../lib/api';
+import { api, ApiError } from '../../lib/api';
 import type { MatchResult } from '@repo/types';
 import { Link } from 'wouter';
 
@@ -57,12 +57,12 @@ export function RecommendedMatches({ entityType, id }: RecommendedMatchesProps) 
   }
 
   if (error) {
-    const errorMessage = (error as Error).message || 'Failed to load recommendations';
-    const is501 = errorMessage.includes('501') || errorMessage.includes('not available');
-    const is429 = errorMessage.includes('429') || errorMessage.includes('rate limit');
-
-    if (is501 || is429) {
-      return null; // Hide panel when AI is disabled or rate limited
+    // Check for structured API error
+    if (error instanceof ApiError) {
+      // Hide panel when AI is disabled (501) or rate limited (429)
+      if (error.status === 501 || error.code === 'AI_NOT_CONFIGURED' || error.code === 'AI_RATE_LIMIT') {
+        return null;
+      }
     }
 
     return (

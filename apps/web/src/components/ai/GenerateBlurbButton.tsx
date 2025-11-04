@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@repo/ui';
 import { Sparkles, Loader2, AlertCircle } from 'lucide-react';
-import { api } from '../../lib/api';
+import { api, ApiError } from '../../lib/api';
 
 interface GenerateBlurbButtonProps {
   title: string;
@@ -60,16 +60,18 @@ export function GenerateBlurbButton({
       setShowUndo(!!value);
       
     } catch (error: any) {
-      const errorMessage = error.message || 'Failed to generate blurb';
-
-      // Check for rate limit error
-      if (errorMessage.includes('AI_RATE_LIMIT') || errorMessage.includes('rate limit')) {
-        setError('Daily AI limit reached on this plan. Upgrade to Pro Author for more AI calls.');
-      } else if (errorMessage.includes('501') || errorMessage.includes('not available')) {
-        setAiDisabled(true);
-        setError('AI features are not available. Add OPENAI_API_KEY to enable.');
+      // Check for structured API error
+      if (error instanceof ApiError) {
+        if (error.code === 'AI_RATE_LIMIT') {
+          setError(`Daily AI limit reached on this plan. Upgrade to Pro Author for more AI calls.`);
+        } else if (error.status === 501 || error.code === 'AI_NOT_CONFIGURED') {
+          setAiDisabled(true);
+          setError('AI features are not available. Add OPENAI_API_KEY to enable.');
+        } else {
+          setError(error.message);
+        }
       } else {
-        setError(errorMessage);
+        setError(error.message || 'Failed to generate blurb');
       }
     } finally {
       setIsLoading(false);

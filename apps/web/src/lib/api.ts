@@ -3,6 +3,20 @@ import { supabase } from './supabase';
 
 const API_URL = import.meta.env.VITE_API_URL ?? '/api';
 
+export class ApiError extends Error {
+  code?: string;
+  status: number;
+  details?: any;
+
+  constructor(message: string, status: number, code?: string, details?: any) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = code;
+    this.details = details;
+  }
+}
+
 class ApiClient {
   private async request<T>(
     method: string,
@@ -28,7 +42,24 @@ class ApiClient {
     const json = await response.json() as ApiResponse<T>;
 
     if (!json.success) {
-      throw new Error(json.error || 'Request failed');
+      const error = json.error;
+      
+      // Handle structured error objects (e.g., AI rate limit errors)
+      if (typeof error === 'object' && error !== null) {
+        const errorObj = error as any;
+        throw new ApiError(
+          errorObj.message || 'Request failed',
+          response.status,
+          errorObj.code,
+          errorObj
+        );
+      }
+      
+      // Handle string errors
+      throw new ApiError(
+        typeof error === 'string' ? error : 'Request failed',
+        response.status
+      );
     }
 
     return json.data as T;
