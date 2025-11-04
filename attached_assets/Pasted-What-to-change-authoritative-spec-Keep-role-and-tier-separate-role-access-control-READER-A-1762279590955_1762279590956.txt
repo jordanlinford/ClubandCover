@@ -1,0 +1,106 @@
+What to change (authoritative spec)
+
+Keep role and tier separate.
+
+role = access/control: READER | AUTHOR | CLUB_ADMIN | STAFF
+
+tier = subscription/plan: FREE | PRO_AUTHOR | PRO_CLUB | PUBLISHER
+
+User (add fields)
+
+role UserRole @default(READER)
+
+tier Tier @default(FREE)
+
+stripeCustomerId String?
+
+stripeSubscriptionId String?
+
+(Indexes: @@index([role]), @@index([tier]))
+
+Swap (add/confirm fields & statuses)
+
+dueDate DateTime?
+
+deliverable String?
+
+status SwapStatus @default(REQUESTED) where SwapStatus = REQUESTED | ACCEPTED | DECLINED | DELIVERED | VERIFIED
+
+(Indexes: @@index([requesterId]), @@index([responderId]), @@index([bookId]))
+
+Review
+
+Ensure verifiedSwap Boolean @default(false) exists (keep bookId as is).
+
+(Indexes: @@index([bookId]), @@index([reviewerId]))
+
+Payment
+
+plan Tier
+
+Membership
+
+@@unique([clubId, userId])
+
+Embedding
+
+@@index([entityType, entityId])
+
+Keep our earlier constraints (e.g., User.id = supabase auth id, email @unique).
+
+Guardrails
+
+Do not add PRO_AUTHOR/PRO_CLUB to the role enum (those belong only in Tier).
+
+Keep ensureUser() syncing id = jwt.sub, and defaulting role=READER, tier=FREE for new users.
+
+Execution order (please follow & PAUSE where indicated)
+
+PAUSE & print the full Prisma schema you will apply (entire file).
+
+Run migration:
+pnpm -F @apps/api prisma migrate dev --name sprint1
+
+Update @repo/types Zod schemas to match (User with role/tier/stripe fields; Swap with new statuses/fields; Review with verifiedSwap; Payment with plan: Tier).
+
+Implement backend per your plan:
+
+Live Supabase auth (keep supabaseAuth + ensureUser)
+
+Swap lifecycle + tier limits (FREE=3, PRO_AUTHOR=10) + notify stubs
+
+Stripe checkout + webhook (map plan → User.tier, persist stripeCustomerId/stripeSubscriptionId)
+
+Reviews endpoint (auto-create verified review on VERIFIED)
+
+Frontend:
+
+Replace mock auth with live Supabase forms
+
+Route guards, profile shows role/tier
+
+Swaps UI actions (Accept/Decline/Deliver/Verify)
+
+Billing page → checkout session
+
+Banners if Stripe/Resend missing
+
+PAUSE & print:
+
+Route map (frontend + API)
+
+Brief test log for the 5 acceptance tests
+
+Acceptance tests (unchanged)
+
+Sign-up works; DB user upserted with role=READER, tier=FREE
+
+Full swap flow: REQUESTED → ACCEPTED → DELIVERED → VERIFIED; review created with verifiedSwap=true
+
+4th pending swap on FREE → 403 { code: "SWAP_LIMIT", requiredTier: "PRO_AUTHOR" }
+
+Stripe checkout completes; webhook updates User.tier to PRO_AUTHOR; creating more swaps allowed (up to 10)
+
+notify() called on each swap transition (emails if RESEND_API_KEY present; otherwise console log)
+
+Proceed. If anything in the schema differs from the above, pause and show the diff before running the migration.
