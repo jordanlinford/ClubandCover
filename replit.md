@@ -147,6 +147,30 @@ Preferred communication style: Simple, everyday language.
 **Shared**:
 - TypeScript: Type safety across the stack
 - Zod: Shared validation schemas ensure contract consistency
+# Testing
+
+## Test Support Routes (November 4, 2025)
+
+To enable automated testing without Supabase email validation, the application includes test-only authentication routes:
+
+**Security**: Only enabled when `NODE_ENV=test` (completely disabled in development/production)
+
+**Key Endpoints**:
+- `POST /api/test/auth/create-session`: Creates test user and returns mock JWT token
+- `POST /api/test/auth/cleanup`: Removes all test users from database
+- `GET /api/test/auth/status`: Check if test mode is active
+
+**Usage**: See `docs/TESTING.md` for complete Playwright integration examples
+
+**Authentication Flow**:
+1. Set `NODE_ENV=test` before starting server
+2. Call `/api/test/auth/create-session` to get test token
+3. Use token in `Authorization: Bearer {token}` header for API requests
+4. Middleware recognizes test tokens and attaches user to request
+5. Clean up with `/api/test/auth/cleanup` after tests
+
+This solves the automated testing limitation where Supabase rejects programmatically-generated email addresses during sign-up.
+
 # Recent Changes
 
 ## Sprint-2: AI & Discovery (November 4, 2025)

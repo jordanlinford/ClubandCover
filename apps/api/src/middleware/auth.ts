@@ -14,7 +14,7 @@ declare module 'fastify' {
 }
 
 export async function supabaseAuth(request: FastifyRequest, reply: FastifyReply) {
-  const publicRoutes = ['/api/health', '/api/webhooks/stripe'];
+  const publicRoutes = ['/api/health', '/api/webhooks/stripe', '/api/test/'];
   
   if (publicRoutes.some(route => request.url.startsWith(route))) {
     return;
@@ -27,6 +27,28 @@ export async function supabaseAuth(request: FastifyRequest, reply: FastifyReply)
   }
   
   const token = authHeader.substring(7);
+  
+  // Handle test tokens (only in test environment)
+  if (process.env.NODE_ENV === 'test' && token.startsWith('test-token-')) {
+    const userId = token.replace('test-token-', '');
+    try {
+      const dbUser = await prisma.user.findUnique({
+        where: { id: userId },
+      });
+      
+      if (dbUser) {
+        request.user = {
+          id: dbUser.id,
+          email: dbUser.email,
+          role: dbUser.role,
+          tier: dbUser.tier,
+        };
+        return;
+      }
+    } catch (error) {
+      request.log.warn('Test token verification failed:', error);
+    }
+  }
   
   try {
     const supabase = getSupabase();

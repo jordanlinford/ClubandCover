@@ -7,6 +7,7 @@ import { billingRoutes } from './billing.js';
 import { webhookRoutes } from './webhooks.js';
 import { reviewRoutes } from './reviews.js';
 import { aiRoutes } from './ai.js';
+import { testSupportRoutes } from './test-support.js';
 
 export async function routes(fastify: FastifyInstance) {
   fastify.get('/health', async () => {
@@ -33,4 +34,7 @@ export async function routes(fastify: FastifyInstance) {
   await fastify.register(webhookRoutes, { prefix: '/webhooks' });
   await fastify.register(reviewRoutes, { prefix: '/reviews' });
   await fastify.register(aiRoutes, { prefix: '/ai' });
+  
+  // Test support routes (only enabled in test environment)
+  await fastify.register(testSupportRoutes, { prefix: '/test' });
 }
