@@ -1,0 +1,79 @@
+PAUSE FIRST. Summarize files you’ll add/modify, then proceed after my OK.
+
+Goal: Finish Sprint-2 UI, wire endpoints, and run the 5 acceptance tests with OPENAI_API_KEY present.
+
+Add UI components
+
+apps/web/src/components/ai/GenerateBlurbButton.tsx
+
+Props: { title, subtitle?, genres: string[], value, onChange }
+
+On click: POST /api/ai/generate-blurb, set textarea via onChange.
+
+Disabled + tooltip when AI disabled or during rate-limit error.
+
+apps/web/src/components/ai/RecommendedMatches.tsx
+
+Props: { entityType: 'BOOK'|'CLUB', id: string }
+
+Calls /api/ai/match with { bookId } or { clubId }
+
+Render top 5 with score (0–1, show as %), and a “why” line.
+
+apps/web/src/components/ai/AIDisabledBanner.tsx
+
+Reads /api/debug/config (or a tiny /api/ai/status) → shows “AI disabled” when no key.
+
+Wire into pages
+
+BookForm.tsx: add subtitle input + genres (chips or comma-split) + ✨ Generate blurb button.
+
+BookDetail.tsx: add Recommended Clubs panel (uses RecommendedMatches).
+
+ClubForm.tsx: add genres control.
+
+ClubDetail.tsx: add Recommended Books panel.
+
+AuthContext: expose aiEnabled (from /api/debug/config).
+
+api.ts: add generateBlurb, getMatches, indexEntity.
+
+UX nits
+
+If 429 { code: 'AI_RATE_LIMIT' } → toast: “Daily AI limit reached. Upgrade for more.”
+
+Show a small counter badge on the blurb button (remaining calls if you expose it).
+
+Tests to run & log
+
+Blurb: On Book form, click “✨ Generate blurb” → textarea fills (<120 words).
+
+Indexing: Create/edit Book with genres → embedding auto-created; call /api/ai/index-one on a Club → 200.
+
+Matching: Book Detail shows ≥1 Recommended Club with score and “why”.
+
+Rate limit: Issue 11 blurbs as FREE → 429 AI_RATE_LIMIT; upgrade to PRO_AUTHOR (Stripe) → additional blurbs allowed.
+
+Graceful off: Remove OPENAI_API_KEY, restart → endpoints return 501 and UI shows AI disabled banner.
+
+Docs
+
+Append results to docs/TEST_LOG.md (Sprint-2 section) and update docs/sprint-plan.md (Sprint-2 = Completed, with date).
+
+Update docs/ROUTE_MAP.md with new /api/ai/* endpoints and the two UI panels.
+
+Deliver back:
+
+Updated route map, and a short test log covering the 5 checks.
+
+Screenshot notes (or text) showing the panels rendered with sample matches.
+
+After it runs
+
+If anything fails, have it paste the failing request/response and the relevant server log lines.
+
+If the AI endpoints return 501, double-check OPENAI_API_KEY (and restart).
+
+If rate-limit behavior doesn’t show, confirm the FREE tier user is the caller.
+
+Want me to queue up Sprint-3 (Messaging + Moderation) next the moment this passes?
