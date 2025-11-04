@@ -4,7 +4,7 @@ This is a book club and book swap platform built as a modern full-stack monorepo
 
 The platform is designed for book enthusiasts who want to share, discover, and exchange books within clubs and communities. Users can catalog their books, participate in reading groups, and facilitate peer-to-peer book swaps.
 
-**Sprint-2 AI & Discovery:** The application now includes AI-powered features for book description generation, semantic search, and intelligent matching between books and clubs. These features use OpenAI's GPT-4o-mini and text-embedding-3-small models, with graceful degradation when the API key is not configured.
+**Sprint-2 AI & Discovery (Completed November 4, 2025):** The application now includes AI-powered features for book description generation, semantic search, and intelligent matching between books and clubs. These features use OpenAI's GPT-4o-mini and text-embedding-3-small models, with graceful degradation when the API key is not configured. Anonymous users can generate blurbs with IP-based rate limiting (3/day), while authenticated users get tier-based limits (FREE: 10/day, PRO_AUTHOR: 50/day). The frontend includes GenerateBlurbButton with structured error handling, RecommendedMatches panels with similarity scores, and proper ApiError propagation for AI_RATE_LIMIT and AI_NOT_CONFIGURED states.
 
 # User Preferences
 
