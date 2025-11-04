@@ -4,3 +4,6 @@ export * from './book';
 export * from './club';
 export * from './membership';
 export * from './swap';
+export * from './role';
+export * from './review';
+export * from './billing';

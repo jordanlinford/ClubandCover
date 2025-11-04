@@ -21,6 +21,7 @@
     "@supabase/supabase-js": "^2.48.1",
     "dotenv": "^16.4.7",
     "fastify": "^5.2.0",
+    "resend": "^6.4.1",
     "stripe": "^19.2.0",
     "zod": "^3.24.2"
   },

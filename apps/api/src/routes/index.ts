@@ -4,6 +4,8 @@ import { clubRoutes } from './clubs';
 import { membershipRoutes } from './memberships';
 import { swapRoutes } from './swaps';
 import { billingRoutes } from './billing';
+import { webhookRoutes } from './webhooks';
+import { reviewRoutes } from './reviews';
 
 export async function routes(fastify: FastifyInstance) {
   fastify.get('/health', async () => {
@@ -15,4 +17,6 @@ export async function routes(fastify: FastifyInstance) {
   await fastify.register(membershipRoutes, { prefix: '/memberships' });
   await fastify.register(swapRoutes, { prefix: '/swaps' });
   await fastify.register(billingRoutes, { prefix: '/billing' });
+  await fastify.register(webhookRoutes, { prefix: '/webhooks' });
+  await fastify.register(reviewRoutes, { prefix: '/reviews' });
 }

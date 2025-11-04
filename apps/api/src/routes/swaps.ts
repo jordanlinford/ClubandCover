@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { prisma } from '../lib/prisma';
 import { CreateSwapSchema, UpdateSwapSchema } from '@repo/types';
 import type { ApiResponse } from '@repo/types';
+import { notify } from '../lib/mail';
 
 export async function swapRoutes(fastify: FastifyInstance) {
   // Get user's swaps (sent and received)
@@ -16,12 +17,12 @@ export async function swapRoutes(fastify: FastifyInstance) {
         where: {
           OR: [
             { requesterId: request.user.id },
-            { recipientId: request.user.id },
+            { responderId: request.user.id },
           ],
         },
         include: {
           requester: { select: { id: true, name: true, email: true } },
-          recipient: { select: { id: true, name: true, email: true } },
+          responder: { select: { id: true, name: true, email: true } },
           bookOffered: true,
           bookRequested: true,
         },
@@ -48,6 +49,53 @@ export async function swapRoutes(fastify: FastifyInstance) {
     try {
       const validated = CreateSwapSchema.parse(request.body);
 
+      // Get user with tier information
+      const user = await prisma.user.findUnique({
+        where: { id: request.user.id },
+        select: { tier: true },
+      });
+
+      if (!user) {
+        reply.code(401);
+        return { success: false, error: 'User not found' } as ApiResponse;
+      }
+
+      // Enforce tier limits
+      const pendingCount = await prisma.swap.count({
+        where: {
+          requesterId: request.user.id,
+          status: { in: ['REQUESTED', 'ACCEPTED'] },
+        },
+      });
+
+      const tierLimits: Record<string, number> = {
+        FREE: 3,
+        PRO_AUTHOR: 10,
+        PRO_CLUB: 10,
+        PUBLISHER: 999,
+      };
+
+      const limit = tierLimits[user.tier] || 3;
+
+      if (pendingCount >= limit) {
+        reply.code(403);
+        return {
+          success: false,
+          error: 'You have reached your swap limit',
+          code: 'SWAP_LIMIT',
+          requiredTier: user.tier === 'FREE' ? 'PRO_AUTHOR' : undefined,
+        } as any;
+      }
+
+      // Verify requester ≠ responder
+      if (request.user.id === validated.responderId) {
+        reply.code(400);
+        return {
+          success: false,
+          error: 'Cannot swap with yourself',
+        } as ApiResponse;
+      }
+
       // Verify requester owns the offered book
       const offeredBook = await prisma.book.findUnique({
         where: { id: validated.bookOfferedId },
@@ -64,6 +112,7 @@ export async function swapRoutes(fastify: FastifyInstance) {
       // Verify requested book exists and is available
       const requestedBook = await prisma.book.findUnique({
         where: { id: validated.bookRequestedId },
+        include: { owner: true },
       });
 
       if (!requestedBook || !requestedBook.isAvailable) {
@@ -74,27 +123,44 @@ export async function swapRoutes(fastify: FastifyInstance) {
         } as ApiResponse;
       }
 
-      if (requestedBook.ownerId !== validated.recipientId) {
+      if (requestedBook.ownerId !== validated.responderId) {
         reply.code(400);
         return {
           success: false,
-          error: 'Book does not belong to specified recipient',
+          error: 'Book does not belong to specified responder',
         } as ApiResponse;
       }
 
       const swap = await prisma.swap.create({
         data: {
           requesterId: request.user.id,
-          ...validated,
-          status: 'PENDING',
+          responderId: validated.responderId,
+          bookOfferedId: validated.bookOfferedId,
+          bookRequestedId: validated.bookRequestedId,
+          message: validated.message,
+          status: 'REQUESTED',
         },
         include: {
           bookOffered: true,
           bookRequested: true,
           requester: { select: { id: true, name: true } },
-          recipient: { select: { id: true, name: true } },
+          responder: { select: { id: true, name: true, email: true } },
         },
       });
+
+      // Send notification to responder
+      if (swap.responder.email) {
+        await notify({
+          event: 'swap_requested',
+          recipientEmail: swap.responder.email,
+          recipientName: swap.responder.name,
+          data: {
+            swapId: swap.id,
+            bookTitle: requestedBook.title,
+            requesterName: request.user.email?.split('@')[0] || 'Someone',
+          },
+        });
+      }
 
       reply.code(201);
       return { success: true, data: swap } as ApiResponse;
@@ -107,7 +173,7 @@ export async function swapRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Update swap status (recipient only, with valid state transitions)
+  // Update swap status (with state machine + notifications)
   fastify.patch('/:id', async (request, reply) => {
     if (!request.user) {
       reply.code(401);
@@ -120,7 +186,12 @@ export async function swapRoutes(fastify: FastifyInstance) {
 
       const swap = await prisma.swap.findUnique({
         where: { id },
-        include: { bookOffered: true, bookRequested: true },
+        include: {
+          bookOffered: true,
+          bookRequested: true,
+          requester: { select: { id: true, name: true, email: true } },
+          responder: { select: { id: true, name: true, email: true } },
+        },
       });
 
       if (!swap) {
@@ -128,27 +199,32 @@ export async function swapRoutes(fastify: FastifyInstance) {
         return { success: false, error: 'Swap not found' } as ApiResponse;
       }
 
-      // Determine who can update based on status
-      const canUpdate =
-        (swap.status === 'PENDING' && swap.recipientId === request.user.id) ||
-        (swap.status === 'ACCEPTED' &&
-          (swap.recipientId === request.user.id || swap.requesterId === request.user.id));
+      // Check authorization (involved parties or STAFF)
+      const isInvolved =
+        swap.requesterId === request.user.id || swap.responderId === request.user.id;
 
-      if (!canUpdate) {
+      const user = await prisma.user.findUnique({
+        where: { id: request.user.id },
+        select: { role: true },
+      });
+
+      const isStaff = user?.role === 'STAFF';
+
+      if (!isInvolved && !isStaff) {
         reply.code(403);
         return { success: false, error: 'Not authorized to update this swap' } as ApiResponse;
       }
 
-      // Validate state transitions
+      // State machine validation
       const validTransitions: Record<string, string[]> = {
-        PENDING: ['ACCEPTED', 'DECLINED'],
-        ACCEPTED: ['COMPLETED', 'CANCELLED'],
+        REQUESTED: ['ACCEPTED', 'DECLINED'],
+        ACCEPTED: ['DELIVERED', 'DECLINED'],
         DECLINED: [],
-        COMPLETED: [],
-        CANCELLED: [],
+        DELIVERED: ['VERIFIED'],
+        VERIFIED: [],
       };
 
-      if (!validTransitions[swap.status]?.includes(validated.status)) {
+      if (validated.status && !validTransitions[swap.status]?.includes(validated.status)) {
         reply.code(400);
         return {
           success: false,
@@ -156,30 +232,83 @@ export async function swapRoutes(fastify: FastifyInstance) {
         } as ApiResponse;
       }
 
-      // Update book availability when swap is completed
-      if (validated.status === 'COMPLETED') {
-        await prisma.$transaction([
-          prisma.book.update({
-            where: { id: swap.bookOfferedId },
-            data: { isAvailable: false },
-          }),
-          prisma.book.update({
-            where: { id: swap.bookRequestedId },
-            data: { isAvailable: false },
-          }),
-        ]);
-      }
+      // Build update data
+      const updateData: any = {};
+      if (validated.status) updateData.status = validated.status;
+      if (validated.dueDate) updateData.dueDate = new Date(validated.dueDate);
+      if (validated.deliverable) updateData.deliverable = validated.deliverable;
 
       const updated = await prisma.swap.update({
         where: { id },
-        data: validated,
+        data: updateData,
         include: {
           bookOffered: true,
           bookRequested: true,
-          requester: { select: { id: true, name: true } },
-          recipient: { select: { id: true, name: true } },
+          requester: { select: { id: true, name: true, email: true } },
+          responder: { select: { id: true, name: true, email: true } },
         },
       });
+
+      // Send notifications based on status
+      if (validated.status === 'ACCEPTED' && swap.requester.email) {
+        await notify({
+          event: 'swap_accepted',
+          recipientEmail: swap.requester.email,
+          recipientName: swap.requester.name,
+          data: {
+            swapId: swap.id,
+            responderName: swap.responder.name,
+          },
+        });
+      } else if (validated.status === 'DELIVERED' && swap.requester.email) {
+        await notify({
+          event: 'swap_delivered',
+          recipientEmail: swap.requester.email,
+          recipientName: swap.requester.name,
+          data: {
+            swapId: swap.id,
+            deliverable: validated.deliverable,
+          },
+        });
+      } else if (validated.status === 'VERIFIED') {
+        // Create verified review
+        await prisma.review.create({
+          data: {
+            reviewerId: swap.requesterId,
+            revieweeId: swap.responderId,
+            swapId: swap.id,
+            bookId: swap.bookRequestedId,
+            rating: 5, // Default verified swap rating
+            comment: 'Verified book swap completed successfully',
+            verifiedSwap: true,
+          },
+        });
+
+        // Notify both parties
+        if (swap.responder.email) {
+          await notify({
+            event: 'swap_verified',
+            recipientEmail: swap.responder.email,
+            recipientName: swap.responder.name,
+            data: { swapId: swap.id },
+          });
+        }
+        if (swap.requester.email) {
+          await notify({
+            event: 'swap_verified',
+            recipientEmail: swap.requester.email,
+            recipientName: swap.requester.name,
+            data: { swapId: swap.id },
+          });
+        }
+      } else if (validated.status === 'DECLINED' && swap.requester.email) {
+        await notify({
+          event: 'swap_declined',
+          recipientEmail: swap.requester.email,
+          recipientName: swap.requester.name,
+          data: { swapId: swap.id },
+        });
+      }
 
       return { success: true, data: updated } as ApiResponse;
     } catch (error) {

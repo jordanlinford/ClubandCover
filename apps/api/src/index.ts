@@ -4,9 +4,9 @@ import fastifyStatic from '@fastify/static';
 import { config } from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
-import { routes } from './routes';
-import { supabaseAuth } from './middleware/auth';
-import { ensureUser } from './middleware/ensureUser';
+import { routes } from './routes/index.js';
+import { supabaseAuth } from './middleware/auth.js';
+import { ensureStripeProducts } from './lib/stripe.js';
 
 config();
 
@@ -46,12 +46,14 @@ fastify.setNotFoundHandler((request, reply) => {
 fastify.addHook('onRequest', async (request, reply) => {
   if (request.url.startsWith('/api')) {
     await supabaseAuth(request, reply);
-    await ensureUser(request, reply);
   }
 });
 
 // Mount all API routes under /api/*
 await fastify.register(routes, { prefix: '/api' });
+
+// Initialize Stripe products on startup
+await ensureStripeProducts();
 
 const start = async () => {
   try {

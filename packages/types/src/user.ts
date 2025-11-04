@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { UserRoleSchema, TierSchema } from './role';
 
 export const UserSchema = z.object({
   id: z.string(),
@@ -6,6 +7,10 @@ export const UserSchema = z.object({
   name: z.string(),
   avatarUrl: z.string().url().nullable(),
   bio: z.string().nullable(),
+  role: UserRoleSchema,
+  tier: TierSchema,
+  stripeCustomerId: z.string().nullable(),
+  stripeSubscriptionId: z.string().nullable(),
   createdAt: z.date(),
   updatedAt: z.date(),
 });

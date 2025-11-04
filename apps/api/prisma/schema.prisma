@@ -8,6 +8,20 @@ datasource db {
 }
 
 // Enums
+enum UserRole {
+  READER
+  AUTHOR
+  CLUB_ADMIN
+  STAFF
+}
+
+enum Tier {
+  FREE
+  PRO_AUTHOR
+  PRO_CLUB
+  PUBLISHER
+}
+
 enum MembershipRole {
   OWNER
   ADMIN
@@ -23,11 +37,11 @@ enum MembershipStatus {
 }
 
 enum SwapStatus {
-  PENDING
+  REQUESTED
   ACCEPTED
   DECLINED
-  COMPLETED
-  CANCELLED
+  DELIVERED
+  VERIFIED
 }
 
 enum PaymentStatus {
@@ -47,20 +61,24 @@ enum BookCondition {
 
 // Models
 model User {
-  id        String   @id
-  email     String   @unique
-  name      String
-  avatarUrl String?
-  bio       String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                   String    @id
+  email                String    @unique
+  name                 String
+  avatarUrl            String?
+  bio                  String?
+  role                 UserRole  @default(READER)
+  tier                 Tier      @default(FREE)
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   // Relations
   books              Book[]       @relation("UserBooks")
   clubsCreated       Club[]       @relation("ClubCreator")
   memberships        Membership[]
   swapsRequested     Swap[]       @relation("SwapRequester")
-  swapsReceived      Swap[]       @relation("SwapRecipient")
+  swapsReceived      Swap[]       @relation("SwapResponder")
   reviewsGiven       Review[]     @relation("Reviewer")
   reviewsReceived    Review[]     @relation("Reviewee")
   messagesSent       Message[]    @relation("MessageSender")
@@ -68,6 +86,8 @@ model User {
   payments           Payment[]
   membershipsInvited Membership[] @relation("InvitedBy")
 
+  @@index([role])
+  @@index([tier])
   @@map("users")
 }
 
@@ -85,10 +105,11 @@ model Book {
   updatedAt   DateTime      @updatedAt
 
   // Relations
-  owner           User        @relation("UserBooks", fields: [ownerId], references: [id], onDelete: Cascade)
-  swapsOffered    Swap[]      @relation("BookOffered")
-  swapsRequested  Swap[]      @relation("BookRequested")
-  embeddings      Embedding[]
+  owner          User        @relation("UserBooks", fields: [ownerId], references: [id], onDelete: Cascade)
+  swapsOffered   Swap[]      @relation("BookOffered")
+  swapsRequested Swap[]      @relation("BookRequested")
+  embeddings     Embedding[]
+  reviews        Review[]
 
   @@index([ownerId])
   @@index([isAvailable])
@@ -117,13 +138,13 @@ model Club {
 }
 
 model Membership {
-  id         String           @id @default(uuid())
-  userId     String
-  clubId     String
-  role       MembershipRole   @default(PENDING)
-  status     MembershipStatus @default(PENDING)
-  joinedAt   DateTime         @default(now())
-  invitedBy  String?
+  id        String           @id @default(uuid())
+  userId    String
+  clubId    String
+  role      MembershipRole   @default(PENDING)
+  status    MembershipStatus @default(PENDING)
+  joinedAt  DateTime         @default(now())
+  invitedBy String?
 
   // Relations
   user    User  @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -141,23 +162,25 @@ model Swap {
   id              String     @id @default(uuid())
   requesterId     String
   bookOfferedId   String
-  recipientId     String
+  responderId     String
   bookRequestedId String
-  status          SwapStatus @default(PENDING)
+  status          SwapStatus @default(REQUESTED)
   message         String?
+  dueDate         DateTime?
+  deliverable     String?
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
   // Relations
   requester     User     @relation("SwapRequester", fields: [requesterId], references: [id])
-  recipient     User     @relation("SwapRecipient", fields: [recipientId], references: [id])
+  responder     User     @relation("SwapResponder", fields: [responderId], references: [id])
   bookOffered   Book     @relation("BookOffered", fields: [bookOfferedId], references: [id])
   bookRequested Book     @relation("BookRequested", fields: [bookRequestedId], references: [id])
   reviews       Review[]
   payments      Payment[]
 
   @@index([requesterId])
-  @@index([recipientId])
+  @@index([responderId])
   @@index([bookOfferedId])
   @@index([bookRequestedId])
   @@index([status])
@@ -165,22 +188,26 @@ model Swap {
 }
 
 model Review {
-  id         String   @id @default(uuid())
-  reviewerId String
-  revieweeId String
-  swapId     String
-  rating     Int // 1-5
-  comment    String?
-  createdAt  DateTime @default(now())
+  id           String   @id @default(uuid())
+  reviewerId   String
+  revieweeId   String
+  swapId       String
+  bookId       String
+  rating       Int // 1-5
+  comment      String?
+  verifiedSwap Boolean  @default(false)
+  createdAt    DateTime @default(now())
 
   // Relations
   reviewer User @relation("Reviewer", fields: [reviewerId], references: [id])
   reviewee User @relation("Reviewee", fields: [revieweeId], references: [id])
   swap     Swap @relation(fields: [swapId], references: [id], onDelete: Cascade)
+  book     Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
 
   @@unique([swapId, reviewerId]) // One review per swap per reviewer
   @@index([reviewerId])
   @@index([revieweeId])
+  @@index([bookId])
   @@map("reviews")
 }
 
@@ -210,6 +237,7 @@ model Payment {
   swapId          String?
   amount          Int // in cents
   stripePaymentId String        @unique
+  plan            Tier
   status          PaymentStatus @default(PENDING)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
