@@ -616,14 +616,34 @@ if (isAIEnabled()) {
 | Graceful degradation | ✅ | Works without OPENAI_API_KEY |
 | Shared types updated | ✅ | AI schemas + genre/subtitle types |
 
-**Frontend Implementation: PARTIAL**
-- ✅ Form state updated (genres/subtitle fields)
-- ⏳ UI components pending (GenerateBlurbButton, RecommendedMatches, AIDisabledBanner)
+**Frontend Implementation: COMPLETE ✅**
+- ✅ Form state updated (genres/subtitle fields with comma-separated input)
+- ✅ GenerateBlurbButton component (loading states, 429/501 error handling, ≤120 word truncation)
+- ✅ RecommendedMatches component (top 5 matches with % scores + explanations)
+- ✅ AIDisabledBanner component (shows when OPENAI_API_KEY missing)
+- ✅ BookForm enhanced with subtitle, genres, AI blurb button
+- ✅ ClubForm enhanced with genres field
+- ✅ BookDetail enhanced with recommended clubs panel
+- ✅ ClubDetail enhanced with recommended books panel
+
+**Anonymous User Support:**
+- ✅ aiRateLimit middleware updated to support IP-based rate limiting (3 calls/day for anonymous users)
+- ✅ Anonymous users can generate blurbs without authentication
+- ✅ Authenticated users get tier-based limits (FREE: 10/day, PRO_AUTHOR: 50/day)
+
+**Authentication Notes:**
+- Book/club creation requires Supabase authentication (POST /api/books, POST /api/clubs return 401 without auth)
+- AI blurb generation works for anonymous users (IP-based limiting)
+- Test user created in database: `test@example.com` (tier: FREE)
+
+**Automated Testing Limitations:**
+- Playwright tests blocked by Supabase email validation (cannot generate test accounts programmatically)
+- Recommended approach: Manual QA with sign-up flow or implement test auth helper endpoint
+- All UI components are ready for manual verification
 
 **Next Steps:**
-1. Add OPENAI_API_KEY to test full AI functionality
-2. Implement frontend UI components for AI features
-3. Add genre multi-select to Book/Club forms
-4. Test complete flow: blurb generation → auto-indexing → matching
+1. Manual QA: Sign up → Create book → Test AI blurb generation
+2. Manual QA: Create club with genres → Verify auto-indexing → Check recommended matches
+3. Optional: Implement NODE_ENV=test auth helper for automated testing
 
 ---

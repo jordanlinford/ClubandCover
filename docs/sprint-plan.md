@@ -17,10 +17,10 @@
   - Tier limits (FREE=3, PRO_AUTHOR=10), Stripe checkout + webhook, notify() w/ Resend
   - **Status:** Completed (date: November 4, 2025) • **Test log:** see `docs/TEST_LOG.md`
 
-- ✅ **Sprint 2 – AI & Discovery (Backend)**
-  - Blurb generator, embeddings, book↔club matching, AI rate limits
-  - **Status:** Backend complete (date: November 4, 2025) • **Test log:** see `docs/TEST_LOG.md` Sprint-2 section
-  - **Frontend:** UI components pending (GenerateBlurbButton, RecommendedMatches, AIDisabledBanner)
+- ✅ **Sprint 2 – AI & Discovery**
+  - Blurb generator, embeddings, book↔club matching, AI rate limits, anonymous user support
+  - **Status:** Completed (date: November 4, 2025) • **Test log:** see `docs/TEST_LOG.md` Sprint-2 section
+  - **Implementation:** Backend + Frontend UI complete (GenerateBlurbButton, RecommendedMatches, AIDisabledBanner, enhanced forms)
 
 - ⏳ **Sprint 3 – Messaging & Moderation**
   - In-app threads, email relay, AI toxicity filter, report/resolve
@@ -111,13 +111,19 @@
 
 ## Changelog
 
-- **Sprint 2 Backend (Nov 4, 2025)** – AI & Discovery backend complete:
-  - ✅ OpenAI integration (GPT-4o-mini, text-embedding-3-small)
+- **Sprint 2 (Nov 4, 2025)** – AI & Discovery complete:
+  - ✅ OpenAI integration (GPT-4o-mini for blurbs, text-embedding-3-small for embeddings)
   - ✅ 4 AI endpoints: generate-blurb, index-one, reindex, match
   - ✅ Database: genres[], subtitle, embedding support for books+clubs, AI usage tracking
-  - ✅ AI rate limiting: FREE 10/day, PRO_AUTHOR 50/day
+  - ✅ AI rate limiting: ANONYMOUS 3/day (IP-based), FREE 10/day, PRO_AUTHOR 50/day (user-based)
   - ✅ Auto-indexing on book/club create
   - ✅ Graceful degradation when OPENAI_API_KEY not configured
-  - ⏳ Frontend UI components pending
+  - ✅ Frontend UI: GenerateBlurbButton (loading/error states, ≤120 word truncation)
+  - ✅ Frontend UI: RecommendedMatches component (top 5 with % scores + explanations)
+  - ✅ Frontend UI: AIDisabledBanner component
+  - ✅ Frontend UI: BookForm enhanced (subtitle, genres, AI blurb button)
+  - ✅ Frontend UI: ClubForm enhanced (genres field)
+  - ✅ Frontend UI: BookDetail/ClubDetail enhanced (recommended matches panels)
+  - ✅ Anonymous user support (IP-based rate limiting for AI features)
 - **Sprint 1 (Nov 4, 2025)** – Live auth + swap + tiers + Stripe + email. Test log added.
 - **Sprint 0 (Nov 2025)** – Monorepo, single-port serve, seed, base routes.
