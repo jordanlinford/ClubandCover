@@ -1,88 +1,115 @@
+import { useState } from 'react';
 import { Card } from '@repo/ui';
 import { Button } from '@repo/ui';
 import { PageHeader } from '@repo/ui';
+import { useAuth } from '../contexts/AuthContext';
+
+const PLANS = [
+  {
+    id: 'PRO_AUTHOR',
+    name: 'Pro Author',
+    price: '$9.99/mo',
+    features: [
+      'Up to 10 pending swaps',
+      'Priority book matches',
+      'Verified author badge',
+      'Author insights dashboard',
+    ],
+  },
+  {
+    id: 'PRO_CLUB',
+    name: 'Pro Club',
+    price: '$19.99/mo',
+    features: [
+      'Unlimited club members',
+      'Private club discussions',
+      'Advanced moderation tools',
+      'Custom club branding',
+    ],
+  },
+];
 
 export function BillingPage() {
-  const handleUpgrade = async () => {
+  const [loading, setLoading] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const { user } = useAuth();
+
+  const handleCheckout = async (plan: string) => {
+    if (!user) {
+      setError('Please sign in to subscribe');
+      return;
+    }
+
+    setLoading(plan);
+    setError('');
+
     try {
-      const response = await fetch('/api/billing/stub', {
+      const response = await fetch('/api/billing/checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan }),
       });
+
+      if (!response.ok) throw new Error('Failed to create checkout session');
+
       const data = await response.json();
-      console.log('Billing stub response:', data);
-      alert('Upgrade feature coming soon!');
-    } catch (error) {
-      console.error('Billing error:', error);
+      if (data.success && data.data.url) {
+        window.location.href = data.data.url;
+      } else {
+        throw new Error('No checkout URL returned');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start checkout');
+      setLoading(null);
     }
   };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="max-w-6xl mx-auto p-6">
         <PageHeader
           title="Billing & Subscription"
-          description="Manage your subscription and payment details"
+          description="Upgrade your account to unlock premium features"
         />
 
-        <div className="mt-6 space-y-6">
-          <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-4">Current Plan</h2>
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="font-medium text-lg">Free Plan</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Basic features included
-                </p>
-              </div>
-              <span className="text-2xl font-bold">$0<span className="text-sm font-normal text-gray-600 dark:text-gray-400">/mo</span></span>
-            </div>
-          </Card>
-
-          <div className="grid md:grid-cols-2 gap-4">
-            <Card className="p-6">
-              <h3 className="font-semibold text-lg mb-2">Free Plan</h3>
-              <p className="text-3xl font-bold mb-4">$0<span className="text-base font-normal text-gray-600 dark:text-gray-400">/mo</span></p>
-              <ul className="space-y-2 mb-6 text-sm">
-                <li>✓ Up to 10 books</li>
-                <li>✓ Join 3 clubs</li>
-                <li>✓ 5 swaps per month</li>
-                <li>✓ Basic support</li>
-              </ul>
-              <Button variant="outline" disabled className="w-full" data-testid="button-current-plan">
-                Current Plan
-              </Button>
-            </Card>
-
-            <Card className="p-6 border-2 border-blue-500 relative">
-              <div className="absolute top-0 right-0 bg-blue-500 text-white text-xs px-3 py-1 rounded-bl">
-                Popular
-              </div>
-              <h3 className="font-semibold text-lg mb-2">Premium Plan</h3>
-              <p className="text-3xl font-bold mb-4">$9<span className="text-base font-normal text-gray-600 dark:text-gray-400">/mo</span></p>
-              <ul className="space-y-2 mb-6 text-sm">
-                <li>✓ Unlimited books</li>
-                <li>✓ Unlimited clubs</li>
-                <li>✓ Unlimited swaps</li>
-                <li>✓ Priority support</li>
-                <li>✓ Advanced analytics</li>
-              </ul>
-              <Button onClick={handleUpgrade} className="w-full" data-testid="button-upgrade">
-                Upgrade Plan
-              </Button>
-            </Card>
+        {error && (
+          <div className="mt-4 p-4 bg-red-100 dark:bg-red-900/20 border border-red-400 dark:border-red-800 rounded text-sm text-red-700 dark:text-red-400" data-testid="text-error">
+            {error}
           </div>
+        )}
 
-          <Card className="p-6">
-            <h2 className="text-lg font-semibold mb-4">Payment Method</h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              No payment method on file
-            </p>
-            <Button variant="outline" data-testid="button-add-payment">
-              Add Payment Method
-            </Button>
-          </Card>
+        <div className="mt-8 grid md:grid-cols-2 gap-6">
+          {PLANS.map((plan) => (
+            <Card key={plan.id} className="p-6" data-testid={`card-plan-${plan.id}`}>
+              <h3 className="text-xl font-bold mb-2">{plan.name}</h3>
+              <p className="text-3xl font-bold mb-4">{plan.price}</p>
+              <ul className="space-y-2 mb-6">
+                {plan.features.map((feature, i) => (
+                  <li key={i} className="flex items-start text-sm">
+                    <span className="mr-2">✓</span>
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
+              <Button
+                className="w-full"
+                onClick={() => handleCheckout(plan.id)}
+                disabled={loading !== null}
+                data-testid={`button-subscribe-${plan.id}`}
+              >
+                {loading === plan.id ? 'Processing...' : `Subscribe to ${plan.name}`}
+              </Button>
+            </Card>
+          ))}
         </div>
+
+        <Card className="mt-8 p-6">
+          <h3 className="font-semibold mb-2">Free Plan</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            You're currently on the free plan with up to 3 pending swaps.
+            Upgrade to unlock more features!
+          </p>
+        </Card>
       </div>
     </div>
   );
