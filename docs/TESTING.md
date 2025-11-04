@@ -2,6 +2,122 @@
 
 This document explains how to test the Book Club/Swap platform, including authentication setup for automated tests.
 
+## Two Testing Approaches
+
+The application provides **two different testing approaches**:
+
+1. **Supabase Admin Seeding** (Recommended for E2E tests)
+   - Creates **real Supabase users** with passwords
+   - Users can sign in through the actual UI
+   - Most realistic for end-to-end testing
+   - Requires `ENABLE_TEST_ROUTES=1` and `TEST_SEED_TOKEN`
+
+2. **Mock Token Auth** (Recommended for API-only tests)
+   - Creates database-only users with mock tokens
+   - Bypasses Supabase completely
+   - Faster for API testing
+   - Requires `NODE_ENV=test`
+
+---
+
+## Approach 1: Supabase Admin Seeding (E2E Tests)
+
+This approach uses Supabase's admin API to create real test users that can sign in normally.
+
+### Setup
+
+**Step 1: Add Replit Secrets**
+
+Add these two secrets in your Replit project:
+
+```
+ENABLE_TEST_ROUTES=1
+TEST_SEED_TOKEN=your_random_secret_token_here
+```
+
+⚠️ **Security Note**: Never enable `ENABLE_TEST_ROUTES` in production!
+
+**Step 2: Restart the Server**
+
+The test-seed route will be registered on startup. You'll see in logs:
+```
+[TEST] Test-seed route enabled
+```
+
+### Seed Test Users
+
+```bash
+POST /api/test/seed-users
+x-seed-token: your_random_secret_token_here
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "results": [
+    {
+      "email": "alice.test+e2e@bookpitch.dev",
+      "id": "uuid-here",
+      "error": null
+    },
+    {
+      "email": "bob.test+e2e@bookpitch.dev",
+      "id": "uuid-here",
+      "error": null
+    }
+  ]
+}
+```
+
+Now both users exist in Supabase Auth with password `Test123!`
+
+### Use in Playwright Tests
+
+```typescript
+import { test, expect } from '@playwright/test';
+
+test.beforeAll(async ({ request }) => {
+  // Seed users once before all tests
+  await request.post('/api/test/seed-users', {
+    headers: {
+      'x-seed-token': process.env.TEST_SEED_TOKEN!
+    }
+  });
+});
+
+test('user can sign in and create books', async ({ page }) => {
+  // Navigate to sign in
+  await page.goto('/auth/sign-in');
+  
+  // Sign in with seeded user
+  await page.getByTestId('input-email').fill('alice.test+e2e@bookpitch.dev');
+  await page.getByTestId('input-password').fill('Test123!');
+  await page.getByTestId('button-signin').click();
+  
+  // Wait for redirect
+  await page.waitForURL('/');
+  
+  // User is now authenticated and can use the app normally!
+  await page.goto('/books/new');
+  await page.getByTestId('input-title').fill('Test Book');
+  // ... rest of test
+});
+```
+
+### Cleanup
+
+The seeded users persist in Supabase. To remove them manually:
+1. Go to your Supabase dashboard
+2. Navigate to Authentication > Users
+3. Delete users with emails ending in `@bookpitch.dev`
+
+Or create a cleanup endpoint if needed.
+
+---
+
+## Approach 2: Mock Token Auth (API Tests)
+
 ## Test Support Routes
 
 The application includes test support routes that are **only available when `NODE_ENV=test`**. These routes enable automated testing without requiring real Supabase authentication.

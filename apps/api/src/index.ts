@@ -59,6 +59,13 @@ await ensureStripeProducts();
 // Initialize OpenAI (optional - will warn if missing)
 initializeOpenAI();
 
+// ✅ Register test seed route only when enabled
+if (process.env.ENABLE_TEST_ROUTES === "1") {
+  const { default: testSeedRoutes } = await import("./routes/test-seed.js");
+  await fastify.register(testSeedRoutes);
+  fastify.log.info('[TEST] Test-seed route enabled');
+}
+
 const start = async () => {
   try {
     const PORT = Number(process.env.PORT) || 5000;

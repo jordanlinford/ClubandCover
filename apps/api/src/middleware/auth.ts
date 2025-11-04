@@ -1,6 +1,6 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
-import { getSupabase } from '../lib/supabase';
-import { prisma } from '../lib/prisma';
+import { getSupabase } from '../lib/supabase.js';
+import { prisma } from '../lib/prisma.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -46,7 +46,7 @@ export async function supabaseAuth(request: FastifyRequest, reply: FastifyReply)
         return;
       }
     } catch (error) {
-      request.log.warn('Test token verification failed:', error);
+      request.log.warn({ error }, 'Test token verification failed');
     }
   }
   
@@ -75,7 +75,7 @@ export async function supabaseAuth(request: FastifyRequest, reply: FastifyReply)
     }
     
     // Silently fail for optional auth
-    request.log.warn('Auth token verification failed:', error);
+    request.log.warn({ error }, 'Auth token verification failed');
   }
 }
 

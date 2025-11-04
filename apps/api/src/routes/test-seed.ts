@@ -1,0 +1,49 @@
+import { FastifyInstance } from "fastify";
+import { createClient } from "@supabase/supabase-js";
+
+export default async function testSeedRoutes(fastify: FastifyInstance) {
+  fastify.post("/api/test/seed-users", async (req, reply) => {
+    // ✅ Only allow when explicitly enabled
+    if (process.env.NODE_ENV === "production") {
+      return reply.code(403).send({ error: "Forbidden in production" });
+    }
+    if (process.env.ENABLE_TEST_ROUTES !== "1") {
+      return reply.code(403).send({ error: "Test routes not enabled" });
+    }
+
+    // ✅ Require a seed token header
+    const token = req.headers["x-seed-token"];
+    if (token !== process.env.TEST_SEED_TOKEN) {
+      return reply.code(401).send({ error: "Unauthorized" });
+    }
+
+    // ✅ Use the service-role key (server-only)
+    const supabase = createClient(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    const users = [
+      { email: "alice.test+e2e@bookpitch.dev", password: "Test123!" },
+      { email: "bob.test+e2e@bookpitch.dev", password: "Test123!" },
+    ];
+
+    const results: any[] = [];
+    for (const u of users) {
+      const { data, error } = await supabase.auth.admin.createUser({
+        email: u.email,
+        password: u.password,
+        email_confirm: true,
+        app_metadata: { seeded: true },
+        user_metadata: { name: u.email.split("@")[0] },
+      });
+      results.push({
+        email: u.email,
+        id: data?.user?.id,
+        error: error?.message ?? null,
+      });
+    }
+
+    return { success: true, results };
+  });
+}
