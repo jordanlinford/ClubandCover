@@ -97,6 +97,28 @@
 - `customer.subscription.updated` → Updates user subscription status
 - `customer.subscription.deleted` → Downgrades user tier to FREE
 
+### AI & Discovery (Sprint-2 New)
+| Method | Path | Description | Auth Required | Rate Limited |
+|--------|------|-------------|---------------|--------------|
+| POST | `/api/ai/generate-blurb` | Generate book description from title/author | Yes | Yes (FREE: 10/day, PRO_AUTHOR: 50/day) |
+| POST | `/api/ai/index-one` | Generate embedding for single book/club | Yes | Yes |
+| POST | `/api/ai/reindex` | Regenerate all embeddings (STAFF only) | Yes | Yes |
+| POST | `/api/ai/match` | Find top 5 similar books/clubs | Yes | No |
+
+**AI Rate Limits (Middleware: `aiRateLimit`):**
+- FREE tier: 10 AI calls per day (resets daily)
+- PRO_AUTHOR tier: 50 AI calls per day
+- Returns `429` with code `AI_RATE_LIMIT` when exceeded
+
+**Graceful Degradation:**
+- Server starts without `OPENAI_API_KEY` (logs warning)
+- All AI endpoints return `501 Not Implemented` when AI is disabled
+- Auto-indexing on create/update only runs when AI is enabled
+
+**Auto-Indexing:**
+- Books: Embeddings generated automatically on POST `/api/books`
+- Clubs: Embeddings generated automatically on POST `/api/clubs`
+
 ## Authentication Flow
 
 1. **Frontend:** User signs up/in via Supabase SDK (`/auth/sign-in`, `/auth/sign-up`)
