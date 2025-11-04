@@ -59,6 +59,17 @@ enum BookCondition {
   ACCEPTABLE
 }
 
+enum ThreadType {
+  DM
+  CLUB
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  DISMISSED
+}
+
 // Models
 model User {
   id                   String    @id
@@ -76,17 +87,20 @@ model User {
   updatedAt            DateTime  @updatedAt
 
   // Relations
-  books              Book[]       @relation("UserBooks")
-  clubsCreated       Club[]       @relation("ClubCreator")
+  books              Book[]             @relation("UserBooks")
+  clubsCreated       Club[]             @relation("ClubCreator")
   memberships        Membership[]
-  swapsRequested     Swap[]       @relation("SwapRequester")
-  swapsReceived      Swap[]       @relation("SwapResponder")
-  reviewsGiven       Review[]     @relation("Reviewer")
-  reviewsReceived    Review[]     @relation("Reviewee")
-  messagesSent       Message[]    @relation("MessageSender")
-  messagesReceived   Message[]    @relation("MessageRecipient")
+  swapsRequested     Swap[]             @relation("SwapRequester")
+  swapsReceived      Swap[]             @relation("SwapResponder")
+  reviewsGiven       Review[]           @relation("Reviewer")
+  reviewsReceived    Review[]           @relation("Reviewee")
   payments           Payment[]
-  membershipsInvited Membership[] @relation("InvitedBy")
+  membershipsInvited Membership[]       @relation("InvitedBy")
+  threadMemberships  ThreadMember[]
+  sentMessages       Message[]
+  reviewedMessages   Message[]          @relation("ReviewedMessages")
+  reportedMessages   ModerationReport[] @relation("ReportedMessages")
+  reviewedReports    ModerationReport[] @relation("ReviewedReports")
 
   @@index([role])
   @@index([tier])
@@ -133,10 +147,10 @@ model Club {
   updatedAt   DateTime @updatedAt
 
   // Relations
-  createdBy   User         @relation("ClubCreator", fields: [createdById], references: [id])
-  memberships Membership[]
-  messages    Message[]
-  embeddings  Embedding[]
+  createdBy      User            @relation("ClubCreator", fields: [createdById], references: [id])
+  memberships    Membership[]
+  embeddings     Embedding[]
+  messageThreads MessageThread[]
 
   @@index([createdById])
   @@index([isPublic])
@@ -217,24 +231,81 @@ model Review {
   @@map("reviews")
 }
 
-model Message {
-  id          String    @id @default(uuid())
-  senderId    String
-  recipientId String?
-  clubId      String?
-  content     String
-  readAt      DateTime?
-  createdAt   DateTime  @default(now())
+model MessageThread {
+  id        String     @id @default(uuid())
+  type      ThreadType
+  clubId    String?
+  createdAt DateTime   @default(now())
 
   // Relations
-  sender    User  @relation("MessageSender", fields: [senderId], references: [id])
-  recipient User? @relation("MessageRecipient", fields: [recipientId], references: [id])
-  club      Club? @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  members  ThreadMember[]
+  messages Message[]
+  club     Club?          @relation(fields: [clubId], references: [id], onDelete: Cascade)
 
-  @@index([senderId])
-  @@index([recipientId])
   @@index([clubId])
+  @@index([type])
+  @@map("message_threads")
+}
+
+model ThreadMember {
+  id         String    @id @default(uuid())
+  threadId   String
+  userId     String
+  joinedAt   DateTime  @default(now())
+  lastReadAt DateTime?
+
+  // Relations
+  thread MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([threadId, userId])
+  @@index([userId])
+  @@index([threadId])
+  @@map("thread_members")
+}
+
+model Message {
+  id         String    @id @default(uuid())
+  threadId   String
+  senderId   String
+  content    String    @db.Text
+  createdAt  DateTime  @default(now())
+  deletedAt  DateTime?
+  flaggedAt  DateTime?
+  reviewedBy String?
+  reviewedAt DateTime?
+
+  // Relations
+  thread   MessageThread      @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender   User               @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  reviewer User?              @relation("ReviewedMessages", fields: [reviewedBy], references: [id])
+  reports  ModerationReport[]
+
+  @@index([threadId, createdAt])
+  @@index([senderId])
+  @@index([flaggedAt])
   @@map("messages")
+}
+
+model ModerationReport {
+  id         String       @id @default(uuid())
+  messageId  String
+  reporterId String
+  reason     String       @db.Text
+  status     ReportStatus @default(PENDING)
+  reviewedBy String?
+  reviewedAt DateTime?
+  createdAt  DateTime     @default(now())
+
+  // Relations
+  message  Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  reporter User    @relation("ReportedMessages", fields: [reporterId], references: [id])
+  reviewer User?   @relation("ReviewedReports", fields: [reviewedBy], references: [id])
+
+  @@index([messageId])
+  @@index([status])
+  @@index([reporterId])
+  @@map("moderation_reports")
 }
 
 model Payment {
