@@ -1,0 +1,87 @@
+Sprint-2 Implementation Prompt — paste this to the Replit Agent
+
+PAUSE FIRST. Do not modify files until you summarize the plan of changes, files, and new endpoints. Wait for approval.
+
+Scope
+
+1️⃣ Blurb Generation
+
+New endpoint POST /api/ai/generate-blurb
+
+Input: { title, subtitle?, genres[], currentBlurb? }
+
+Output: { blurb }
+
+Use OpenAI completion; clamp to ≤ 120 words, PG-13 tone.
+
+Add button “✨ Generate Blurb” on Book Create/Edit.
+
+Disable button & show banner “AI disabled” when no OPENAI_API_KEY.
+
+2️⃣ Embeddings & Matching
+
+Use existing Embedding table.
+
+Store vectors for Books and Clubs on create/update.
+
+Endpoints:
+
+POST /api/ai/index-one { entityId, entityType }
+
+POST /api/ai/reindex (STAFF only)
+
+POST /api/ai/match → { bookId | clubId } returns top 5 matches with score + why.
+
+Front-end panels:
+
+Book Detail → “Recommended Clubs ( n )”
+
+Club Detail → “Recommended Books ( n )”.
+
+3️⃣ Rate Limits & Safety
+
+FREE = 10 AI calls/day; PRO_AUTHOR = 50.
+
+Exceed → 429 { code:"AI_RATE_LIMIT" }.
+
+Implement in apps/api/src/middleware/aiRateLimit.ts.
+
+Basic profanity check before index / prompt send.
+
+Acceptance Tests
+
+1️⃣ POST /api/ai/generate-blurb returns text and fills UI field.
+2️⃣ Creating / editing Book indexes embedding; index-one works for Club.
+3️⃣ match { bookId } returns ≥1 club with score.
+4️⃣ 11th blurb on FREE → 429 AI_RATE_LIMIT.
+5️⃣ No OPENAI_API_KEY → 501 + UI banner “AI disabled”.
+
+Deliverables
+
+Updated schema if needed (Embedding.vector byte length OK).
+
+apps/api/src/lib/ai.ts centralized OpenAI calls.
+
+New middleware aiRateLimit.ts.
+
+UI updates (Book form + panels).
+
+docs/TEST_LOG.md append Sprint-2 results; update docs/sprint-plan.md.
+
+Secrets
+
+OPENAI_API_KEY must be present in Replit Secrets.
+If missing, print a startup warning and set AI banner state = disabled.
+
+Pause after planning; show:
+
+Files to add/modify
+
+Endpoints to add or change
+
+Testing approach outline
+
+Dependencies (e.g., openai npm package)
+
+Once the Agent presents its execution plan, reply “Approved — proceed with Sprint-2 implementation.”
+That will kick off AI integration automatically and log everything into your new docs/ folder.
