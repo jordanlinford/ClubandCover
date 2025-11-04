@@ -1,4 +1,4 @@
-import type { ApiResponse, Book, CreateBook, Club, CreateClub, Swap } from '@repo/types';
+import type { ApiResponse, Book, CreateBook, Club, CreateClub, Swap, GenerateBlurbRequest, MatchRequest, MatchResult, IndexOneRequest } from '@repo/types';
 import { supabase } from './supabase';
 
 const API_URL = import.meta.env.VITE_API_URL ?? '/api';
@@ -109,6 +109,23 @@ class ApiClient {
 
   async updateSwap(id: string, status: string): Promise<Swap> {
     return this.patch<Swap>(`/swaps/${id}`, { status });
+  }
+
+  // AI API
+  async generateBlurb(request: GenerateBlurbRequest): Promise<{ blurb: string }> {
+    return this.post<{ blurb: string }>('/ai/generate-blurb', request);
+  }
+
+  async getMatches(request: MatchRequest): Promise<MatchResult[]> {
+    return this.post<MatchResult[]>('/ai/match', request);
+  }
+
+  async indexEntity(request: IndexOneRequest): Promise<{ success: boolean }> {
+    return this.post<{ success: boolean }>('/ai/index-one', request);
+  }
+
+  async getConfig(): Promise<{ supabaseBackend: boolean; openaiBackend: boolean }> {
+    return this.get<{ supabaseBackend: boolean; openaiBackend: boolean }>('/debug/config');
   }
 }
 
