@@ -187,3 +187,55 @@ export function getEmbeddingText(entity: {
 
   return parts.join('. ');
 }
+
+/**
+ * Check if content is toxic using AI moderation
+ * Returns { safe: boolean, reason?: string }
+ */
+export async function checkToxicity(
+  content: string
+): Promise<{ safe: boolean; reason?: string }> {
+  if (!openai) {
+    throw new Error('OpenAI not initialized');
+  }
+
+  const prompt = `Analyze this message for toxicity, harassment, hate speech, or harmful content:
+
+"${content}"
+
+Respond with ONLY "SAFE" or "UNSAFE: [brief reason]"`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a content moderation assistant. Analyze messages for toxicity, harassment, hate speech, and harmful content. Be strict but fair.',
+        },
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      max_tokens: 50,
+      temperature: 0.3,
+    });
+
+    const result = response.choices[0]?.message?.content?.trim() || 'SAFE';
+
+    if (result.startsWith('UNSAFE')) {
+      const reason = result.replace('UNSAFE:', '').trim();
+      return {
+        safe: false,
+        reason: reason || 'Content flagged as potentially toxic',
+      };
+    }
+
+    return { safe: true };
+  } catch (error) {
+    // If AI check fails, default to safe (profanity filter is primary defense)
+    console.error('AI toxicity check failed:', error);
+    return { safe: true };
+  }
+}
