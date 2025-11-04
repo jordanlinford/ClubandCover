@@ -1,4 +1,5 @@
 import type { ApiResponse, Book, CreateBook, Club, CreateClub, Swap } from '@repo/types';
+import { supabase } from './supabase';
 
 const API_URL = import.meta.env.VITE_API_URL ?? '/api';
 
@@ -10,12 +11,15 @@ class ApiClient {
   ): Promise<T> {
     const url = `${API_URL}${endpoint}`;
     
+    // Get token from Supabase session
+    const token = await this.getAuthToken();
+    
     const response = await fetch(url, {
       method,
       headers: {
         'Content-Type': 'application/json',
-        ...(this.getAuthToken() && {
-          Authorization: `Bearer ${this.getAuthToken()}`,
+        ...(token && {
+          Authorization: `Bearer ${token}`,
         }),
       },
       body: data ? JSON.stringify(data) : undefined,
@@ -30,8 +34,10 @@ class ApiClient {
     return json.data as T;
   }
 
-  private getAuthToken(): string | null {
-    return localStorage.getItem('supabase_token');
+  private async getAuthToken(): Promise<string | null> {
+    if (!supabase) return null;
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token ?? null;
   }
 
   async get<T>(endpoint: string): Promise<T> {

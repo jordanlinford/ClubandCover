@@ -3,6 +3,7 @@ import { useLocation } from 'wouter';
 import { Button } from '@repo/ui';
 import { Input } from '@repo/ui';
 import { Card } from '@repo/ui';
+import { supabase } from '../../lib/supabase';
 
 export function SignUpPage() {
   const [, setLocation] = useLocation();
@@ -10,25 +11,42 @@ export function SignUpPage() {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
     
-    // Mock signup - just navigate to home
-    setTimeout(() => {
-      console.log('Mock sign up:', { email, password, name });
+    if (!supabase) {
+      setError('Supabase not configured - please add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { name } },
+      });
+      if (error) throw error;
       setLocation('/');
-    }, 500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to sign up');
+      setLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
       <Card className="w-full max-w-md p-8">
         <h1 className="text-2xl font-bold mb-6 text-center">Create Account</h1>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-6 text-center">
-          Mock authentication (Supabase not configured)
-        </p>
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/20 border border-red-400 dark:border-red-800 rounded text-sm text-red-700 dark:text-red-400" data-testid="text-error">
+            {error}
+          </div>
+        )}
         
         <form onSubmit={handleSignUp} className="space-y-4">
           <div>
