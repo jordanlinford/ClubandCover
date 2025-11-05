@@ -3,17 +3,24 @@ import { Button } from '@repo/ui';
 import { Input } from '@repo/ui';
 import { Card } from '@repo/ui';
 import { X, Plus } from 'lucide-react';
-import type { CreatePoll, CreatePollOption } from '@repo/types';
+import type { CreatePollFullRequest } from '@repo/types';
 
 interface PollBuilderModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreatePoll: (poll: CreatePoll, options: CreatePollOption[]) => void;
+  onCreatePoll: (pollRequest: CreatePollFullRequest) => void;
   isPending: boolean;
+  clubId: string;
 }
 
-export function PollBuilderModal({ isOpen, onClose, onCreatePoll, isPending }: PollBuilderModalProps) {
-  const [pollData, setPollData] = useState<Omit<CreatePoll, 'opensAt' | 'closesAt'> & { opensAt: string; closesAt: string }>({
+export function PollBuilderModal({ isOpen, onClose, onCreatePoll, isPending, clubId }: PollBuilderModalProps) {
+  const [pollData, setPollData] = useState<{
+    type: 'PITCH' | 'BOOK';
+    title: string;
+    description: string;
+    opensAt: string;
+    closesAt: string;
+  }>({
     type: 'PITCH',
     title: '',
     description: '',
@@ -46,7 +53,19 @@ export function PollBuilderModal({ isOpen, onClose, onCreatePoll, isPending }: P
       alert('Please add at least 2 options');
       return;
     }
-    onCreatePoll(pollData, validOptions);
+    
+    // Combine poll data and options into a single request
+    const pollRequest: CreatePollFullRequest = {
+      clubId,
+      type: pollData.type,
+      title: pollData.title,
+      description: pollData.description || undefined,
+      opensAt: pollData.opensAt,
+      closesAt: pollData.closesAt,
+      options: validOptions,
+    };
+    
+    onCreatePoll(pollRequest);
   };
 
   if (!isOpen) return null;

@@ -4,7 +4,7 @@ import { useRoute, Link } from 'wouter';
 import { Card } from '@repo/ui';
 import { Button } from '@repo/ui';
 import { PageHeader } from '@repo/ui';
-import type { Pitch, CreatePoll, CreatePollOption } from '@repo/types';
+import type { Pitch, CreatePollFullRequest } from '@repo/types';
 import { api } from '../../lib/api';
 import { PollBuilderModal } from '../../components/PollBuilderModal';
 import { ArrowLeft, Plus } from 'lucide-react';
@@ -21,20 +21,13 @@ export function HostConsolePage() {
   });
 
   const createPollMutation = useMutation({
-    mutationFn: async ({ poll, options }: { poll: CreatePoll; options: CreatePollOption[] }) => {
-      // Create poll
-      const createdPoll = await api.createPoll(clubId!, poll);
-      
-      // Add options
-      for (const option of options) {
-        await api.addPollOption(createdPoll.id, option);
-      }
-      
-      return createdPoll;
-    },
+    mutationFn: (pollRequest: CreatePollFullRequest) => api.createPollFull(pollRequest),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/polls'] });
       setIsModalOpen(false);
+    },
+    onError: (error: Error) => {
+      alert(`Failed to create poll: ${error.message}`);
     },
   });
 
@@ -156,10 +149,9 @@ export function HostConsolePage() {
         <PollBuilderModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
-          onCreatePoll={(poll, options) =>
-            createPollMutation.mutate({ poll, options })
-          }
+          onCreatePoll={(pollRequest) => createPollMutation.mutate(pollRequest)}
           isPending={createPollMutation.isPending}
+          clubId={clubId!}
         />
       </div>
     </div>
