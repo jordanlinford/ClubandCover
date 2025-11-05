@@ -11,6 +11,8 @@ import { testSupportRoutes } from './test-support.js';
 import threadRoutes from './threads.js';
 import messageRoutes from './messages.js';
 import moderationRoutes from './moderation.js';
+import pitchesRoutes from './pitches.js';
+import pollsRoutes from './polls.js';
 
 export async function routes(fastify: FastifyInstance) {
   fastify.get('/health', async () => {
@@ -40,6 +42,8 @@ export async function routes(fastify: FastifyInstance) {
   await fastify.register(threadRoutes);
   await fastify.register(messageRoutes);
   await fastify.register(moderationRoutes, { prefix: '/moderation' });
+  await fastify.register(pitchesRoutes, { prefix: '/pitches' });
+  await fastify.register(pollsRoutes, { prefix: '/polls' });
   
   // Test support routes (only enabled in test environment)
   await fastify.register(testSupportRoutes, { prefix: '/test' });

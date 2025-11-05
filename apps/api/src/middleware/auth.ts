@@ -80,6 +80,19 @@ export async function supabaseAuth(request: FastifyRequest, reply: FastifyReply)
 }
 
 /**
+ * Middleware that requires authentication
+ * Returns 401 if no user is authenticated
+ */
+export async function requireAuth(request: FastifyRequest, reply: FastifyReply) {
+  if (!request.user) {
+    return reply.code(401).send({
+      success: false,
+      error: 'Authentication required',
+    });
+  }
+}
+
+/**
  * Ensure user exists in database, create if not exists
  * This syncs Supabase Auth users with our application database
  */

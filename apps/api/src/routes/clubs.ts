@@ -1,7 +1,6 @@
 import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
-import { CreateClubSchema, UpdateClubSchema } from '@repo/types';
-import type { ApiResponse } from '@repo/types';
 import { isAIEnabled, generateEmbedding, getEmbeddingText } from '../lib/ai.js';
 
 export async function clubRoutes(fastify: FastifyInstance) {
@@ -16,13 +15,13 @@ export async function clubRoutes(fastify: FastifyInstance) {
         },
         orderBy: { createdAt: 'desc' },
       });
-      return { success: true, data: clubs } as ApiResponse;
+      return { success: true, data: clubs };
     } catch (error) {
       reply.code(500);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to fetch clubs',
-      } as ApiResponse;
+      };
     }
   });
 
@@ -43,16 +42,16 @@ export async function clubRoutes(fastify: FastifyInstance) {
 
       if (!club) {
         reply.code(404);
-        return { success: false, error: 'Club not found' } as ApiResponse;
+        return { success: false, error: 'Club not found' };
       }
 
-      return { success: true, data: club } as ApiResponse;
+      return { success: true, data: club };
     } catch (error) {
       reply.code(500);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to fetch club',
-      } as ApiResponse;
+      };
     }
   });
 
@@ -60,15 +59,26 @@ export async function clubRoutes(fastify: FastifyInstance) {
   fastify.post('/', async (request, reply) => {
     if (!request.user) {
       reply.code(401);
-      return { success: false, error: 'Unauthorized' } as ApiResponse;
+      return { success: false, error: 'Unauthorized' };
     }
 
     try {
-      const validated = CreateClubSchema.parse(request.body);
+      const schema = z.object({
+        name: z.string().min(1).max(100),
+        description: z.string().optional(),
+        isPublic: z.boolean().default(true),
+        genres: z.array(z.string()).optional(),
+        joinRules: z.enum(['OPEN', 'APPROVAL', 'INVITE_ONLY']).optional(),
+      });
+      const validated = schema.parse(request.body);
       
       const club = await prisma.club.create({
         data: {
-          ...validated,
+          name: validated.name,
+          description: validated.description,
+          isPublic: validated.isPublic,
+          genres: validated.genres || [],
+          joinRules: validated.joinRules || 'APPROVAL',
           createdById: request.user.id,
           memberships: {
             create: {
@@ -95,18 +105,18 @@ export async function clubRoutes(fastify: FastifyInstance) {
           });
         } catch (error) {
           // Log error but don't fail club creation
-          fastify.log.error('Failed to generate embedding for club', error);
+          fastify.log.error({ error }, 'Failed to generate embedding for club');
         }
       }
 
       reply.code(201);
-      return { success: true, data: club } as ApiResponse;
+      return { success: true, data: club };
     } catch (error) {
       reply.code(400);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to create club',
-      } as ApiResponse;
+      };
     }
   });
 
@@ -114,12 +124,19 @@ export async function clubRoutes(fastify: FastifyInstance) {
   fastify.patch('/:id', async (request, reply) => {
     if (!request.user) {
       reply.code(401);
-      return { success: false, error: 'Unauthorized' } as ApiResponse;
+      return { success: false, error: 'Unauthorized' };
     }
 
     try {
       const { id } = request.params as { id: string };
-      const validated = UpdateClubSchema.parse(request.body);
+      const schema = z.object({
+        name: z.string().min(1).max(100).optional(),
+        description: z.string().optional(),
+        isPublic: z.boolean().optional(),
+        genres: z.array(z.string()).optional(),
+        joinRules: z.enum(['OPEN', 'APPROVAL', 'INVITE_ONLY']).optional(),
+      });
+      const validated = schema.parse(request.body);
 
       // Check permissions
       const membership = await prisma.membership.findUnique({
@@ -128,7 +145,7 @@ export async function clubRoutes(fastify: FastifyInstance) {
 
       if (!membership || !['OWNER', 'ADMIN'].includes(membership.role)) {
         reply.code(403);
-        return { success: false, error: 'Not authorized to update this club' } as ApiResponse;
+        return { success: false, error: 'Not authorized to update this club' };
       }
 
       const updated = await prisma.club.update({
@@ -136,13 +153,77 @@ export async function clubRoutes(fastify: FastifyInstance) {
         data: validated,
       });
 
-      return { success: true, data: updated } as ApiResponse;
+      return { success: true, data: updated };
     } catch (error) {
       reply.code(400);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to update club',
-      } as ApiResponse;
+      };
+    }
+  });
+
+  // Choose a book for the club (from pitch selection) - owner/admin only
+  fastify.post('/:clubId/choose-book', async (request, reply) => {
+    if (!request.user) {
+      reply.code(401);
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    try {
+      const { clubId } = request.params as { clubId: string };
+      const { pitchId } = request.body as { pitchId: string };
+
+      // Check permissions
+      const membership = await prisma.membership.findUnique({
+        where: { clubId_userId: { clubId, userId: request.user.id } },
+      });
+
+      if (!membership || !['OWNER', 'ADMIN'].includes(membership.role)) {
+        reply.code(403);
+        return { success: false, error: 'Not authorized to choose book for this club' };
+      }
+
+      // Get the pitch
+      const pitch = await prisma.pitch.findUnique({
+        where: { id: pitchId },
+        include: { book: true },
+      });
+
+      if (!pitch) {
+        reply.code(404);
+        return { success: false, error: 'Pitch not found' };
+      }
+
+      // Update club's chosen book and pitch status
+      const [updatedClub] = await prisma.$transaction([
+        prisma.club.update({
+          where: { id: clubId },
+          data: { chosenBookId: pitch.bookId },
+        }),
+        prisma.pitch.update({
+          where: { id: pitchId },
+          data: { status: 'ACCEPTED' },
+        }),
+      ]);
+
+      // Award points to the pitch author
+      const { awardPoints, POINT_VALUES } = await import('../lib/points.js');
+      await awardPoints(
+        pitch.authorId,
+        'PITCH_SELECTED',
+        POINT_VALUES.PITCH_SELECTED,
+        'PITCH',
+        pitchId
+      );
+
+      return { success: true, data: updatedClub };
+    } catch (error) {
+      reply.code(400);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to choose book',
+      };
     }
   });
 }
