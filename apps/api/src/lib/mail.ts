@@ -7,18 +7,22 @@ export type NotificationEvent =
   | 'swap_accepted'
   | 'swap_delivered'
   | 'swap_verified'
-  | 'swap_declined';
+  | 'swap_declined'
+  | 'message_received';
 
 interface NotificationPayload {
   event: NotificationEvent;
   recipientEmail: string;
   recipientName: string;
   data: {
-    swapId: string;
+    swapId?: string;
     bookTitle?: string;
     requesterName?: string;
     responderName?: string;
     deliverable?: string;
+    senderName?: string;
+    threadId?: string;
+    messagePreview?: string;
   };
 }
 
@@ -66,6 +70,8 @@ function getSubject(event: NotificationEvent): string {
       return 'Book Swap Verified';
     case 'swap_declined':
       return 'Book Swap Declined';
+    case 'message_received':
+      return 'New Message';
     default:
       return 'Book Swap Update';
   }
@@ -104,6 +110,13 @@ function getBody(event: NotificationEvent, recipientName: string, data: any): st
         <h2>Hi ${recipientName},</h2>
         <p>Your swap request has been declined.</p>
         <p>Don't worry - keep exploring other books!</p>
+      `;
+    case 'message_received':
+      return `
+        <h2>Hi ${recipientName},</h2>
+        <p>${data.senderName} sent you a message:</p>
+        <blockquote>${data.messagePreview}</blockquote>
+        <p><a href="${process.env.VITE_APP_URL || 'http://localhost:5000'}/messages/${data.threadId}">View conversation</a></p>
       `;
     default:
       return `<p>You have a new update on your book swap.</p>`;

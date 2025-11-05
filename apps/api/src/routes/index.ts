@@ -8,6 +8,9 @@ import { webhookRoutes } from './webhooks.js';
 import { reviewRoutes } from './reviews.js';
 import { aiRoutes } from './ai.js';
 import { testSupportRoutes } from './test-support.js';
+import threadRoutes from './threads.js';
+import messageRoutes from './messages.js';
+import moderationRoutes from './moderation.js';
 
 export async function routes(fastify: FastifyInstance) {
   fastify.get('/health', async () => {
@@ -34,6 +37,9 @@ export async function routes(fastify: FastifyInstance) {
   await fastify.register(webhookRoutes, { prefix: '/webhooks' });
   await fastify.register(reviewRoutes, { prefix: '/reviews' });
   await fastify.register(aiRoutes, { prefix: '/ai' });
+  await fastify.register(threadRoutes);
+  await fastify.register(messageRoutes);
+  await fastify.register(moderationRoutes, { prefix: '/moderation' });
   
   // Test support routes (only enabled in test environment)
   await fastify.register(testSupportRoutes, { prefix: '/test' });
