@@ -70,6 +70,41 @@ enum ReportStatus {
   DISMISSED
 }
 
+enum JoinRules {
+  OPEN
+  APPROVAL
+  INVITE_ONLY
+}
+
+enum PollType {
+  PITCH
+  BOOK
+}
+
+enum PollStatus {
+  DRAFT
+  OPEN
+  CLOSED
+  ARCHIVED
+}
+
+enum PitchStatus {
+  SUBMITTED
+  ACCEPTED
+  REJECTED
+  ARCHIVED
+}
+
+enum PointType {
+  SWAP_VERIFIED
+  ON_TIME_DELIVERY
+  PITCH_SELECTED
+  VOTE_PARTICIPATION
+  REVIEW_VERIFIED
+  SOCIAL_SHARE
+  HOST_ACTION
+}
+
 // Models
 model User {
   id                   String    @id
@@ -83,6 +118,8 @@ model User {
   stripeSubscriptionId String?
   aiCallsToday         Int       @default(0)
   aiCallsResetAt       DateTime  @default(now())
+  points               Int       @default(0)
+  reputation           Int       @default(0)
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
@@ -101,6 +138,10 @@ model User {
   reviewedMessages   Message[]          @relation("ReviewedMessages")
   reportedMessages   ModerationReport[] @relation("ReportedMessages")
   reviewedReports    ModerationReport[] @relation("ReviewedReports")
+  pitches            Pitch[]
+  pointEntries       PointLedger[]
+  votes              Vote[]
+  pollsCreated       Poll[]
 
   @@index([role])
   @@index([tier])
@@ -123,11 +164,13 @@ model Book {
   updatedAt   DateTime      @updatedAt
 
   // Relations
-  owner          User        @relation("UserBooks", fields: [ownerId], references: [id], onDelete: Cascade)
-  swapsOffered   Swap[]      @relation("BookOffered")
-  swapsRequested Swap[]      @relation("BookRequested")
+  owner          User         @relation("UserBooks", fields: [ownerId], references: [id], onDelete: Cascade)
+  swapsOffered   Swap[]       @relation("BookOffered")
+  swapsRequested Swap[]       @relation("BookRequested")
   embeddings     Embedding[]
   reviews        Review[]
+  pitches        Pitch[]
+  pollOptions    PollOption[]
 
   @@index([ownerId])
   @@index([isAvailable])
@@ -141,16 +184,21 @@ model Club {
   genres      String[] @default([])
   imageUrl    String?
   createdById String
-  maxMembers  Int      @default(50)
-  isPublic    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  maxMembers       Int       @default(50)
+  isPublic         Boolean   @default(true)
+  joinRules        JoinRules @default(OPEN)
+  chosenBookId     String?
+  chosenBookAt     DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   // Relations
   createdBy      User            @relation("ClubCreator", fields: [createdById], references: [id])
   memberships    Membership[]
   embeddings     Embedding[]
   messageThreads MessageThread[]
+  pitches        Pitch[]
+  polls          Poll[]
 
   @@index([createdById])
   @@index([isPublic])
@@ -161,10 +209,11 @@ model Membership {
   id        String           @id @default(uuid())
   userId    String
   clubId    String
-  role      MembershipRole   @default(PENDING)
-  status    MembershipStatus @default(PENDING)
-  joinedAt  DateTime         @default(now())
-  invitedBy String?
+  role        MembershipRole   @default(PENDING)
+  status      MembershipStatus @default(PENDING)
+  permissions Json?
+  joinedAt    DateTime         @default(now())
+  invitedBy   String?
 
   // Relations
   user    User  @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -345,4 +394,107 @@ model Embedding {
   @@unique([clubId])
   @@index([entityType])
   @@map("embeddings")
+}
+
+model Pitch {
+  id            String       @id @default(uuid())
+  authorId      String
+  bookId        String
+  targetClubId  String?
+  title         String
+  synopsis      String?      @db.Text
+  sampleUrl     String?
+  status        PitchStatus  @default(SUBMITTED)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  // Relations
+  author      User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  book        Book         @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  targetClub  Club?        @relation(fields: [targetClubId], references: [id], onDelete: Cascade)
+  pollOptions PollOption[]
+
+  @@index([authorId])
+  @@index([bookId])
+  @@index([targetClubId])
+  @@index([status])
+  @@map("pitches")
+}
+
+model Poll {
+  id        String     @id @default(uuid())
+  clubId    String
+  type      PollType
+  status    PollStatus @default(DRAFT)
+  opensAt   DateTime?
+  closesAt  DateTime?
+  createdBy String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  // Relations
+  club    Club         @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  creator User         @relation(fields: [createdBy], references: [id])
+  options PollOption[]
+  votes   Vote[]
+
+  @@index([clubId])
+  @@index([status])
+  @@index([createdBy])
+  @@map("polls")
+}
+
+model PollOption {
+  id      String  @id @default(uuid())
+  pollId  String
+  pitchId String?
+  bookId  String?
+  label   String
+
+  // Relations
+  poll  Poll   @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  pitch Pitch? @relation(fields: [pitchId], references: [id], onDelete: Cascade)
+  book  Book?  @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  votes Vote[]
+
+  @@index([pollId])
+  @@index([pitchId])
+  @@index([bookId])
+  @@map("poll_options")
+}
+
+model Vote {
+  id       String   @id @default(uuid())
+  pollId   String
+  userId   String
+  optionId String
+  createdAt DateTime @default(now())
+
+  // Relations
+  poll   Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  option PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@unique([pollId, userId])
+  @@index([userId])
+  @@index([optionId])
+  @@map("votes")
+}
+
+model PointLedger {
+  id        String    @id @default(uuid())
+  userId    String
+  type      PointType
+  amount    Int
+  refType   String?
+  refId     String?
+  createdAt DateTime  @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type, refType, refId])
+  @@index([userId])
+  @@index([type])
+  @@map("point_ledger")
 }
