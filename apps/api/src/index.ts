@@ -5,6 +5,7 @@ import { config } from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import { routes } from './routes/index.js';
+import { versionRoutes } from './routes/version.js';
 import { supabaseAuth } from './middleware/auth.js';
 import { ensureStripeProducts } from './lib/stripe.js';
 import { initializeOpenAI } from './lib/ai.js';
@@ -55,6 +56,9 @@ fastify.addHook('onRequest', async (request, reply) => {
 
 // Mount all API routes under /api/*
 await fastify.register(routes, { prefix: '/api' });
+
+// Register version endpoint
+await fastify.register(versionRoutes);
 
 // Initialize Stripe products on startup
 await ensureStripeProducts();
