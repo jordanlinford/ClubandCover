@@ -168,6 +168,7 @@ model User {
   notifications      Notification[]
   settings           UserSetting?
   checklistProgress  ChecklistProgress[]
+  emailLogs          EmailLog[]
 
   @@index([role])
   @@index([tier])
@@ -591,4 +592,17 @@ model ChecklistProgress {
   @@unique([userId, code, stepKey])
   @@index([userId, code])
   @@map("checklist_progress")
+}
+
+model EmailLog {
+  id        String   @id @default(uuid())
+  userId    String
+  emailType String
+  sentAt    DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, emailType, sentAt])
+  @@map("email_logs")
 }

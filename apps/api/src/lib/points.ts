@@ -13,6 +13,7 @@ export const POINT_VALUES: Record<PointType, number> = {
   REVIEW_VERIFIED: 10,      // Points for verified book review
   SOCIAL_SHARE: 5,          // Points for sharing content
   HOST_ACTION: 15,          // Points for hosting club activities
+  REFERRAL_ACTIVATED: 50,   // Points for successful referral (referrer gets 50, referee gets 25)
 } as const;
 
 /**

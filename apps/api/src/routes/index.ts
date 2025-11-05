@@ -13,6 +13,14 @@ import messageRoutes from './messages.js';
 import moderationRoutes from './moderation.js';
 import pitchesRoutes from './pitches.js';
 import pollsRoutes from './polls.js';
+import { referralsRoutes } from './referrals.js';
+import { notificationsRoutes } from './notifications.js';
+import { settingsRoutes } from './settings.js';
+import { discoverRoutes } from './discover.js';
+import { checklistsRoutes } from './checklists.js';
+import { analyticsRoutes } from './analytics.js';
+import { cronRoutes } from './cron.js';
+import { pollsFullRoutes } from './polls_full.js';
 
 export async function routes(fastify: FastifyInstance) {
   fastify.get('/health', async () => {
@@ -44,6 +52,16 @@ export async function routes(fastify: FastifyInstance) {
   await fastify.register(moderationRoutes, { prefix: '/moderation' });
   await fastify.register(pitchesRoutes, { prefix: '/pitches' });
   await fastify.register(pollsRoutes, { prefix: '/polls' });
+  
+  // Sprint 5: Growth & Stickiness features
+  await fastify.register(referralsRoutes);
+  await fastify.register(notificationsRoutes);
+  await fastify.register(settingsRoutes);
+  await fastify.register(discoverRoutes);
+  await fastify.register(checklistsRoutes);
+  await fastify.register(analyticsRoutes);
+  await fastify.register(cronRoutes);
+  await fastify.register(pollsFullRoutes);
   
   // Test support routes (only enabled in test environment)
   await fastify.register(testSupportRoutes, { prefix: '/test' });
