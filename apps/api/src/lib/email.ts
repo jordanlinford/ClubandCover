@@ -1,4 +1,5 @@
 import { prisma } from './prisma.js';
+import { buildReferralUrl } from './referrals.js';
 
 /**
  * Email provider types
@@ -9,7 +10,7 @@ export type EmailProvider = 'resend' | 'sendgrid' | 'none';
  * Email configuration from environment
  */
 const EMAIL_PROVIDER = (process.env.EMAIL_PROVIDER || 'none') as EmailProvider;
-const EMAIL_FROM = process.env.EMAIL_FROM || 'noreply@bookclub.app';
+const EMAIL_FROM = process.env.EMAIL_FROM || 'Book Pitch <noreply@bookpitch.app>';
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 
 /**
@@ -217,17 +218,21 @@ export const emailTemplates = {
     `,
   }),
 
-  referralActivated: (points: number, referralCode: string) => ({
-    subject: `🎁 You earned ${points} points from a referral!`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #333;">🎁 Referral Reward</h2>
-        <p>Someone used your referral code <strong>${referralCode}</strong>!</p>
-        <p>You've earned <strong>${points} points</strong>.</p>
-        <p style="margin-top: 30px; color: #666; font-size: 14px;">
-          You can manage your email preferences in your account settings.
-        </p>
-      </div>
-    `,
-  }),
+  referralActivated: (points: number, referralCode: string) => {
+    const referralUrl = buildReferralUrl(referralCode);
+    return {
+      subject: `🎁 You earned ${points} points from a referral!`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">🎁 Referral Reward</h2>
+          <p>Someone used your referral code <strong>${referralCode}</strong>!</p>
+          ${referralUrl ? `<p>Share your link: <a href="${referralUrl}" style="color: #4F46E5;">${referralUrl}</a></p>` : ''}
+          <p>You've earned <strong>${points} points</strong>.</p>
+          <p style="margin-top: 30px; color: #666; font-size: 14px;">
+            You can manage your email preferences in your account settings.
+          </p>
+        </div>
+      `,
+    };
+  },
 };

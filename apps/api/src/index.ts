@@ -20,11 +20,14 @@ const fastify = Fastify({
   },
 });
 
-// CORS: allow * for single-port Replit setup
+// CORS: use env variable or fallback to wildcard
 await fastify.register(cors, {
-  origin: '*',
+  origin: process.env.CORS_ORIGIN || '*',
   credentials: true,
 });
+
+// Log CORS configuration
+fastify.log.info({ corsOrigin: process.env.CORS_ORIGIN || '*' }, 'CORS configured');
 
 // Serve web build from apps/web/dist
 await fastify.register(fastifyStatic, {

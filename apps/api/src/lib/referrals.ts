@@ -4,10 +4,22 @@ import { createNotification } from './notifications.js';
 
 const REFERRAL_CODE_LENGTH = 8;
 const MAX_REWARDED_ACTIVATIONS_PER_DAY = 5;
+const REF_BASE = process.env.REFERRAL_BASE_URL || '';
+
+/**
+ * Build a full referral URL with base domain
+ * If no base set, returns code-only URL fragment for graceful fallback
+ */
+export function buildReferralUrl(code: string): string {
+  return REF_BASE 
+    ? `${REF_BASE}?ref=${encodeURIComponent(code)}` 
+    : `?ref=${encodeURIComponent(code)}`;
+}
 
 export interface ReferralResult {
   code: string;
   id: string;
+  url: string;
 }
 
 export interface ActivationResult {
@@ -52,6 +64,7 @@ export async function createReferralCode(userId: string): Promise<ReferralResult
       return {
         code: referral.code,
         id: referral.id,
+        url: buildReferralUrl(referral.code),
       };
     } catch (error: any) {
       // If unique constraint violation, try again
@@ -209,7 +222,7 @@ export async function getUserReferrals(userId: string) {
       referee: {
         select: {
           id: true,
-          displayName: true,
+          name: true,
           email: true,
         },
       },

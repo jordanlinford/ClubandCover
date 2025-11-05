@@ -4,34 +4,24 @@ import { deleteOldNotifications } from '../lib/notifications.js';
 import { sendNotificationEmail, emailTemplates } from '../lib/email.js';
 import { createNotification } from '../lib/notifications.js';
 
-const CRON_KEY = process.env.CRON_KEY || '';
-
 /**
- * Middleware to verify cron job requests
+ * Lightweight guard to verify cron job requests
+ * Checks query param ?key=... or header x-cron-key
  */
-function verifyCronKey(request: any, reply: any, done: any) {
-  const authHeader = request.headers.authorization;
-
-  if (!CRON_KEY) {
-    return reply.status(503).send({
-      success: false,
-      error: 'Cron jobs not configured',
-    });
+function requireCronKey(req: any, reply: any): boolean {
+  const key = req.query?.key || req.headers['x-cron-key'];
+  if (!process.env.CRON_KEY || !key || key !== process.env.CRON_KEY) {
+    reply.code(403).send({ error: 'Forbidden' });
+    return true; // blocked
   }
-
-  if (authHeader !== `Bearer ${CRON_KEY}`) {
-    return reply.status(401).send({
-      success: false,
-      error: 'Unauthorized',
-    });
-  }
-
-  done();
+  return false; // allowed
 }
 
 export async function cronRoutes(fastify: FastifyInstance) {
   // Clean up old notifications (runs daily)
-  fastify.post('/api/cron/cleanup-notifications', { onRequest: [verifyCronKey] }, async (request, reply) => {
+  fastify.post('/api/cron/cleanup-notifications', async (request, reply) => {
+    if (requireCronKey(request, reply)) return;
+    
     try {
       const count = await deleteOldNotifications();
 
@@ -50,7 +40,9 @@ export async function cronRoutes(fastify: FastifyInstance) {
   });
 
   // Send poll closing reminders (runs hourly)
-  fastify.post('/api/cron/poll-reminders', { onRequest: [verifyCronKey] }, async (request, reply) => {
+  fastify.post('/api/cron/poll-reminders', async (request, reply) => {
+    if (requireCronKey(request, reply)) return;
+    
     try {
       // Find polls closing in the next 24 hours
       const twentyFourHoursFromNow = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -97,7 +89,7 @@ export async function cronRoutes(fastify: FastifyInstance) {
           // Create notification
           await createNotification(membership.userId, 'POLL_CLOSING', {
             pollId: poll.id,
-            pollTitle: poll.title,
+            pollTitle: `Poll in ${poll.club.name}`,
             clubName: poll.club.name,
             hoursLeft,
           });
@@ -106,7 +98,7 @@ export async function cronRoutes(fastify: FastifyInstance) {
           // Send email reminder
           const emailTemplate = emailTemplates.pollClosingSoon(
             poll.club.name,
-            poll.title,
+            `Poll in ${poll.club.name}`,
             hoursLeft
           );
 
@@ -139,7 +131,9 @@ export async function cronRoutes(fastify: FastifyInstance) {
   });
 
   // Reset AI call limits (runs daily)
-  fastify.post('/api/cron/reset-ai-limits', { onRequest: [verifyCronKey] }, async (request, reply) => {
+  fastify.post('/api/cron/reset-ai-limits', async (request, reply) => {
+    if (requireCronKey(request, reply)) return;
+    
     try {
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
