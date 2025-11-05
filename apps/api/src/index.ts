@@ -66,6 +66,10 @@ if (process.env.ENABLE_TEST_ROUTES === "1") {
   fastify.log.info('[TEST] Test-seed route enabled');
 }
 
+// ✅ Temporary Sprint-4 migration endpoint
+const { default: adminMigrateRoutes } = await import("./routes/admin-migrate.js");
+await fastify.register(adminMigrateRoutes);
+
 const start = async () => {
   try {
     const PORT = Number(process.env.PORT) || 5000;
