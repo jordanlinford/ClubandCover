@@ -19,7 +19,7 @@ function requireCronKey(req: any, reply: any): boolean {
 
 export async function cronRoutes(fastify: FastifyInstance) {
   // Clean up old notifications (runs daily)
-  fastify.post('/api/cron/cleanup-notifications', async (request, reply) => {
+  fastify.post('/cron/cleanup-notifications', async (request, reply) => {
     if (requireCronKey(request, reply)) return;
     
     try {
@@ -40,7 +40,7 @@ export async function cronRoutes(fastify: FastifyInstance) {
   });
 
   // Send poll closing reminders (runs hourly)
-  fastify.post('/api/cron/poll-reminders', async (request, reply) => {
+  fastify.post('/cron/poll-reminders', async (request, reply) => {
     if (requireCronKey(request, reply)) return;
     
     try {
@@ -131,7 +131,7 @@ export async function cronRoutes(fastify: FastifyInstance) {
   });
 
   // Reset AI call limits (runs daily)
-  fastify.post('/api/cron/reset-ai-limits', async (request, reply) => {
+  fastify.post('/cron/reset-ai-limits', async (request, reply) => {
     if (requireCronKey(request, reply)) return;
     
     try {
@@ -164,7 +164,7 @@ export async function cronRoutes(fastify: FastifyInstance) {
   });
 
   // Health check endpoint
-  fastify.get('/api/cron/health', async (request, reply) => {
+  fastify.get('/cron/health', async (request, reply) => {
     return reply.send({
       success: true,
       data: {
