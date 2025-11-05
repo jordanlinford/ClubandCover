@@ -1,4 +1,10 @@
-import type { ApiResponse, Book, CreateBook, Club, CreateClub, Swap, GenerateBlurbRequest, MatchRequest, MatchResult, IndexOneRequest } from '@repo/types';
+import type { 
+  ApiResponse, Book, CreateBook, Club, CreateClub, Swap, 
+  GenerateBlurbRequest, MatchRequest, MatchResult, IndexOneRequest,
+  Pitch, CreatePitch, UpdatePitch,
+  Poll, PollOption, Vote, CreatePoll, CreatePollOption, UpdatePoll, CreateVote, PollResults,
+  UserPoints, PointLedger, ChooseBookRequest, ChooseBookResponse
+} from '@repo/types';
 import { supabase } from './supabase';
 
 const API_URL = import.meta.env.VITE_API_URL ?? '/api';
@@ -157,6 +163,67 @@ class ApiClient {
 
   async getConfig(): Promise<{ supabaseBackend: boolean; openaiBackend: boolean }> {
     return this.get<{ supabaseBackend: boolean; openaiBackend: boolean }>('/debug/config');
+  }
+
+  // Pitches API
+  async getPitches(params?: { authorId?: string; clubId?: string; status?: string }): Promise<Pitch[]> {
+    const query = new URLSearchParams();
+    if (params?.authorId) query.append('authorId', params.authorId);
+    if (params?.clubId) query.append('clubId', params.clubId);
+    if (params?.status) query.append('status', params.status);
+    const queryString = query.toString();
+    return this.get<Pitch[]>(`/pitches${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getPitch(id: string): Promise<Pitch> {
+    return this.get<Pitch>(`/pitches/${id}`);
+  }
+
+  async createPitch(data: CreatePitch): Promise<Pitch> {
+    return this.post<Pitch>('/pitches', data);
+  }
+
+  async updatePitch(id: string, data: UpdatePitch): Promise<Pitch> {
+    return this.patch<Pitch>(`/pitches/${id}`, data);
+  }
+
+  // Polls API
+  async createPoll(clubId: string, data: CreatePoll): Promise<Poll> {
+    return this.post<Poll>(`/clubs/${clubId}/polls`, data);
+  }
+
+  async getPoll(id: string): Promise<Poll> {
+    return this.get<Poll>(`/polls/${id}`);
+  }
+
+  async updatePoll(id: string, data: UpdatePoll): Promise<Poll> {
+    return this.patch<Poll>(`/polls/${id}`, data);
+  }
+
+  async addPollOption(pollId: string, data: CreatePollOption): Promise<PollOption> {
+    return this.post<PollOption>(`/polls/${pollId}/options`, data);
+  }
+
+  async vote(pollId: string, data: CreateVote): Promise<Vote> {
+    return this.post<Vote>(`/polls/${pollId}/votes`, data);
+  }
+
+  async getPollResults(pollId: string): Promise<PollResults> {
+    return this.get<PollResults>(`/polls/${pollId}/results`);
+  }
+
+  // Clubs - Choose Book
+  async chooseBook(clubId: string, data: ChooseBookRequest): Promise<ChooseBookResponse> {
+    return this.post<ChooseBookResponse>(`/clubs/${clubId}/choose-book`, data);
+  }
+
+  // Points API
+  async getUserPoints(userId: string): Promise<UserPoints> {
+    return this.get<UserPoints>(`/users/${userId}/points`);
+  }
+
+  async getUserLedger(userId: string): Promise<PointLedger[]> {
+    return this.get<PointLedger[]>(`/users/${userId}/ledger`);
   }
 }
 

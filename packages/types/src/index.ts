@@ -9,3 +9,6 @@ export * from './review';
 export * from './billing';
 export * from './ai';
 export * from './messaging';
+export * from './pitch';
+export * from './poll';
+export * from './points';
