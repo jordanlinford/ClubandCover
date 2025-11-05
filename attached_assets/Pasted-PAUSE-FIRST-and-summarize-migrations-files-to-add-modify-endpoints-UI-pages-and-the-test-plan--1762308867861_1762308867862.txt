@@ -1,0 +1,172 @@
+PAUSE FIRST and summarize: migrations, files to add/modify, endpoints, UI pages, and the test plan. Wait for my OK before executing.
+Sprint-4: Pitches, Voting, Points
+Goal: Authors pitch; Hosts/Co-hosts curate votes or pick outright; Points/reputation awarded.
+Schema (Prisma)
+
+
+Enums:
+JoinRules { OPEN, APPROVAL, INVITE_ONLY }
+PollType { PITCH, BOOK }
+PollStatus { DRAFT, OPEN, CLOSED, ARCHIVED }
+
+
+Models (new):
+Pitch(id, authorId, bookId, targetClubId?, title, synopsis?, sampleUrl?, status=SUBMITTED, createdAt/updatedAt)
+Poll(id, clubId, type, status=DRAFT, opensAt?, closesAt?, createdBy, createdAt)
+PollOption(id, pollId, pitchId?, bookId?, label)
+Vote(id, pollId, userId, optionId, createdAt) with @@unique([pollId, userId])
+PointLedger(id, userId, type, amount, refType?, refId?, createdAt)
+
+
+Model (changes):
+Club: add joinRules JoinRules @default(OPEN)
+Membership: add permissions Json? (host-controlled toggles like { canKick, canChooseBook, canRunVotes })
+
+
+User: keep points Int @default(0) and reputation Int @default(0); add relation pointEntries PointLedger[].
+
+
+Backend Endpoints
+
+
+Pitches (Author-only)
+POST /api/pitches (create)
+GET /api/pitches?authorId=&clubId=&status=
+PATCH /api/pitches/:id (edit/archive; Author or STAFF)
+
+
+Club Polls (Host/Co-host with permission)
+POST /api/clubs/:clubId/polls (create poll, type=PITCH or BOOK)
+POST /api/polls/:id/options (add options: pitchId or bookId)
+PATCH /api/polls/:id (open/close, set opensAt/closesAt)
+GET /api/polls/:id (details; if CLOSED include tallies)
+POST /api/polls/:id/votes (member vote; one per poll)
+GET /api/polls/:id/results (CLOSED only)
+
+
+Membership rules
+Enforce OPEN/APPROVAL/INVITE_ONLY on POST /api/memberships (invite tokens supported).
+
+
+Points service
+Helper: awardPoints(userId, type, amount, refType?, refId?) → insert ledger, update User.points (idempotent by (userId,type,refType,refId)).
+
+
+Default Point Values (implement constants)
+
+
+SWAP_VERIFIED +50
+
+
+ON_TIME_DELIVERY +10
+
+
+PITCH_SELECTED +100 (to winning pitch’s author)
+
+
+VOTE_PARTICIPATION +3
+
+
+REVIEW_VERIFIED +10
+
+
+SOCIAL_SHARE +2
+
+
+HOST_ACTION +1 (small engagement nudge)
+
+
+Reputation formula (compute nightly or on write)
+
+
+reputation = points + (5 * verifiedReviews) + (2 * onTimeSwaps)
+
+
+RBAC/Rules
+
+
+Only Authors can POST /pitches.
+
+
+Poll create/open/close: Host or Co-host with permissions.canRunVotes=true.
+
+
+“Choose Book Now” (no poll): Host or Co-host with permissions.canChooseBook=true → record event + optional points.
+
+
+Voting: Active club members only; one vote per poll.
+
+
+Non-members voting → 403; non-authors creating pitches → 403.
+
+
+Frontend
+
+
+Author: /pitches (list), /pitches/new, /pitches/:id (edit/view).
+
+
+Club Host Console: “Pitch Inbox” (targeted pitches), “Start Vote” (build poll from pitches/books), “Choose Book Now” (if allowed).
+
+
+Club Member: “Current Vote” panel with countdown; cast vote; results only after close.
+
+
+Profile: show points and reputation badge.
+
+
+Acceptance Tests
+
+
+Author Pitch: Author creates pitch → appears for Author and (if targeted) in Club’s Pitch Inbox.
+
+
+Poll Creation: Host creates PITCH poll; members see OPEN poll.
+
+
+Voting: Member votes once → duplicate returns 409; results visible only after CLOSE.
+
+
+Choose Outright: Host uses “Choose Book Now” when permitted; action recorded.
+
+
+Points: Voting grants VOTE_PARTICIPATION; pitch win grants PITCH_SELECTED; User.points and ledger rows update.
+
+
+Join Rules: OPEN immediate; APPROVAL = pending→approve; INVITE_ONLY requires token.
+
+
+Co-host Toggles: disabling canRunVotes blocks poll creation (403); enabling allows.
+
+
+Security: Non-members cannot vote; non-authors cannot create pitches; all Zod validated.
+
+
+Docs
+
+
+Update docs/ROUTE_MAP.md (pitches, polls, votes, points).
+
+
+Append results to docs/TEST_LOG.md and mark Sprint-4 “In progress / Completed” in docs/sprint-plan.md.
+
+
+Pause after planning and print: migration diff, files list, and the test plan. Then implement.
+
+
+Small guardrails to keep you fast
+
+
+Idempotent points: protect with a unique composite index on (userId,type,refType,refId) where refId not null.
+
+
+Poll windows: enforce now ∈ [opensAt, closesAt] to accept votes.
+
+
+Club membership checks on all poll/vote endpoints.
+
+
+Toggles live in Membership.permissions JSON; default false for Co-host until Host enables.
+
+
+When the Agent posts its plan, reply “Approved — proceed,” and I’ll stick around to triage anything that pops up.
