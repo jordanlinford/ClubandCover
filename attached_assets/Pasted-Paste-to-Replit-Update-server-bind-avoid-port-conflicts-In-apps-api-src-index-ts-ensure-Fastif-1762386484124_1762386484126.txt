@@ -1,0 +1,150 @@
+Paste to Replit:
+
+Update server bind + avoid port conflicts
+
+In apps/api/src/index.ts, ensure Fastify listens on process.env.PORT || 5000 and host 0.0.0.0:
+
+const port = Number(process.env.PORT || 5000);
+await fastify.listen({ port, host: '0.0.0.0' });
+fastify.log.info({ port }, 'Server started');
+
+
+Confirm only one process starts the server. In the root package.json/Replit Run command, do not launch both dev and prod at once.
+
+Print the final start command used for deploy.
+
+Prompt 2 — Serve the built frontend + SPA fallback
+
+Paste:
+
+Serve React build + SPA fallback (prevent “Not Found”)
+
+Ensure the web bundle exists:
+
+pnpm --filter web build
+
+
+In apps/api/src/index.ts, register static + fallback (adjust paths if your monorepo differs):
+
+import path from 'path';
+import fastifyStatic from '@fastify/static';
+import fastifyReplyFrom from '@fastify/reply-from';
+// static
+await fastify.register(fastifyStatic, {
+  root: path.join(__dirname, '../../web/dist'),
+  prefix: '/', // serve assets
+});
+// API stays under /api/*
+// SPA fallback for non-API routes:
+fastify.setNotFoundHandler((req, reply) => {
+  if (req.url.startsWith('/api/')) {
+    return reply.code(404).send({ error: 'Not Found' });
+  }
+  return reply.sendFile('index.html'); // from web/dist
+});
+
+
+Print a short diff of files changed.
+
+Prompt 3 — CORS: allow both preview + production URLs
+
+Paste:
+
+CORS allow-list for multiple origins
+
+In apps/api/src/index.ts, support a comma-separated env (CORS_ORIGIN) and allow both your preview and primary deployment URLs:
+
+import cors from '@fastify/cors';
+const raw = process.env.CORS_ORIGIN || '*';
+const allowed = raw === '*' ? '*' : raw.split(',').map(s => s.trim());
+await fastify.register(cors, {
+  origin: (origin, cb) => {
+    if (allowed === '*') return cb(null, true);
+    if (!origin) return cb(null, false);
+    cb(null, allowed.includes(origin));
+  },
+  credentials: true,
+});
+fastify.log.info({ allowed }, 'CORS configured');
+
+
+Set CORS_ORIGIN now to include both:
+
+CORS_ORIGIN=https://Book-Pitch--jordanlinford.replit.app,https://book-pitch-jordanlinford.replit.app
+
+
+Restart and print the Access-Control-Allow-Origin header for each origin.
+
+Prompt 4 — Publish deployment (and sync secrets to deployment env)
+
+Paste:
+
+Publish app + mirror secrets to deployment
+
+Build then start:
+
+pnpm --filter web build
+pnpm --filter server build
+pnpm --filter server start
+
+
+Use Replit’s Publish / Autoscale Deployment.
+
+Ensure the deployment environment has these secrets (same values as workspace):
+
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=<your_resend_key>
+EMAIL_FROM="Book Pitch <noreply@replit.app>"
+CORS_ORIGIN=https://Book-Pitch--jordanlinford.replit.app,https://book-pitch-jordanlinford.replit.app
+REFERRAL_BASE_URL=https://Book-Pitch--jordanlinford.replit.app/ref
+CRON_KEY=<64-hex>
+
+
+Print the primary URL after publish.
+
+Prompt 5 — Public smoke at the published URL
+
+Paste (Replit will run these and echo results):
+
+Public URL smoke tests
+Replace $PUB with your primary URL.
+
+PUB="https://book-pitch-jordanlinford.replit.app"
+
+# Health & version
+curl -s $PUB/api/health
+curl -s $PUB/api/version
+
+# CORS checks (both origins)
+curl -s -i -H "Origin: https://Book-Pitch--jordanlinford.replit.app" $PUB/api/health | grep -i access-control-allow-origin
+curl -s -i -H "Origin: https://book-pitch-jordanlinford.replit.app" $PUB/api/health | grep -i access-control-allow-origin
+
+# SPA fallback (should serve index.html, status 200, not 404)
+curl -s -I $PUB/pitches | head -n 1
+
+# Cron protection
+curl -s -X POST $PUB/api/cron/poll-reminders                  # expect 403
+curl -s -X POST "$PUB/api/cron/poll-reminders?key=$CRON_KEY"  # expect 200
+
+
+If anything fails, print the failing command, status, and response body.
+
+Prompt 6 — Final deploy checklist (printer-friendly)
+
+Paste:
+
+Print Final Deployment Checklist
+
+Server binds to 0.0.0.0:${PORT} ✅
+
+SPA fallback returns index.html for non-API routes ✅
+
+CORS allow-list shows both origins ✅
+
+Public /api/health & /api/version return 200 ✅
+
+Cron endpoint 403 without key / 200 with key ✅
+
+Secrets mirrored to deployment env (masked) ✅
+
+Primary URL echoed ✅

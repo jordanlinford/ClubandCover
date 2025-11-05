@@ -21,14 +21,27 @@ const fastify = Fastify({
   },
 });
 
-// CORS: use env variable or fallback to wildcard
+// CORS: support comma-separated list of allowed origins
+const rawOrigins = process.env.CORS_ORIGIN || '*';
+const allowedOrigins = rawOrigins === '*' ? '*' : rawOrigins.split(',').map(s => s.trim());
+
 await fastify.register(cors, {
-  origin: process.env.CORS_ORIGIN || '*',
+  origin: (origin, cb) => {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return cb(null, true);
+    
+    // If wildcard, allow all
+    if (allowedOrigins === '*') return cb(null, true);
+    
+    // Check if origin is in allowed list
+    const allowed = allowedOrigins.includes(origin);
+    cb(null, allowed);
+  },
   credentials: true,
 });
 
 // Log CORS configuration
-fastify.log.info({ corsOrigin: process.env.CORS_ORIGIN || '*' }, 'CORS configured');
+fastify.log.info({ allowedOrigins }, 'CORS configured');
 
 // Serve web build from apps/web/dist
 await fastify.register(fastifyStatic, {
@@ -79,13 +92,14 @@ await fastify.register(adminMigrateRoutes);
 
 const start = async () => {
   try {
-    const PORT = Number(process.env.PORT) || 5000;
-    const host = process.env.HOST || '0.0.0.0';
+    const port = Number(process.env.PORT) || 5000;
+    const host = '0.0.0.0';
     
-    await fastify.listen({ port: PORT, host });
-    console.log(`🚀 Server running on http://${host}:${PORT}`);
-    console.log(`📱 Web app: http://${host}:${PORT}`);
-    console.log(`🔌 API: http://${host}:${PORT}/api`);
+    await fastify.listen({ port, host });
+    fastify.log.info({ port, host }, 'Server started');
+    console.log(`🚀 Server running on http://${host}:${port}`);
+    console.log(`📱 Web app: http://${host}:${port}`);
+    console.log(`🔌 API: http://${host}:${port}/api`);
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);
