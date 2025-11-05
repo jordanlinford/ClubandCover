@@ -1,0 +1,110 @@
+Prompt 1 — Ask Replit to PLAN (don’t execute yet)
+
+PAUSE FIRST. Print a Sprint-5 implementation plan and wait for my approval.
+Include: Prisma migrations, backend routes/services, frontend pages/components, tests, docs, cron jobs, and ENV checklist.
+
+Sprint-5: Growth & Stickiness (Plan Only)
+Prisma (migration name: sprint5_growth)
+
+New models:
+
+Referral(id, referrerId, refereeId?, code@unique, status="ISSUED", activatedAt?, createdAt, updatedAt)
+
+Notification(id, userId, type, data Json, readAt?, createdAt)
+
+UserSetting(userId @id, emailOptIn @default(true))
+
+ChecklistProgress(id, userId, code, stepKey, doneAt) with @@unique([userId, code, stepKey])
+
+FTS index SQL for Pitch (and optional Club/Book): GIN index on to_tsvector('english', title || ' ' || coalesce(synopsis,'')).
+
+Backend
+
+Routes:
+
+routes/referrals.ts:
+
+POST /api/referrals → create code & url
+
+POST /api/referrals/claim (on sign-up with ?ref=<code>)
+
+POST /api/referrals/:id/activate (first meaningful action) → awards points idempotently
+
+GET /api/referrals/mine
+
+routes/notifications.ts: GET /api/notifications, POST /api/notifications/:id/read
+
+routes/settings.ts: GET/PATCH /api/settings/notifications
+
+routes/discover.ts: GET /api/discover/search?q=&type=pitch|club&genres=&minPoints=&page=, GET /api/discover/trending
+
+routes/checklists.ts: GET /api/checklists/:code, POST /api/checklists/:code/steps/:stepKey/done
+
+One-shot Poll Builder routes/polls_full.ts: POST /api/clubs/:clubId/polls/full → creates poll + options in one txn
+
+Services:
+
+services/referrals.ts (generate codes, idempotent activation, points)
+
+services/notifications.ts (dispatch in-app + enqueue email)
+
+services/email.ts (provider adapter: Resend/SendGrid)
+
+Cron endpoints:
+
+POST /api/admin/cron/poll-reminders?key=CRON_KEY → sends POLL_CLOSING 2h reminders
+
+Points wiring: REFERRAL_ACTIVATED (+50 referrer, +25 referee) via existing awardPoints()
+
+Frontend
+
+Pages:
+
+/referrals (copy link, history, totals)
+
+/discover (search + filters + trending tabs)
+
+/onboarding (role-based checklist UI)
+
+/author/analytics (light funnel: impressions→votes→selections)
+
+Components:
+
+NotificationBell + NotificationList
+
+Polish: add onError to all Sprint-4 mutations + disable buttons during pending; update PollBuilderModal to use one-shot endpoint.
+
+Tests
+
+API (vitest + supertest): referrals.test.ts, notifications.test.ts, discover.test.ts, checklists.test.ts, polls_full.test.ts
+
+E2E (Playwright): referral flow, notifications flow, discovery flow, onboarding flow, author analytics visibility
+
+Docs
+
+Update docs/ROUTE_MAP.md, docs/TEST_LOG.md, docs/sprint-plan.md (Sprint-5 → In progress)
+
+Add docs/NOTIFICATIONS.md (event triggers + email templates)
+
+ENV checklist (print exact names):
+
+EMAIL_PROVIDER=sendgrid|resend
+EMAIL_PROVIDER_API_KEY=...
+EMAIL_FROM="Book Pitch <no-reply@yourdomain.com>"
+REFERRAL_BASE_URL=https://app.yourdomain.com/ref
+CRON_KEY=<strong-random-key>
+CORS_ORIGIN=<web origin if split>
+
+
+Deliverables for this PLAN step:
+
+File tree of all additions/changes
+
+Prisma diff summary & SQL for FTS index
+
+Endpoint contracts (request/response)
+
+Test matrix (API + E2E)
+
+Any risk/edge-case notes
+Stop and wait for my approval.
