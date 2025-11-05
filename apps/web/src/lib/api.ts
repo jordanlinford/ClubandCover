@@ -3,7 +3,13 @@ import type {
   GenerateBlurbRequest, MatchRequest, MatchResult, IndexOneRequest,
   Pitch, CreatePitch, UpdatePitch,
   Poll, PollOption, Vote, CreatePoll, CreatePollOption, UpdatePoll, CreateVote, PollResults,
-  UserPoints, PointLedger, ChooseBookRequest, ChooseBookResponse
+  UserPoints, PointLedger, ChooseBookRequest, ChooseBookResponse,
+  Referral, ReferralStats,
+  Notification, UserSetting,
+  SearchParams, SearchResult, TrendingQuery, TrendingItem,
+  ChecklistCode, Checklist, CompleteStepRequest,
+  PitchAnalytics, AuthorAnalytics,
+  CreatePollFullRequest
 } from '@repo/types';
 import { supabase } from './supabase';
 
@@ -224,6 +230,77 @@ class ApiClient {
 
   async getUserLedger(userId: string): Promise<PointLedger[]> {
     return this.get<PointLedger[]>(`/users/${userId}/ledger`);
+  }
+
+  // Referrals API
+  async getReferralCode(): Promise<Referral> {
+    return this.get<Referral>('/referrals/code');
+  }
+
+  async activateReferral(request: { code: string }): Promise<{ success: boolean }> {
+    return this.post<{ success: boolean }>('/referrals/activate', request);
+  }
+
+  async getReferralStats(): Promise<ReferralStats> {
+    return this.get<ReferralStats>('/referrals/stats');
+  }
+
+  // Notifications API
+  async getNotifications(): Promise<Notification[]> {
+    return this.get<Notification[]>('/notifications');
+  }
+
+  async markNotificationRead(id: string): Promise<void> {
+    return this.patch<void>(`/notifications/${id}/read`, {});
+  }
+
+  async markAllNotificationsRead(): Promise<void> {
+    return this.post<void>('/notifications/read-all', {});
+  }
+
+  async getUnreadCount(): Promise<{ count: number }> {
+    return this.get<{ count: number }>('/notifications/unread-count');
+  }
+
+  // Settings API
+  async getUserSettings(): Promise<UserSetting> {
+    return this.get<UserSetting>('/settings');
+  }
+
+  async updateUserSettings(settings: Partial<UserSetting>): Promise<UserSetting> {
+    return this.patch<UserSetting>('/settings', settings);
+  }
+
+  // Discover API
+  async search(query: SearchParams): Promise<SearchResult<Book | Club | Pitch>> {
+    return this.post<SearchResult<Book | Club | Pitch>>('/discover/search', query);
+  }
+
+  async getTrending(query: TrendingQuery): Promise<TrendingItem[]> {
+    return this.post<TrendingItem[]>('/discover/trending', query);
+  }
+
+  // Checklists API
+  async getUserChecklists(userType: ChecklistCode): Promise<Checklist> {
+    return this.get<Checklist>(`/checklists/${userType}`);
+  }
+
+  async completeChecklistStep(request: CompleteStepRequest): Promise<{ success: boolean }> {
+    return this.post<{ success: boolean }>('/checklists/complete', request);
+  }
+
+  // Analytics API
+  async getPitchAnalytics(pitchId: string): Promise<PitchAnalytics> {
+    return this.get<PitchAnalytics>(`/analytics/pitches/${pitchId}`);
+  }
+
+  async getAuthorAnalytics(): Promise<AuthorAnalytics> {
+    return this.get<AuthorAnalytics>('/analytics/authors/me');
+  }
+
+  // Polls Full API
+  async createPollFull(request: CreatePollFullRequest): Promise<Poll> {
+    return this.post<Poll>('/polls/full', request);
   }
 }
 

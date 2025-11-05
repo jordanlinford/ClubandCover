@@ -27,3 +27,8 @@ export interface TrendingItem {
   imageUrl?: string;
   createdAt: Date;
 }
+
+export interface TrendingQuery {
+  type: 'book' | 'club' | 'pitch';
+  limit?: number;
+}

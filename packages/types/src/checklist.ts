@@ -28,3 +28,8 @@ export interface ChecklistProgressRecord {
   stepKey: string;
   doneAt: Date;
 }
+
+export interface CompleteStepRequest {
+  code: ChecklistCode;
+  stepKey: string;
+}

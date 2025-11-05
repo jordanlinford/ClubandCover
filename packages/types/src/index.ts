@@ -16,3 +16,5 @@ export * from './referral';
 export * from './notification';
 export * from './checklist';
 export * from './search';
+export * from './analytics';
+export * from './settings';

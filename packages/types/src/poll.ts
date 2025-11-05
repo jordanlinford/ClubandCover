@@ -63,3 +63,17 @@ export interface PollResults {
   }>;
   userVote?: Vote;
 }
+
+export interface CreatePollFullRequest {
+  clubId: string;
+  type: PollType;
+  title: string;
+  description?: string;
+  opensAt: string;
+  closesAt: string;
+  options: Array<{
+    text: string;
+    refType?: 'PITCH' | 'BOOK';
+    refId?: string;
+  }>;
+}
