@@ -28,8 +28,8 @@ export async function supabaseAuth(request: FastifyRequest, reply: FastifyReply)
   
   const token = authHeader.substring(7);
   
-  // Handle test tokens (only in test environment)
-  if (process.env.NODE_ENV === 'test' && token.startsWith('test-token-')) {
+  // Handle test tokens (only in test environment or when test routes enabled)
+  if ((process.env.NODE_ENV === 'test' || process.env.ENABLE_TEST_ROUTES === '1') && token.startsWith('test-token-')) {
     const userId = token.replace('test-token-', '');
     try {
       const dbUser = await prisma.user.findUnique({

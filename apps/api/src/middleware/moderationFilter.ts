@@ -4,15 +4,16 @@ import { isAIEnabled, checkToxicity } from '../lib/ai.js';
 
 /**
  * Check if content violates moderation rules
- * Returns { allowed: boolean, reason?: string }
+ * Returns { allowed: boolean, reason?: string, code?: string }
  */
-async function checkContent(content: string): Promise<{ allowed: boolean; reason?: string }> {
+async function checkContent(content: string): Promise<{ allowed: boolean; reason?: string; code?: string }> {
   // 1. Fast profanity check (always runs)
   if (containsProfanity(content)) {
     const words = findProfanity(content);
     return {
       allowed: false,
-      reason: `Content contains prohibited words: ${words.join(', ')}`
+      reason: `Content contains prohibited words: ${words.join(', ')}`,
+      code: 'MESSAGE_PROFANITY'
     };
   }
   
@@ -24,7 +25,8 @@ async function checkContent(content: string): Promise<{ allowed: boolean; reason
       if (!toxicityResult.safe) {
         return {
           allowed: false,
-          reason: toxicityResult.reason || 'Content flagged as potentially toxic'
+          reason: toxicityResult.reason || 'Content flagged as potentially toxic',
+          code: 'MESSAGE_TOXIC'
         };
       }
     } catch (error) {
@@ -68,7 +70,7 @@ export async function moderationFilter(
     return reply.code(400).send({
       success: false,
       error: result.reason || 'Message content violates community guidelines',
-      code: 'CONTENT_VIOLATION'
+      code: result.code || 'CONTENT_VIOLATION'
     });
   }
 }

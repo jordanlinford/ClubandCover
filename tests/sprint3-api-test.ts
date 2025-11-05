@@ -5,6 +5,7 @@
  */
 
 import { PrismaClient } from '../apps/api/node_modules/@prisma/client/index.js';
+import { randomUUID } from 'crypto';
 
 const prisma = new PrismaClient();
 const API_BASE = 'http://localhost:5000';
@@ -38,9 +39,12 @@ async function apiRequest(
 ): Promise<{ response: Response; data: any; status: number }> {
   const { method = 'GET', body, token } = options;
 
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
+  const headers: Record<string, string> = {};
+
+  // Only set Content-Type if there's a body
+  if (body) {
+    headers['Content-Type'] = 'application/json';
+  }
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
@@ -73,7 +77,7 @@ async function createTestUser(
     where: { email },
     update: { name, role },
     create: {
-      id: `test-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+      id: randomUUID(),
       email,
       name,
       role,
@@ -108,6 +112,13 @@ async function runTests() {
     await prisma.message.deleteMany({});
     await prisma.threadMember.deleteMany({});
     await prisma.messageThread.deleteMany({});
+    await prisma.user.deleteMany({
+      where: {
+        email: {
+          in: ['test-user1@example.com', 'test-user2@example.com', 'test-staff@example.com'],
+        },
+      },
+    });
 
     user1 = await createTestUser('test-user1@example.com', 'Test User 1', 'READER');
     user2 = await createTestUser('test-user2@example.com', 'Test User 2', 'READER');
@@ -126,7 +137,7 @@ async function runTests() {
     const { data: threadData, status: createStatus } = await apiRequest('/api/threads', {
       method: 'POST',
       token: user1.token,
-      body: { type: 'DIRECT', memberIds: [user2.id] },
+      body: { type: 'DM', recipientId: user2.id },
     });
 
     if (createStatus !== 200) {
@@ -169,10 +180,43 @@ async function runTests() {
     log(`  ✓ User2 unread count: 1`, 'green');
 
     // Mark as read
-    await apiRequest(`/api/threads/${threadId}/read`, {
+    const { data: markReadResult, status: markReadStatus } = await apiRequest(`/api/threads/${threadId}/read`, {
       method: 'POST',
       token: user2.token,
     });
+
+    if (markReadStatus !== 200) {
+      log(`  ❌ FAILED: Mark as read returned ${markReadStatus}`, 'red');
+      log(`  Response: ${JSON.stringify(markReadResult, null, 2)}`);
+      testsFailed++;
+      return;
+    }
+
+    // Small delay to ensure database update is processed
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Check database state directly
+    const membership = await prisma.threadMember.findUnique({
+      where: {
+        threadId_userId: {
+          threadId,
+          userId: user2.id,
+        },
+      },
+    });
+    log(`  [DEBUG] User2 lastReadAt: ${membership?.lastReadAt?.toISOString()}`, 'blue');
+    log(`  [DEBUG] User2 joinedAt: ${membership?.joinedAt?.toISOString()}`, 'blue');
+
+    // Check message timestamp
+    const messages = await prisma.message.findMany({
+      where: { threadId },
+      orderBy: { createdAt: 'asc' },
+    });
+    log(`  [DEBUG] Message count: ${messages.length}`, 'blue');
+    if (messages.length > 0) {
+      log(`  [DEBUG] First message createdAt: ${messages[0].createdAt.toISOString()}`, 'blue');
+      log(`  [DEBUG] First message senderId: ${messages[0].senderId}`, 'blue');
+    }
 
     const { data: user2ThreadsAfter } = await apiRequest('/api/threads/mine', {
       token: user2.token,
@@ -198,14 +242,15 @@ async function runTests() {
     const { data: rlThreadData } = await apiRequest('/api/threads', {
       method: 'POST',
       token: user1.token,
-      body: { type: 'DIRECT', memberIds: [user2.id] },
+      body: { type: 'DM', recipientId: user2.id },
     });
     const rlThreadId = rlThreadData.data.id;
 
-    log(`  Sending 30 messages rapidly...`);
+    // Note: user1 already sent 1 message in Scenario 1, so we can only send 29 more
+    log(`  Sending 29 messages rapidly (user1 already sent 1 in Scenario 1)...`);
 
-    // Send 30 messages
-    for (let i = 1; i <= 30; i++) {
+    // Send 29 messages (user1 already has 1 message from Scenario 1)
+    for (let i = 1; i <= 29; i++) {
       const { status } = await apiRequest(`/api/threads/${rlThreadId}/messages`, {
         method: 'POST',
         token: user1.token,
@@ -219,9 +264,9 @@ async function runTests() {
       }
     }
 
-    log(`  ✓ Sent 30 messages successfully`, 'green');
+    log(`  ✓ Sent 29 messages successfully (total: 30)`, 'green');
 
-    // Try 31st message
+    // Try 31st message (should be rate-limited)
     const { data: rateLimitData, status: rateLimitStatus } = await apiRequest(
       `/api/threads/${rlThreadId}/messages`,
       {
@@ -257,15 +302,15 @@ async function runTests() {
 
     const { data: profThreadData } = await apiRequest('/api/threads', {
       method: 'POST',
-      token: user1.token,
-      body: { type: 'DIRECT', memberIds: [user2.id] },
+      token: user2.token,
+      body: { type: 'DM', recipientId: staffUser.id },
     });
     const profThreadId = profThreadData.data.id;
 
-    // Clean message should work
+    // Clean message should work (using user2 to avoid rate limit)
     const { status: cleanStatus } = await apiRequest(`/api/threads/${profThreadId}/messages`, {
       method: 'POST',
-      token: user1.token,
+      token: user2.token,
       body: { content: 'This is a clean message' },
     });
 
@@ -277,12 +322,12 @@ async function runTests() {
 
     log(`  ✓ Clean message accepted`, 'green');
 
-    // Profane message should be blocked
+    // Profane message should be blocked (using user2)
     const { data: profaneData, status: profaneStatus } = await apiRequest(
       `/api/threads/${profThreadId}/messages`,
       {
         method: 'POST',
-        token: user1.token,
+        token: user2.token,
         body: { content: 'This message contains fuck word' },
       }
     );
@@ -310,18 +355,28 @@ async function runTests() {
     // ============================================================================
     log('📝 Scenario 6: Message Reporting', 'yellow');
 
+    // Use staffUser to avoid rate limits (user1 has sent 30 messages)
     const { data: reportThreadData } = await apiRequest('/api/threads', {
       method: 'POST',
-      token: user1.token,
-      body: { type: 'DIRECT', memberIds: [user2.id] },
+      token: staffUser.token,
+      body: { type: 'DM', recipientId: user2.id },
     });
     const reportThreadId = reportThreadData.data.id;
 
-    const { data: msgData } = await apiRequest(`/api/threads/${reportThreadId}/messages`, {
+    // Use a neutral message that won't be flagged (spam-like but not toxic/profane)
+    const { data: msgData, status: sendStatus } = await apiRequest(`/api/threads/${reportThreadId}/messages`, {
       method: 'POST',
-      token: user1.token,
-      body: { content: 'Inappropriate but passes filters' },
+      token: staffUser.token,
+      body: { content: 'Buy my product now!! Special limited time offer! Click here for amazing deals!' },
     });
+
+    if (sendStatus !== 200) {
+      log(`  ❌ FAILED: Send message returned ${sendStatus}`, 'red');
+      log(`  Response: ${JSON.stringify(msgData, null, 2)}`);
+      testsFailed++;
+      return;
+    }
+
     const messageId = msgData.data.id;
 
     log(`  ✓ Created message: ${messageId}`, 'green');
@@ -351,11 +406,11 @@ async function runTests() {
 
     log(`  ✓ Report created with status PENDING`, 'green');
 
-    // Try duplicate report
+    // Try duplicate report (needs 10+ characters for reason)
     const { status: dupStatus } = await apiRequest(`/api/messages/${messageId}/report`, {
       method: 'POST',
       token: user2.token,
-      body: { reason: 'Duplicate' },
+      body: { reason: 'Duplicate report test for validation' },
     });
 
     if (dupStatus !== 400) {
