@@ -18,6 +18,7 @@ export function BookFormPage() {
   const isEdit = !!match;
   const bookId = params?.id;
   const queryClient = useQueryClient();
+  const [error, setError] = useState<string>('');
 
   const { data: book } = useQuery<Book>({
     queryKey: ['/api/books', bookId],
@@ -55,7 +56,11 @@ export function BookFormPage() {
     mutationFn: (data: CreateBook) => api.createBook(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/books'] });
+      setError('');
       setLocation('/books');
+    },
+    onError: (error: Error) => {
+      setError(error.message || 'Failed to create book');
     },
   });
 
@@ -64,7 +69,11 @@ export function BookFormPage() {
       api.updateBook(bookId!, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/books'] });
+      setError('');
       setLocation(`/books/${bookId}`);
+    },
+    onError: (error: Error) => {
+      setError(error.message || 'Failed to update book');
     },
   });
 
@@ -90,6 +99,15 @@ export function BookFormPage() {
         <Card className="p-6 mt-6">
           <AIDisabledBanner />
           
+          {error && (
+            <div
+              className="mb-4 p-4 bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 rounded-md"
+              data-testid="text-error"
+            >
+              {error}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="title" className="block text-sm font-medium mb-2">

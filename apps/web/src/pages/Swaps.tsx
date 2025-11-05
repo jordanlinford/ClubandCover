@@ -10,6 +10,7 @@ import { useAuth } from '../contexts/AuthContext';
 export function SwapsPage() {
   const [activeTab, setActiveTab] = useState<'sent' | 'received'>('sent');
   const [deliverable, setDeliverable] = useState<Record<string, string>>({});
+  const [error, setError] = useState<string>('');
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -30,6 +31,10 @@ export function SwapsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/swaps'] });
       setDeliverable({});
+      setError('');
+    },
+    onError: (error: Error) => {
+      setError(error.message || 'Failed to update swap');
     },
   });
 
@@ -57,9 +62,21 @@ export function SwapsPage() {
         />
 
         <div className="mt-6">
+          {error && (
+            <div
+              className="mb-4 p-4 bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 rounded-md"
+              data-testid="text-error"
+            >
+              {error}
+            </div>
+          )}
+
           <div className="flex space-x-2 mb-6 border-b dark:border-gray-700">
             <button
-              onClick={() => setActiveTab('sent')}
+              onClick={() => {
+                setActiveTab('sent');
+                setError('');
+              }}
               className={`px-4 py-2 font-medium transition-colors ${
                 activeTab === 'sent'
                   ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
@@ -70,7 +87,10 @@ export function SwapsPage() {
               Sent ({sentSwaps.length})
             </button>
             <button
-              onClick={() => setActiveTab('received')}
+              onClick={() => {
+                setActiveTab('received');
+                setError('');
+              }}
               className={`px-4 py-2 font-medium transition-colors ${
                 activeTab === 'received'
                   ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'

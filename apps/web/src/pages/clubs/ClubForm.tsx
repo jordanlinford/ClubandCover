@@ -12,6 +12,7 @@ import { AIDisabledBanner } from '../../components/ai/AIDisabledBanner';
 export function ClubFormPage() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
+  const [error, setError] = useState<string>('');
 
   const [formData, setFormData] = useState<CreateClub>({
     name: '',
@@ -26,7 +27,11 @@ export function ClubFormPage() {
     mutationFn: (data: CreateClub) => api.createClub(data),
     onSuccess: (club) => {
       queryClient.invalidateQueries({ queryKey: ['/api/clubs'] });
+      setError('');
       setLocation(`/clubs/${club.id}`);
+    },
+    onError: (error: Error) => {
+      setError(error.message || 'Failed to create club');
     },
   });
 
@@ -46,6 +51,15 @@ export function ClubFormPage() {
         <Card className="p-6 mt-6">
           <AIDisabledBanner />
           
+          {error && (
+            <div
+              className="mb-4 p-4 bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 rounded-md"
+              data-testid="text-error"
+            >
+              {error}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="name" className="block text-sm font-medium mb-2">
