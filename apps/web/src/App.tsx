@@ -12,6 +12,9 @@ import { SwapsPage } from './pages/Swaps';
 import { BillingPage } from './pages/Billing';
 import { HomePage } from './pages/Home';
 import { NotFoundPage } from './pages/NotFound';
+import MessageList from './pages/messages/MessageList';
+import MessageThread from './pages/messages/MessageThread';
+import ModerationQueue from './pages/admin/ModerationQueue';
 
 export default function App() {
   return (
@@ -29,6 +32,9 @@ export default function App() {
       <Route path="/clubs/:id" component={ClubDetailPage} />
       <Route path="/swaps" component={SwapsPage} />
       <Route path="/billing" component={BillingPage} />
+      <Route path="/messages" component={MessageList} />
+      <Route path="/messages/:id" component={MessageThread} />
+      <Route path="/admin/moderation" component={ModerationQueue} />
       <Route component={NotFoundPage} />
     </Switch>
   );
