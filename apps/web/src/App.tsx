@@ -20,6 +20,10 @@ import { NotFoundPage } from './pages/NotFound';
 import MessageList from './pages/messages/MessageList';
 import MessageThread from './pages/messages/MessageThread';
 import ModerationQueue from './pages/admin/ModerationQueue';
+import ReferralDashboard from './pages/ReferralDashboard';
+import DiscoverPage from './pages/Discover';
+import OnboardingPage from './pages/Onboarding';
+import AuthorAnalyticsPage from './pages/analytics/AuthorAnalytics';
 
 export default function App() {
   return (
@@ -45,6 +49,10 @@ export default function App() {
       <Route path="/messages" component={MessageList} />
       <Route path="/messages/:id" component={MessageThread} />
       <Route path="/admin/moderation" component={ModerationQueue} />
+      <Route path="/referrals" component={ReferralDashboard} />
+      <Route path="/discover" component={DiscoverPage} />
+      <Route path="/onboarding" component={OnboardingPage} />
+      <Route path="/analytics" component={AuthorAnalyticsPage} />
       <Route component={NotFoundPage} />
     </Switch>
   );
