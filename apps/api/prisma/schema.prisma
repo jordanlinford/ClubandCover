@@ -103,6 +103,27 @@ enum PointType {
   REVIEW_VERIFIED
   SOCIAL_SHARE
   HOST_ACTION
+  REFERRAL_ACTIVATED
+}
+
+enum ReferralStatus {
+  ISSUED
+  CLAIMED
+  ACTIVATED
+  EXPIRED
+}
+
+enum NotificationType {
+  POLL_CREATED
+  POLL_CLOSING
+  PITCH_ACCEPTED
+  PITCH_REJECTED
+  SWAP_DELIVERED
+  SWAP_VERIFIED
+  REFERRAL_ACTIVATED
+  POINTS_AWARDED
+  MEMBERSHIP_APPROVED
+  NEW_MESSAGE
 }
 
 // Models
@@ -142,6 +163,11 @@ model User {
   pointEntries       PointLedger[]
   votes              Vote[]
   pollsCreated       Poll[]
+  referralsGiven     Referral[]         @relation("ReferrerReferrals")
+  referralsUsed      Referral[]         @relation("RefereeReferrals")
+  notifications      Notification[]
+  settings           UserSetting?
+  checklistProgress  ChecklistProgress[]
 
   @@index([role])
   @@index([tier])
@@ -187,6 +213,7 @@ model Club {
   maxMembers       Int       @default(50)
   isPublic         Boolean   @default(true)
   joinRules        JoinRules @default(OPEN)
+  minPointsToJoin  Int       @default(0)
   chosenBookId     String?
   chosenBookAt     DateTime?
   createdAt        DateTime  @default(now())
@@ -405,6 +432,7 @@ model Pitch {
   synopsis      String?      @db.Text
   sampleUrl     String?
   status        PitchStatus  @default(SUBMITTED)
+  impressions   Int          @default(0)
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
@@ -497,4 +525,70 @@ model PointLedger {
   @@index([userId])
   @@index([type])
   @@map("point_ledger")
+}
+
+model Referral {
+  id          String         @id @default(uuid())
+  referrerId  String
+  refereeId   String?
+  code        String         @unique
+  status      ReferralStatus @default(ISSUED)
+  activatedAt DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  // Relations
+  referrer User  @relation("ReferrerReferrals", fields: [referrerId], references: [id], onDelete: Cascade)
+  referee  User? @relation("RefereeReferrals", fields: [refereeId], references: [id], onDelete: SetNull)
+
+  @@index([referrerId])
+  @@index([code])
+  @@index([status])
+  @@map("referrals")
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType
+  data      Json
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model UserSetting {
+  userId              String   @id
+  emailOptIn          Boolean  @default(true)
+  emailPollReminders  Boolean  @default(true)
+  emailSwapUpdates    Boolean  @default(true)
+  emailPointsUpdates  Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}
+
+model ChecklistProgress {
+  id        String   @id @default(uuid())
+  userId    String
+  code      String
+  stepKey   String
+  doneAt    DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, code, stepKey])
+  @@index([userId, code])
+  @@map("checklist_progress")
 }
