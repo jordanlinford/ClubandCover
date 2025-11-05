@@ -1,0 +1,69 @@
+PAUSE FIRST. Print a plan with:
+
+Files to add/modify (pages, components, hooks, tests, docs)
+
+Endpoint contracts you’ll consume
+
+A short test plan (API + E2E)
+Then wait for my “Approved — proceed.”
+
+Sprint-4 Frontend & Tests (Book Pitch)
+
+1) Create pages:
+- /web/src/pages/pitches/List.tsx
+- /web/src/pages/pitches/New.tsx
+- /web/src/pages/pitches/Detail.tsx
+- /web/src/pages/clubs/HostConsole.tsx
+- /web/src/pages/clubs/Vote.tsx
+- /web/src/pages/profile/Profile.tsx
+
+2) Create components:
+- /web/src/components/PitchCard.tsx
+- /web/src/components/PitchForm.tsx
+- /web/src/components/PollBuilderModal.tsx
+- /web/src/components/VotePanel.tsx
+- /web/src/components/PointsBadge.tsx
+- /web/src/components/PermissionGate.tsx
+
+3) API client & hooks (TanStack Query):
+- /web/src/lib/api/client.ts (fetch wrapper with auth)
+- /web/src/hooks/pitches.ts (usePitches, useCreatePitch, useUpdatePitch, useClubPitches)
+- /web/src/hooks/polls.ts (useCreatePoll, usePoll, useAddOptions, useOpenClosePoll, useVote)
+- /web/src/hooks/membership.ts (useMembership, useHostPermissions)
+- /web/src/hooks/points.ts (usePoints, usePointLedger)
+
+4) Wire endpoints (Zod-validated on server already):
+- POST /api/pitches
+- GET /api/pitches?authorId=&clubId=&status=
+- PATCH /api/pitches/:id
+- POST /api/clubs/:clubId/polls
+- POST /api/polls/:id/options
+- PATCH /api/polls/:id
+- GET /api/polls/:id
+- POST /api/polls/:id/votes
+- GET /api/polls/:id/results
+
+5) UI behaviors:
+- Authors: create pitch; show list & detail
+- Host Console: list targeted pitches, open PollBuilderModal (type=PITCH|BOOK), add options, set opens/closes, open/close poll, Choose Book Now action (when permissions.canChooseBook)
+- Member Vote: if OPEN, allow one vote; show toast; disable on success; if CLOSED, show results
+- Profile: show total points, reputation, recent points
+
+6) Tests
+API (vitest + supertest):
+- Vote once then duplicate → 200 then 409
+- Enforce opensAt/closesAt window
+- Closing PITCH poll awards PITCH_SELECTED (+100) to author
+- Join rules (OPEN/APPROVAL/INVITE_ONLY)
+- RBAC checks on pitches and polls
+
+E2E (Playwright):
+- Author creates pitch → appears in Host Pitch Inbox
+- Host creates poll → member votes → duplicate prevented
+- Host closes poll → results visible → points updated
+- Choose Book Now works when toggle enabled
+
+7) Docs
+- Update docs/ROUTE_MAP.md, docs/TEST_LOG.md, docs/sprint-plan.md
+
+After printing the plan, wait for approval.
