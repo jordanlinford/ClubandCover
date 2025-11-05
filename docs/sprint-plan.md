@@ -22,46 +22,32 @@
   - **Status:** Completed (date: November 4, 2025) • **Test log:** see `docs/TEST_LOG.md` Sprint-2 section
   - **Implementation:** Backend + Frontend UI complete (GenerateBlurbButton, RecommendedMatches, AIDisabledBanner, enhanced forms)
 
-- ⏳ **Sprint 3 – Messaging & Moderation**
-  - In-app threads, email relay, AI toxicity filter, report/resolve
+- ✅ **Sprint 3 – Messaging & Moderation**
+  - In-app threads, report/moderation queue, AI toxicity detection
+  - **Status:** Completed (date: November 4, 2025) • **Test log:** see `docs/TEST_LOG.md` Sprint-3 section
 
-- ⏳ **Sprint 4 – Analytics & Admin**
+- ✅ **Sprint 4 – Pitches, Voting, and Points**
+  - Author pitch submissions, club voting polls, points/reputation system, join rules
+  - **Status:** Completed (date: November 5, 2025) • **Test log:** see `docs/TEST_LOG.md` Sprint-4 section
+
+- ⏳ **Sprint 5 – Analytics & Admin**
   - Admin KPIs (MAU, swaps→reviews, upgrades), audit logs
 
-- ⏳ **Sprint 5 – Launch & Scale**
+- ⏳ **Sprint 6 – Launch & Scale**
   - QA hardening, production deploy, onboarding emails, marketing page
 
 ---
 
-## Current Sprint (S2) – AI & Discovery
+## Current Sprint (S5) – Analytics & Admin
 
-**Goal:** Add intelligence that helps books find clubs and vice-versa.
+**Goal:** Provide admin tools for platform insights and management.
 
-**Deliverables**
-- `POST /api/ai/generate-blurb` → concise PG-13 blurb (<120 words)
-- `Embedding` indexing for Books & Clubs (auto on create/update + on demand)
-- `POST /api/ai/match` → top 5 matches w/ score + 1-sentence "Why"
-- Staff tools: `POST /api/ai/reindex`, `POST /api/ai/index-one`
-- UI: "✨ Generate blurb" on Book form; "Recommended Clubs/Books" panels
-- Rate limits: FREE 10/day, PRO_AUTHOR 50/day (error `{ code: "AI_RATE_LIMIT" }`)
-- Graceful off when `OPENAI_API_KEY` missing (501 + UI banner)
+**Deliverables** (Upcoming)
+- Admin KPIs dashboard (MAU, active swaps, conversion rate)
+- Audit logs for critical actions
+- Platform health monitoring
 
-**Acceptance Criteria**
-- Blurb endpoint returns usable text; button fills field
-- Creating/editing Book indexes embedding; `index-one` works for Club
-- `match` returns ≥1 relevant item with score; panels render
-- 11th blurb on FREE returns 429 + `AI_RATE_LIMIT`
-- Removing OpenAI key → endpoints 501; UI shows "AI disabled"
-
-**Key Risks / Mitigations**
-- Cost spikes → rate limit & short prompts
-- Irrelevant matches → combine genre filters + cosine similarity
-- Latency → background index (defer noncritical), cache vectors
-
-**Milestones**
-- Day 1–2: endpoints + types + UI button
-- Day 3–4: embeddings + match panels
-- Day 5: rate limits + banners + tests & docs
+**Status:** Planning phase
 
 ---
 
@@ -111,6 +97,21 @@
 
 ## Changelog
 
+- **Sprint 4 (Nov 5, 2025)** – Pitches, Voting, and Points complete:
+  - ✅ Database schema: Pitch, Poll, PollOption, Vote, PointLedger models
+  - ✅ Points service with events: PITCH_SELECTED (100), SWAP_VERIFIED (50), VOTE_PARTICIPATION (3)
+  - ✅ Pitches API: Create, list, update, select winning pitch
+  - ✅ Polls API: Create poll, add options, vote (one vote per user), close poll
+  - ✅ Membership join rules: Enforce minPointsToJoin requirement
+  - ✅ Frontend components: PitchCard, PitchForm, VotePanel, PointsBadge, PollBuilderModal, PermissionGate
+  - ✅ Frontend pages: pitches/List, pitches/New, pitches/Detail, clubs/HostConsole, clubs/Vote
+  - ✅ Profile page enhanced with points display, reputation badge, ledger table
+  - ✅ Route registration and type definitions
+- **Sprint 3 (Nov 4, 2025)** – Messaging & Moderation complete:
+  - ✅ Message threads API with Prisma models
+  - ✅ AI toxicity detection with OpenAI moderation
+  - ✅ Moderation queue for staff review
+  - ✅ Frontend: MessageList, MessageThread, ModerationQueue pages
 - **Sprint 2 (Nov 4, 2025)** – AI & Discovery complete:
   - ✅ OpenAI integration (GPT-4o-mini for blurbs, text-embedding-3-small for embeddings)
   - ✅ 4 AI endpoints: generate-blurb, index-one, reindex, match

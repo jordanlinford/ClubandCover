@@ -15,6 +15,11 @@
 | `/clubs` | ClubsListPage | Browse book clubs |
 | `/clubs/new` | ClubFormPage | Create new club |
 | `/clubs/:id` | ClubDetailPage | View club details + join |
+| `/clubs/:id/host-console` | HostConsolePage | Club management (owner/admin only) |
+| `/clubs/:clubId/polls/:pollId` | VotePage | Vote on active polls |
+| `/pitches` | PitchesListPage | Browse user's pitches |
+| `/pitches/new` | NewPitchPage | Submit new book pitch |
+| `/pitches/:id` | PitchDetailPage | View pitch details |
 | `/swaps` | SwapsPage | Manage swap requests (sent/received tabs) |
 | `/billing` | BillingPage | Subscription plans + Stripe checkout |
 
@@ -43,13 +48,18 @@
 | PATCH | `/api/clubs/:id` | Update club (owner/admin only) | Yes |
 | DELETE | `/api/clubs/:id` | Delete club (owner only) | Yes |
 
-### Memberships
-| Method | Path | Description | Auth Required |
-|--------|------|-------------|---------------|
-| GET | `/api/memberships` | Get user's memberships | Yes |
-| POST | `/api/memberships` | Join club | Yes |
-| PATCH | `/api/memberships/:id` | Update membership status | Yes |
-| DELETE | `/api/memberships/:id` | Leave club | Yes |
+### Memberships (Sprint-4 Enhanced)
+| Method | Path | Description | Auth Required | Notes |
+|--------|------|-------------|---------------|-------|
+| GET | `/api/memberships` | Get user's memberships | Yes | - |
+| POST | `/api/clubs/:id/join` | Request to join club | Yes | Respects `minPointsToJoin` rule |
+| PATCH | `/api/memberships/:clubId/:userId` | Update membership (owner/admin only) | Yes | Can change status and role |
+| DELETE | `/api/memberships/:clubId/:userId` | Remove member (owner/admin only) | Yes | - |
+
+**Join Rules Enforcement:**
+- If `club.minPointsToJoin > 0` and `user.points < club.minPointsToJoin` → returns 403
+- New members start with status PENDING (require approval)
+- On PENDING→ACTIVE transition, role defaults to MEMBER if not specified
 
 ### Swaps (Sprint-1 Enhanced)
 | Method | Path | Description | Auth Required | State Machine |
@@ -118,6 +128,52 @@
 **Auto-Indexing:**
 - Books: Embeddings generated automatically on POST `/api/books`
 - Clubs: Embeddings generated automatically on POST `/api/clubs`
+
+### Pitches (Sprint-4 New)
+| Method | Path | Description | Auth Required | Notes |
+|--------|------|-------------|---------------|-------|
+| POST | `/api/pitches` | Create book pitch | Yes | Author submits pitch to clubs |
+| GET | `/api/pitches` | List user's pitches | Yes | Returns author's pitches |
+| GET | `/api/pitches/:id` | Get pitch details | Yes | - |
+| PATCH | `/api/pitches/:id` | Update pitch | Yes | Author only |
+| POST | `/api/clubs/:id/choose-book` | Select winning pitch | Yes | Owner/admin only, awards 100 points |
+
+**Pitch Status:**
+- PENDING: Awaiting club decision
+- SELECTED: Chosen by club (author receives 100 points)
+- DECLINED: Rejected by club
+
+### Polls (Sprint-4 New)
+| Method | Path | Description | Auth Required | Notes |
+|--------|------|-------------|---------------|-------|
+| POST | `/api/clubs/:id/polls` | Create poll | Yes | Owner/admin only |
+| GET | `/api/clubs/:id/polls` | List club polls | Yes | Member only |
+| GET | `/api/clubs/:clubId/polls/:pollId` | Get poll details with results | Yes | Member only |
+| POST | `/api/clubs/:clubId/polls/:pollId/close` | Close poll | Yes | Owner/admin only |
+| POST | `/api/polls/:id/options` | Add poll option | Yes | Owner/admin only |
+| POST | `/api/polls/:pollId/vote` | Cast vote | Yes | Member only, one vote per user, awards 3 points |
+
+**Poll Types:**
+- PITCH: Vote on book pitches
+- BOOK: Vote on existing books
+
+**Vote Points:** Each vote earns user 3 points (VOTE_PARTICIPATION)
+
+### Points (Sprint-4 New)
+| Method | Path | Description | Auth Required |
+|--------|------|-------------|---------------|
+| GET | `/api/users/:id/points` | Get points summary (points + reputation) | Yes |
+| GET | `/api/users/:id/ledger` | Get point transaction history | Yes |
+
+**Point Values:**
+- PITCH_SELECTED: 100 points (pitch chosen by club)
+- SWAP_VERIFIED: 50 points (successful book swap)
+- VOTE_PARTICIPATION: 3 points (cast vote in poll)
+
+**Reputation Calculation:**
+- Sum of all points earned across all events
+- Displayed as badge on profile and throughout app
+- Used to enforce join rules (club.minPointsToJoin)
 
 ## Authentication Flow
 
