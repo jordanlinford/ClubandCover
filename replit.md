@@ -33,7 +33,9 @@ Preferred communication style: Simple, everyday language.
 
 **Component Library**: Custom UI components built with Radix UI primitives, CVA, and Tailwind CSS.
 
-**Key Pages**: Authentication, Profile, Book Management, Club Management, Swap Management, and Billing (placeholder). This also includes pages for pitch submission, voting, and club host management.
+**Key Pages**: Authentication, Profile, Book Management, Club Management, Swap Management, Billing (placeholder), Pitch Submission, Voting, Club Host Management, Referral Dashboard, Discover (with full-text search), Onboarding Checklists, and Author Analytics.
+
+**Sprint-5 Growth Features**: Referral system with unique codes and rewards, real-time notifications with bell indicator, full-text search across books/clubs/pitches, role-based onboarding checklists (Reader/Author/Host), author performance analytics, and email rate limiting (3 emails per type per day).
 
 ## Backend Architecture
 
@@ -57,7 +59,9 @@ Preferred communication style: Simple, everyday language.
 
 **ORM**: Prisma for type-safe database access.
 
-**Schema Design**: Includes models for `User`, `Book`, `Club`, `Membership`, `Swap`, `Embedding`, `Pitch`, `Poll`, `PollOption`, `Vote`, and `PointLedger`.
+**Schema Design**: Includes models for `User`, `Book`, `Club`, `Membership`, `Swap`, `Embedding`, `Pitch`, `Poll`, `PollOption`, `Vote`, `PointLedger`, `Referral`, `Notification`, `UserSetting`, `ChecklistProgress`, and `EmailLog`.
+
+**Full-Text Search**: GIN indexes on `Pitch`, `Club`, and `Book` models enable PostgreSQL full-text search with `to_tsvector()` and `ts_rank()` for relevance scoring.
 
 **Migration Strategy**: Prisma migrations.
 
@@ -112,7 +116,8 @@ Preferred communication style: Simple, everyday language.
 - Required Environment Variables: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `VITE_STRIPE_PUBLIC_KEY`.
 
 **Resend**:
-- Purpose: Transactional email service for swap notifications.
+- Purpose: Transactional email service for swap notifications, referral activation alerts, and poll result announcements.
+- Rate Limiting: 3 emails per type per day per user (tracked via EmailLog model).
 - Environment Variable: `RESEND_API_KEY`.
 
 **OpenAI**:
@@ -134,6 +139,58 @@ Preferred communication style: Simple, everyday language.
 - Prisma: Type-safe ORM.
 - Zod: Request validation.
 - Stripe SDK: Payment processing.
+
+## Sprint-5 Growth Features
+
+**Referral System** (Date: November 2025):
+- Unique referral codes per user with automatic generation
+- Track referrer/referee relationships with activation status
+- Reward both parties with points on first book addition
+- API: `/api/referrals` (GET, POST, PATCH)
+- Service: `apps/api/src/lib/referrals.ts`
+
+**Notifications** (Date: November 2025):
+- Real-time notification system for user actions
+- Types: SWAP_REQUEST, SWAP_ACCEPTED, POLL_CREATED, POLL_RESULT, REFERRAL_ACTIVATED
+- Read/unread tracking with mark-all-read functionality
+- Bell indicator with unread count badge
+- API: `/api/notifications` (GET, POST, PATCH)
+- Service: `apps/api/src/lib/notifications.ts`
+- Components: `NotificationBell`, `NotificationList`
+
+**Full-Text Search** (Date: November 2025):
+- PostgreSQL GIN indexes on books, clubs, and pitches
+- Relevance-ranked search results using `ts_rank()`
+- Unified `/api/discover/search?q=` endpoint
+- Trending items endpoint: `/api/discover/trending`
+- Page: `/discover` with `SearchBar` and `TrendingGrid` components
+- Service: `apps/api/src/lib/search.ts`
+
+**Onboarding Checklists** (Date: November 2025):
+- Role-based checklists: READER_ONBOARDING, AUTHOR_ONBOARDING, HOST_ONBOARDING
+- Progress tracking per user with completion percentage
+- API: `/api/checklists` (GET, POST)
+- Page: `/onboarding` with `ChecklistCard` component
+- Service: `apps/api/src/lib/checklists.ts`
+
+**Author Analytics** (Date: November 2025):
+- Performance metrics: pitches submitted, polls won, total votes, points earned
+- Engagement tracking: pitch views, voting participation
+- Leaderboard position and recent activity
+- API: `/api/analytics/author` (GET)
+- Page: `/analytics` (restricted to AUTHOR and PRO_AUTHOR roles)
+- Service: `apps/api/src/lib/analytics.ts`
+
+**Email Rate Limiting** (Date: November 2025):
+- Daily cap: 3 emails per type per user (configurable via DAILY_EMAIL_CAP_PER_TYPE)
+- Types: SWAP_NOTIFICATION, REFERRAL_ACTIVATION, POLL_RESULT
+- EmailLog model tracks all sent emails with timestamps
+- Service: `apps/api/src/lib/email.ts` with `canSendEmail()` check
+
+**Poll Creation Improvements** (Date: November 2025):
+- One-shot endpoint: `/api/polls/full` creates poll + options atomically
+- Eliminates multi-step client flow for better UX
+- `PollBuilderModal` uses single mutation instead of separate create/add-options calls
 
 **Shared**:
 - TypeScript: Type safety across the stack.
