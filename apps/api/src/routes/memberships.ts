@@ -26,7 +26,7 @@ export async function membershipRoutes(fastify: FastifyInstance) {
         return { success: false, error: 'Club not found' };
       }
 
-      // Check if already a member
+      // Check if already a member or banned
       const existing = await prisma.membership.findUnique({
         where: {
           clubId_userId: {
@@ -37,6 +37,10 @@ export async function membershipRoutes(fastify: FastifyInstance) {
       });
 
       if (existing) {
+        if (existing.status === 'REMOVED') {
+          reply.code(403);
+          return { success: false, error: 'You have been removed from this club and cannot rejoin' };
+        }
         reply.code(400);
         return { success: false, error: 'Already a member or pending' };
       }

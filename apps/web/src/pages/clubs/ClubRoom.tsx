@@ -5,7 +5,7 @@ import { Card } from '@repo/ui';
 import { Button } from '@repo/ui';
 import { PageHeader } from '@repo/ui';
 import { api } from '../../lib/api';
-import { Users, MessageSquare, BarChart3, Info, Calendar, BookOpen, Paperclip, X } from 'lucide-react';
+import { Users, MessageSquare, BarChart3, Info, Calendar, BookOpen, Paperclip, X, UserCog, UserX, UserPlus } from 'lucide-react';
 import { Link } from 'wouter';
 
 type Club = {
@@ -36,7 +36,7 @@ type Club = {
 export function ClubRoomPage() {
   const [, params] = useRoute('/clubs/:id/room');
   const clubId = params?.id || '';
-  const [activeTab, setActiveTab] = useState<'feed' | 'polls' | 'info'>('feed');
+  const [activeTab, setActiveTab] = useState<'feed' | 'polls' | 'info' | 'members'>('feed');
   const [messageBody, setMessageBody] = useState('');
   const [error, setError] = useState('');
   const [attachment, setAttachment] = useState<{
@@ -56,6 +56,35 @@ export function ClubRoomPage() {
     queryKey: ['/api/clubs', clubId, 'messages'],
     queryFn: () => api.getClubMessages(clubId),
     enabled: !!clubId && activeTab === 'feed',
+  });
+
+  // Get current user's membership to check role
+  const { data: userMembership } = useQuery({
+    queryKey: ['/api/clubs', clubId, 'my-membership'],
+    queryFn: () => api.getMyMembership(clubId),
+    enabled: !!clubId,
+    retry: false, // Don't retry if user isn't a member
+  });
+
+  const isHost = userMembership && ['OWNER', 'ADMIN'].includes(userMembership.role);
+
+  const { data: members } = useQuery({
+    queryKey: ['/api/clubs', clubId, 'members'],
+    queryFn: () => api.getClubMembers(clubId),
+    enabled: !!clubId && activeTab === 'members' && isHost,
+  });
+
+  const updateMemberMutation = useMutation({
+    mutationFn: ({ membershipId, data }: {
+      membershipId: string;
+      data: {
+        status?: 'PENDING' | 'ACTIVE' | 'DECLINED' | 'REMOVED';
+        role?: 'PENDING' | 'MEMBER' | 'ADMIN' | 'OWNER';
+      };
+    }) => api.updateMembership(membershipId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/clubs', clubId, 'members'] });
+    },
   });
 
   const postMessageMutation = useMutation({
@@ -258,6 +287,20 @@ export function ClubRoomPage() {
               <Info className="h-4 w-4" />
               <span>Info</span>
             </button>
+            {isHost && (
+              <button
+                onClick={() => setActiveTab('members')}
+                className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${
+                  activeTab === 'members'
+                    ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400 font-semibold'
+                    : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
+                }`}
+                data-testid="tab-members"
+              >
+                <UserCog className="h-4 w-4" />
+                <span>Members</span>
+              </button>
+            )}
             </div>
             <Link href={`/clubs/${clubId}/pitches`}>
               <Button variant="outline" size="sm" className="flex items-center gap-2" data-testid="link-browse-pitches">
@@ -546,6 +589,136 @@ export function ClubRoomPage() {
                 </div>
               )}
             </div>
+          </Card>
+        )}
+
+        {activeTab === 'members' && isHost && (
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
+              Manage Members
+            </h3>
+            {members && members.length > 0 ? (
+              <div className="space-y-3">
+                {members.map((member) => (
+                  <div
+                    key={member.id}
+                    className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-md"
+                    data-testid={`member-${member.userId}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                        {member.user.avatarUrl ? (
+                          <img
+                            src={member.user.avatarUrl}
+                            alt={member.user.name}
+                            className="w-full h-full rounded-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-gray-600 dark:text-gray-400 font-semibold">
+                            {member.user.name.charAt(0).toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100">
+                          {member.user.name}
+                        </p>
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className={`px-2 py-0.5 rounded-full text-xs ${
+                            member.role === 'OWNER' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300' :
+                            member.role === 'ADMIN' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' :
+                            member.role === 'MEMBER' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' :
+                            'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                          }`}>
+                            {member.role}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-full text-xs ${
+                            member.status === 'ACTIVE' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' :
+                            member.status === 'PENDING' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300' :
+                            member.status === 'REMOVED' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' :
+                            'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                          }`}>
+                            {member.status}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {member.role !== 'OWNER' && member.status === 'ACTIVE' && (
+                      <div className="flex items-center gap-2">
+                        {member.role === 'MEMBER' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => updateMemberMutation.mutate({
+                              membershipId: member.id,
+                              data: { role: 'ADMIN' },
+                            })}
+                            disabled={updateMemberMutation.isPending}
+                            className="flex items-center gap-2"
+                            data-testid={`button-promote-${member.userId}`}
+                          >
+                            <UserPlus className="h-4 w-4" />
+                            <span>Promote to Admin</span>
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (confirm(`Remove ${member.user.name} from the club?`)) {
+                              updateMemberMutation.mutate({
+                                membershipId: member.id,
+                                data: { status: 'REMOVED' },
+                              });
+                            }
+                          }}
+                          disabled={updateMemberMutation.isPending}
+                          className="flex items-center gap-2 text-red-600 dark:text-red-400"
+                          data-testid={`button-kick-${member.userId}`}
+                        >
+                          <UserX className="h-4 w-4" />
+                          <span>Remove</span>
+                        </Button>
+                      </div>
+                    )}
+                    
+                    {member.status === 'PENDING' && (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => updateMemberMutation.mutate({
+                            membershipId: member.id,
+                            data: { status: 'ACTIVE', role: 'MEMBER' },
+                          })}
+                          disabled={updateMemberMutation.isPending}
+                          data-testid={`button-approve-${member.userId}`}
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => updateMemberMutation.mutate({
+                            membershipId: member.id,
+                            data: { status: 'DECLINED' },
+                          })}
+                          disabled={updateMemberMutation.isPending}
+                          data-testid={`button-decline-${member.userId}`}
+                        >
+                          Decline
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-600 dark:text-gray-400">
+                Loading members...
+              </p>
+            )}
           </Card>
         )}
       </div>

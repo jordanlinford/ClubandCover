@@ -391,6 +391,49 @@ class ApiClient {
   }> {
     return this.post(`/clubs/${clubId}/messages`, data);
   }
+
+  // Sprint-6: Member Management API
+  async getMyMembership(clubId: string): Promise<{
+    id: string;
+    userId: string;
+    clubId: string;
+    role: 'OWNER' | 'ADMIN' | 'MEMBER' | 'PENDING';
+    status: 'PENDING' | 'ACTIVE' | 'DECLINED' | 'REMOVED';
+    joinedAt: Date;
+  }> {
+    return this.get(`/clubs/${clubId}/my-membership`);
+  }
+
+  async getClubMembers(clubId: string): Promise<Array<{
+    id: string;
+    userId: string;
+    clubId: string;
+    role: 'OWNER' | 'ADMIN' | 'MEMBER' | 'PENDING';
+    status: 'PENDING' | 'ACTIVE' | 'DECLINED' | 'REMOVED';
+    joinedAt: Date;
+    user: {
+      id: string;
+      name: string;
+      email: string;
+      avatarUrl: string | null;
+    };
+  }>> {
+    return this.get(`/clubs/${clubId}/members`);
+  }
+
+  async updateMembership(membershipId: string, data: {
+    status?: 'PENDING' | 'ACTIVE' | 'DECLINED' | 'REMOVED';
+    role?: 'PENDING' | 'MEMBER' | 'ADMIN' | 'OWNER';
+  }): Promise<{
+    id: string;
+    userId: string;
+    clubId: string;
+    role: string;
+    status: string;
+    joinedAt: Date;
+  }> {
+    return this.patch(`/memberships/${membershipId}`, data);
+  }
 }
 
 export const api = new ApiClient();

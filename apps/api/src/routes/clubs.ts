@@ -193,6 +193,102 @@ export async function clubRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // Get current user's membership in a club
+  fastify.get('/:id/my-membership', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+      
+      if (!request.user) {
+        return reply.status(401).send({
+          success: false,
+          error: 'Unauthorized',
+        });
+      }
+
+      const membership = await prisma.membership.findUnique({
+        where: {
+          clubId_userId: {
+            clubId: id,
+            userId: request.user.id,
+          },
+        },
+      });
+
+      if (!membership) {
+        return reply.status(404).send({
+          success: false,
+          error: 'Not a member of this club',
+        });
+      }
+
+      return { success: true, data: membership };
+    } catch (error) {
+      reply.code(500);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch membership',
+      };
+    }
+  });
+
+  // Get club members (for management - owner/admin only)
+  fastify.get('/:id/members', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+      
+      if (!request.user) {
+        return reply.status(401).send({
+          success: false,
+          error: 'Unauthorized',
+        });
+      }
+
+      // Check if requester is owner/admin of the club
+      const requesterMembership = await prisma.membership.findUnique({
+        where: {
+          clubId_userId: {
+            clubId: id,
+            userId: request.user.id,
+          },
+        },
+      });
+
+      if (!requesterMembership || !['OWNER', 'ADMIN'].includes(requesterMembership.role)) {
+        return reply.status(403).send({
+          success: false,
+          error: 'Only club owners and admins can view member list',
+        });
+      }
+
+      // Get all memberships for the club
+      const memberships = await prisma.membership.findMany({
+        where: { clubId: id },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              avatarUrl: true,
+            },
+          },
+        },
+        orderBy: [
+          { role: 'asc' }, // OWNER first, then ADMIN, MEMBER, etc.
+          { joinedAt: 'asc' },
+        ],
+      });
+
+      return { success: true, data: memberships };
+    } catch (error) {
+      reply.code(500);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch members',
+      };
+    }
+  });
+
   // Create club (CLUB_ADMIN role required)
   fastify.post('/', async (request, reply) => {
     if (!request.user) {
