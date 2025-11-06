@@ -3,8 +3,8 @@ import { requireAuth } from '../middleware/auth.js';
 import { prisma } from '../lib/prisma.js';
 
 export async function analyticsRoutes(fastify: FastifyInstance) {
-  // Get author analytics
-  fastify.get('/api/analytics/author', { onRequest: [requireAuth] }, async (request, reply) => {
+  // Get author analytics  
+  fastify.get('/authors/me', { onRequest: [requireAuth] }, async (request, reply) => {
     try {
       const userId = request.user!.id;
 
@@ -114,7 +114,7 @@ export async function analyticsRoutes(fastify: FastifyInstance) {
   // Get pitch detail analytics
   fastify.get<{
     Params: { id: string };
-  }>('/api/analytics/pitches/:id', { onRequest: [requireAuth] }, async (request, reply) => {
+  }>('/pitches/:id', { onRequest: [requireAuth] }, async (request, reply) => {
     try {
       const userId = request.user!.id;
       const pitchId = request.params.id;

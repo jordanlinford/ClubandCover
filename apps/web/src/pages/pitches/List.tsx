@@ -9,12 +9,13 @@ import { useAuth } from '../../contexts/AuthContext';
 
 export function PitchesListPage() {
   const { user } = useAuth();
-  const { data: pitches, isLoading } = useQuery<Pitch[]>({
+  const { data, isLoading } = useQuery<{ pitches: Pitch[]; total: number }>({
     queryKey: ['/api/pitches'],
   });
 
-  const myPitches = pitches?.filter(p => p.authorId === user?.id) || [];
-  const otherPitches = pitches?.filter(p => p.authorId !== user?.id) || [];
+  const pitches = data?.pitches || [];
+  const myPitches = pitches.filter(p => p.authorId === user?.id);
+  const otherPitches = pitches.filter(p => p.authorId !== user?.id);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
