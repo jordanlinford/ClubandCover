@@ -161,6 +161,7 @@ model User {
   reportedMessages   ModerationReport[] @relation("ReportedMessages")
   reviewedReports    ModerationReport[] @relation("ReviewedReports")
   pitches            Pitch[]
+  pitchNominations   PitchNomination[]
   pointEntries       PointLedger[]
   votes              Vote[]
   pollsCreated       Poll[]
@@ -474,16 +475,33 @@ model Pitch {
   updatedAt     DateTime     @updatedAt
 
   // Relations
-  author      User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  book        Book         @relation(fields: [bookId], references: [id], onDelete: Cascade)
-  targetClub  Club?        @relation(fields: [targetClubId], references: [id], onDelete: Cascade)
+  author      User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  book        Book              @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  targetClub  Club?             @relation(fields: [targetClubId], references: [id], onDelete: Cascade)
   pollOptions PollOption[]
+  nominations PitchNomination[]
 
   @@index([authorId])
   @@index([bookId])
   @@index([targetClubId])
   @@index([status])
   @@map("pitches")
+}
+
+model PitchNomination {
+  id        String   @id @default(uuid())
+  pitchId   String
+  userId    String
+  createdAt DateTime @default(now())
+
+  // Relations
+  pitch Pitch @relation(fields: [pitchId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([pitchId, userId])
+  @@index([pitchId])
+  @@index([userId])
+  @@map("pitch_nominations")
 }
 
 model Poll {

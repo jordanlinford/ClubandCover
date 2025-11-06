@@ -12,6 +12,7 @@ import threadRoutes from './threads.js';
 import messageRoutes from './messages.js';
 import moderationRoutes from './moderation.js';
 import pitchesRoutes from './pitches.js';
+import pitchNominationsRoutes from './pitch-nominations.js';
 import pollsRoutes from './polls.js';
 import { referralsRoutes } from './referrals.js';
 import { notificationsRoutes } from './notifications.js';
@@ -53,6 +54,7 @@ export async function routes(fastify: FastifyInstance) {
   await fastify.register(messageRoutes);
   await fastify.register(moderationRoutes, { prefix: '/moderation' });
   await fastify.register(pitchesRoutes, { prefix: '/pitches' });
+  await fastify.register(pitchNominationsRoutes);
   await fastify.register(pollsRoutes, { prefix: '/polls' });
   
   // Sprint 5: Growth & Stickiness features
