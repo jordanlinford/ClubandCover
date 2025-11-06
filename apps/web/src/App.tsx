@@ -25,6 +25,7 @@ import { NotFoundPage } from './pages/NotFound';
 import MessageList from './pages/messages/MessageList';
 import MessageThread from './pages/messages/MessageThread';
 import ModerationQueue from './pages/admin/ModerationQueue';
+import AdminDashboard from './pages/admin/Dashboard';
 import ReferralDashboard from './pages/ReferralDashboard';
 import DiscoverPage from './pages/Discover';
 import OnboardingPage from './pages/Onboarding';
@@ -60,6 +61,7 @@ export default function App() {
       <Route path="/billing" component={BillingPage} />
       <Route path="/messages" component={MessageList} />
       <Route path="/messages/:id" component={MessageThread} />
+      <Route path="/admin" component={AdminDashboard} />
       <Route path="/admin/moderation" component={ModerationQueue} />
       <Route path="/referrals" component={ReferralDashboard} />
       <Route path="/discover" component={DiscoverPage} />
