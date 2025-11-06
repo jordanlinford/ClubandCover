@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { OnboardingWizard } from '@/components/OnboardingWizard';
 import { ChecklistCard } from '@/components/ChecklistCard';
 import { Rocket, BookOpen, Users, Pen } from 'lucide-react';
 import type { User } from '@repo/types';
@@ -7,6 +8,12 @@ export default function Onboarding() {
   const { data: user } = useQuery<User>({
     queryKey: ['/api/auth/me'],
   });
+
+  // If user hasn't completed initial onboarding (no role), show wizard
+  // Note: Role is set in the first step of onboarding, so if it exists, user has completed setup
+  if (!user || !user.role) {
+    return <OnboardingWizard onComplete={() => window.location.reload()} />;
+  }
 
   // Determine which checklists to show based on user role/status
   const showReaderChecklist = true; // All users are readers
