@@ -208,6 +208,126 @@ export default async function creditsRoutes(app: FastifyInstance) {
     }
   });
 
+  // Confirm credit purchase after SCA/3DS completion
+  app.post('/api/credits/confirm', { preHandler: [requireAuth] }, async (request, reply) => {
+    try {
+      const userId = request.user!.id;
+      const { paymentIntentId } = request.body as { paymentIntentId: string };
+
+      if (!paymentIntentId) {
+        return reply.code(400).send({
+          success: false,
+          error: 'Payment intent ID is required',
+        });
+      }
+
+      // Retrieve the PaymentIntent from Stripe
+      const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+      // Verify this PaymentIntent belongs to the user
+      if (paymentIntent.metadata.userId !== userId) {
+        return reply.code(403).send({
+          success: false,
+          error: 'Unauthorized',
+        });
+      }
+
+      // Check if payment succeeded
+      if (paymentIntent.status !== 'succeeded') {
+        return reply.code(400).send({
+          success: false,
+          error: 'Payment not completed',
+          status: paymentIntent.status,
+        });
+      }
+
+      // Check if credits were already awarded (idempotency)
+      const existingTransaction = await prisma.creditTransaction.findFirst({
+        where: {
+          stripePaymentId: paymentIntent.id,
+        },
+      });
+
+      if (existingTransaction) {
+        // Credits already awarded
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { creditBalance: true },
+        });
+
+        return reply.send({
+          success: true,
+          data: {
+            creditsPurchased: existingTransaction.amount,
+            newBalance: user?.creditBalance || 0,
+            paymentIntentId: paymentIntent.id,
+            alreadyProcessed: true,
+          },
+        });
+      }
+
+      // Award credits
+      const credits = parseInt(paymentIntent.metadata.credits || '0');
+      if (credits <= 0) {
+        return reply.code(400).send({
+          success: false,
+          error: 'Invalid credit amount',
+        });
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { creditBalance: true },
+      });
+
+      if (!user) {
+        return reply.code(404).send({
+          success: false,
+          error: 'User not found',
+        });
+      }
+
+      // Add credits to user balance
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          creditBalance: {
+            increment: credits,
+          },
+        },
+        select: { creditBalance: true },
+      });
+
+      // Record transaction
+      await prisma.creditTransaction.create({
+        data: {
+          userId,
+          type: 'PURCHASE',
+          amount: credits,
+          balanceBefore: user.creditBalance,
+          balanceAfter: updatedUser.creditBalance,
+          stripePaymentId: paymentIntent.id,
+          description: `Purchased ${credits} credits (SCA confirmed)`,
+        },
+      });
+
+      return reply.send({
+        success: true,
+        data: {
+          creditsPurchased: credits,
+          newBalance: updatedUser.creditBalance,
+          paymentIntentId: paymentIntent.id,
+        },
+      });
+    } catch (error: any) {
+      request.log.error(error);
+      return reply.code(500).send({
+        success: false,
+        error: error.message || 'Failed to confirm credit purchase',
+      });
+    }
+  });
+
   // Spend credits to boost a pitch
   app.post('/api/credits/spend', { preHandler: [requireAuth] }, async (request, reply) => {
     try {
