@@ -77,7 +77,7 @@ export async function routes(fastify: FastifyInstance) {
   await fastify.register(pointsRoutes);
   
   // Authentication (email verification, password reset)
-  await fastify.register(authRoutes);
+  await fastify.register(authRoutes, { prefix: '/auth' });
   
   // Test support routes (only enabled in test environment)
   await fastify.register(testSupportRoutes, { prefix: '/test' });

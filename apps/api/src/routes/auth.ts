@@ -18,7 +18,7 @@ export async function authRoutes(server: FastifyInstance) {
    * POST /api/auth/send-verification
    * Send verification email to a user
    */
-  server.post('/api/auth/send-verification', {
+  server.post('/send-verification', {
     preHandler: createAuthRateLimit('emailVerification'),
   }, async (request, reply) => {
     const schema = z.object({
@@ -83,7 +83,7 @@ export async function authRoutes(server: FastifyInstance) {
    * POST /api/auth/verify-email
    * Verify email with token
    */
-  server.post('/api/auth/verify-email', {
+  server.post('/verify-email', {
     preHandler: createAuthRateLimit('emailVerification'),
   }, async (request, reply) => {
     const schema = z.object({
@@ -121,7 +121,7 @@ export async function authRoutes(server: FastifyInstance) {
    * POST /api/auth/resend-verification
    * Resend verification email
    */
-  server.post('/api/auth/resend-verification', {
+  server.post('/resend-verification', {
     preHandler: createAuthRateLimit('emailVerification'),
   }, async (request, reply) => {
     const schema = z.object({
@@ -186,7 +186,7 @@ export async function authRoutes(server: FastifyInstance) {
    * POST /api/auth/forgot-password
    * Request password reset
    */
-  server.post('/api/auth/forgot-password', {
+  server.post('/forgot-password', {
     preHandler: createAuthRateLimit('passwordReset'),
   }, async (request, reply) => {
     const schema = z.object({
@@ -242,7 +242,7 @@ export async function authRoutes(server: FastifyInstance) {
    * POST /api/auth/verify-reset-token
    * Verify password reset token (check if valid before showing reset form)
    */
-  server.post('/api/auth/verify-reset-token', async (request, reply) => {
+  server.post('/verify-reset-token', async (request, reply) => {
     const schema = z.object({
       token: z.string(),
     });
@@ -273,7 +273,7 @@ export async function authRoutes(server: FastifyInstance) {
    * POST /api/auth/reset-password
    * Reset password with token (using Supabase Auth)
    */
-  server.post('/api/auth/reset-password', {
+  server.post('/reset-password', {
     preHandler: createAuthRateLimit('passwordReset'),
   }, async (request, reply) => {
     const schema = z.object({
