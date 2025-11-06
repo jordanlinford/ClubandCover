@@ -12,7 +12,7 @@ type Club = {
   name: string;
   description: string | null;
   about: string | null;
-  preferredGenres: string[];
+  genres: string[];
   frequency: number | null;
   coverImageUrl: string | null;
   minPointsToJoin: number;
@@ -125,9 +125,9 @@ export function ClubRoomPage() {
                 <span>{club.frequency} books/year</span>
               </div>
             )}
-            {club.preferredGenres.length > 0 && (
+            {club.genres.length > 0 && (
               <div className="flex gap-1">
-                {club.preferredGenres.slice(0, 3).map((genre) => (
+                {club.genres.slice(0, 3).map((genre) => (
                   <span
                     key={genre}
                     className="px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs"
@@ -135,9 +135,9 @@ export function ClubRoomPage() {
                     {genre}
                   </span>
                 ))}
-                {club.preferredGenres.length > 3 && (
+                {club.genres.length > 3 && (
                   <span className="px-2 py-1 text-xs text-gray-600 dark:text-gray-400">
-                    +{club.preferredGenres.length - 3}
+                    +{club.genres.length - 3}
                   </span>
                 )}
               </div>
@@ -374,7 +374,7 @@ export function ClubRoomPage() {
                   Preferred Genres
                 </h4>
                 <div className="flex flex-wrap gap-2">
-                  {club.preferredGenres.map((genre) => (
+                  {club.genres.map((genre) => (
                     <span
                       key={genre}
                       className="px-3 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm"
