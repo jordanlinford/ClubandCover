@@ -1,0 +1,284 @@
+Points & Badges v1 (MVP)
+1) Point Events (with caps)
+Code	When	Points	Cap / Idempotency
+ACCOUNT_CREATED	First successful signup	+10	1x per user
+ONBOARDING_COMPLETED	Finished onboarding wizard	+15	1x
+JOIN_CLUB	First time joining each club	+5	1x per (user, club)
+VOTE_PARTICIPATION	Member votes in a poll	+3	max 10 pts/day
+MESSAGE_POSTED	Member posts in club room	+1	max 10 pts/day, ignore <10 chars
+PITCH_CREATED	Author creates a pitch	+10	1x per pitch
+PITCH_SELECTED	Club selects an author’s pitch	+100	1x per poll
+SWAP_COMPLETED	Author-author swap verified	+25	1x per swap
+REVIEW_VERIFIED	Verified review submitted	+10	1x per review
+REFERRAL_ACTIVATED	Referral user activates	+50 (referrer), +25 (referee)	1x per referral; max 5/day/referrer
+
+Daily caps apply per user per event type; use a ledger with a day-sum check.
+Idempotency: unique composite keys: (userId, type, refType, refId) when refId exists.
+
+2) Badge Catalog (auto-awarded)
+
+Reader
+
+FIRST_VOTE — cast first vote
+
+BOOKWORM — cast votes on 10 different polls
+
+SOCIABLE — 20 valid messages in club rooms (≥10 chars)
+
+LOYAL_MEMBER — member of 3 clubs
+
+Host/Club
+
+HOST_STARTER — created a club
+
+COMMUNITY_ACTIVE — 5 unique members posted messages in last 7 days
+
+DECISIVE — completed 3 polls
+
+Author
+
+AUTHOR_LAUNCH — created first pitch
+
+FAN_FAVORITE — a pitch selected by 3 different clubs
+
+SWAP_MASTER — 5 completed swaps
+
+Badges are idempotent; once awarded, don’t re-award.
+
+3) Prisma changes (migration: sprint6_points_badges)
+
+Add two lightweight tables and one daily cap helper.
+
+model PointLedger {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String   // ACCOUNT_CREATED | VOTE_PARTICIPATION | ...
+  amount    Int
+  refType   String?  // CLUB | POLL | PITCH | SWAP | REVIEW | REFERRAL
+  refId     String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, type, createdAt])
+  @@unique([userId, type, refType, refId]) // allows idempotency per referenced object
+}
+
+model UserBadge {
+  id        String   @id @default(uuid())
+  userId    String
+  code      String   // e.g., FIRST_VOTE
+  awardedAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, code])
+}
+
+model DailyPointCounter {
+  // rolling caps per user per event type per day
+  id        String   @id @default(uuid())
+  userId    String
+  type      String
+  date      DateTime // set to midnight UTC for the day
+  total     Int      @default(0)
+
+  @@unique([userId, type, date])
+}
+
+
+(If you already have PointLedger from earlier sprints, just add DailyPointCounter and UserBadge.)
+
+4) Server constants & helpers
+points.ts
+export const DAILY_CAPS: Record<string, number> = {
+  VOTE_PARTICIPATION: 10,   // 10 pts/day
+  MESSAGE_POSTED: 10,
+  REFERRAL_ACTIVATED: 250,  // effectively 5 activations x 50
+};
+
+export const EVENT_POINTS: Record<string, number> = {
+  ACCOUNT_CREATED: 10,
+  ONBOARDING_COMPLETED: 15,
+  JOIN_CLUB: 5,
+  VOTE_PARTICIPATION: 3,
+  MESSAGE_POSTED: 1,
+  PITCH_CREATED: 10,
+  PITCH_SELECTED: 100,
+  SWAP_COMPLETED: 25,
+  REVIEW_VERIFIED: 10,
+  REFERRAL_ACTIVATED: 50, // referrer (use 25 for referee in caller)
+};
+
+award.ts
+import { prisma } from '../db';
+import { EVENT_POINTS, DAILY_CAPS } from './points';
+import { startOfDay, parseISO } from 'date-fns';
+
+export async function awardPoints(userId: string, type: string, ref?: {refType?: string, refId?: string}, customAmount?: number) {
+  const amount = customAmount ?? EVENT_POINTS[type];
+  if (!amount || amount <= 0) return { ok: false, reason: 'UNKNOWN_EVENT' };
+
+  // Idempotency when ref present
+  if (ref?.refId) {
+    const exists = await prisma.pointLedger.findUnique({
+      where: { userId_type_refType_refId: { userId, type, refType: ref.refType ?? null, refId: ref.refId } },
+    });
+    if (exists) return { ok: true, idempotent: true };
+  }
+
+  // Daily caps
+  const cap = DAILY_CAPS[type];
+  if (cap) {
+    const today = startOfDay(new Date());
+    const daily = await prisma.dailyPointCounter.upsert({
+      where: { userId_type_date: { userId, type, date: today } },
+      update: {},
+      create: { userId, type, date: today, total: 0 },
+    });
+    if (daily.total >= cap) return { ok: false, reason: 'DAILY_CAP_REACHED' };
+    const next = Math.min(cap - daily.total, amount);
+    if (next <= 0) return { ok: false, reason: 'DAILY_CAP_REACHED' };
+
+    await prisma.$transaction([
+      prisma.pointLedger.create({ data: { userId, type, amount: next, refType: ref?.refType ?? null, refId: ref?.refId ?? null } }),
+      prisma.user.update({ where: { id: userId }, data: { points: { increment: next } } }),
+      prisma.dailyPointCounter.update({ where: { userId_type_date: { userId, type, date: today } }, data: { total: { increment: next } } }),
+    ]);
+    return { ok: true, amount: next, capped: next < amount };
+  }
+
+  // No cap path
+  await prisma.$transaction([
+    prisma.pointLedger.create({ data: { userId, type, amount, refType: ref?.refType ?? null, refId: ref?.refId ?? null } }),
+    prisma.user.update({ where: { id: userId }, data: { points: { increment: amount } } }),
+  ]);
+  return { ok: true, amount };
+}
+
+export async function awardBadge(userId: string, code: string) {
+  try {
+    await prisma.userBadge.create({ data: { userId, code } });
+    return { ok: true };
+  } catch (e) {
+    // unique constraint => already has it
+    return { ok: true, idempotent: true };
+  }
+}
+
+Auto-award badges (examples)
+
+Call these at natural event boundaries:
+
+// after first vote succeeds
+await awardPoints(user.id, 'VOTE_PARTICIPATION', { refType: 'POLL', refId: pollId });
+await maybeAwardFirstVote(user.id);
+
+async function maybeAwardFirstVote(userId: string) {
+  const votes = await prisma.pointLedger.count({ where: { userId, type: 'VOTE_PARTICIPATION' }});
+  if (votes === 1) await awardBadge(userId, 'FIRST_VOTE');
+}
+
+// after message posted with body length >= 10
+await awardPoints(user.id, 'MESSAGE_POSTED', { refType: 'CLUB', refId: clubId });
+
+// after successful join
+await awardPoints(user.id, 'JOIN_CLUB', { refType: 'CLUB', refId: clubId });
+
+// after author creates first pitch
+await awardPoints(authorId, 'PITCH_CREATED', { refType: 'PITCH', refId: pitchId });
+await maybeAwardAuthorLaunch(authorId);
+
+async function maybeAwardAuthorLaunch(userId: string) {
+  const pitches = await prisma.pointLedger.count({ where: { userId, type: 'PITCH_CREATED' }});
+  if (pitches === 1) await awardBadge(userId, 'AUTHOR_LAUNCH');
+}
+
+5) API routes (minimal)
+
+GET /api/points/me → { points: number, ledger: PointLedger[] (last 50) }
+
+GET /api/badges/me → { badges: UserBadge[] }
+
+(Optional) POST /api/dev/award (guarded) for quick manual awards in testing.
+
+6) UI placements
+
+Header: PointsBadge (already exists) reads /api/points/me.
+
+Profile: “Badges” section, show UserBadge grid with tooltips.
+
+Club Room: in sidebar, show club badges (JSON on club) and user’s next milestone (e.g., “2/10 messages to BookWorm”).
+
+Author Dashboard: add “Swaps completed”, “Pitches selected” counts and badges progress.
+
+7) Seeds (developer joy)
+
+On seed, give your admin user:
+
+ACCOUNT_CREATED (+10)
+
+ONBOARDING_COMPLETED (+15)
+
+FIRST_VOTE badge
+
+Give a demo club a club-level badge in its JSON (for visual).
+
+8) Smoke tests (copy/paste curl)
+
+Assume you’re logged in via cookies or using your test session.
+
+# Vote → +3 up to 10/day
+curl -s -X POST "$PUB/api/polls/<pollId>/votes" -H "Content-Type: application/json" \
+  -d '{"optionId":"<optionId>"}'
+
+# Check points & ledger
+curl -s "$PUB/api/points/me"
+
+# First vote badge
+curl -s "$PUB/api/badges/me"
+
+# Join a club → +5 once per club
+curl -s -X POST "$PUB/api/memberships" -d '{"clubId":"<clubId>"}' -H "Content-Type: application/json"
+
+# Message posted → +1 up to 10/day
+curl -s -X POST "$PUB/api/clubs/<clubId>/messages" -d '{"body":"This is a helpful message!"}' -H "Content-Type: application/json"
+
+9) Paste-ready prompts for Replit
+Prompt A — PLAN (don’t execute yet)
+
+PAUSE FIRST. Plan Points & Badges v1.
+Add Prisma models UserBadge, DailyPointCounter (or update existing PointLedger if present).
+Create services/award.ts with awardPoints (caps + idempotency) and awardBadge.
+Wire awards at: account created, onboarding completed, join club, vote, message posted, pitch created/selected, swap completed, review verified, referral activated.
+Add routes: GET /api/points/me, GET /api/badges/me.
+Update UI: header points, profile badges.
+Create seeds for one demo user/club.
+Print: migration diff, files list, touchpoints (where awards are invoked), and a smoke plan. Then wait for my approval.
+
+Prompt B — APPROVE & EXECUTE
+
+Approved — proceed.
+Execute the plan with migration name sprint6_points_badges.
+Guardrails:
+
+Enforce daily caps exactly as defined.
+
+Enforce idempotency on ref-backed events via composite unique.
+
+Ignore MESSAGE_POSTED bodies shorter than 10 chars.
+
+On first vote, award FIRST_VOTE badge. On first pitch, award AUTHOR_LAUNCH.
+
+Return structured errors: DAILY_CAP_REACHED, IDEMPOTENT_EVENT, UNKNOWN_EVENT.
+
+Add SMOKE_POINTS_BADGES.md with curl steps and expected responses.
+Print completion summary (routes, seeds, where award calls were added).
+
+10) What else to consider (soon)
+
+Club-level badges (ClubBadge table) surfaced on club pages.
+
+Redeemables table (we can keep /rewards “coming soon” until inventory defined).
+
+Progress API for showing “next badge” guidance.
+
+Admin audit page for ledger/badges troubleshooting.
