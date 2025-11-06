@@ -1,8 +1,11 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card } from '@repo/ui';
 import { Button } from '@repo/ui';
 import { PageHeader } from '@repo/ui';
 import { useAuth } from '../contexts/AuthContext';
+import { CreditPurchaseModal } from '../components/CreditPurchaseModal';
+import { Coins } from 'lucide-react';
 
 const PLANS = [
   {
@@ -32,7 +35,13 @@ const PLANS = [
 export function BillingPage() {
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [showCreditModal, setShowCreditModal] = useState(false);
   const { user } = useAuth();
+
+  const { data: userData } = useQuery({
+    queryKey: ['/api/user/me'],
+    enabled: !!user,
+  });
 
   const handleCheckout = async (plan: string) => {
     if (!user) {
@@ -64,6 +73,8 @@ export function BillingPage() {
     }
   };
 
+  const creditBalance = (userData as any)?.creditBalance || 0;
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-6xl mx-auto p-6">
@@ -71,6 +82,27 @@ export function BillingPage() {
           title="Billing & Subscription"
           description="Upgrade your account to unlock premium features"
         />
+
+        <Card className="mt-6 p-6 bg-gradient-to-r from-primary/10 to-primary/5">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Coins className="h-5 w-5 text-primary" />
+                <h3 className="font-semibold">Promotion Credits</h3>
+              </div>
+              <p className="text-2xl font-bold" data-testid="text-credit-balance">{creditBalance} credits</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Use credits to boost pitches and sponsor clubs
+              </p>
+            </div>
+            <Button
+              onClick={() => setShowCreditModal(true)}
+              data-testid="button-buy-credits"
+            >
+              Buy Credits
+            </Button>
+          </div>
+        </Card>
 
         {error && (
           <div className="mt-4 p-4 bg-red-100 dark:bg-red-900/20 border border-red-400 dark:border-red-800 rounded text-sm text-red-700 dark:text-red-400" data-testid="text-error">
@@ -111,6 +143,12 @@ export function BillingPage() {
           </p>
         </Card>
       </div>
+
+      <CreditPurchaseModal
+        isOpen={showCreditModal}
+        onClose={() => setShowCreditModal(false)}
+        currentBalance={creditBalance}
+      />
     </div>
   );
 }
