@@ -1,0 +1,228 @@
+Book Pitch — Build/Verify Checklist for Replit
+1) Environment & Core Setup
+
+Instruction: Use Supabase (transaction pooler), Prisma, Fastify (or Next API routes), React/Vite. Configure .env, run migrations, seed minimal data.
+Ask Replit:
+
+Did you connect via the transaction pooler URL (port 6543)? Paste the redacted DSN pattern you used.
+
+Run prisma migrate deploy output? Any pending migrations?
+
+Show npm run dev logs with DB connection success.
+
+Proof: screenshot of public.users and public.clubs tables populated (fake data OK).
+
+2) Auth & Roles
+
+Instruction: Supabase Auth with role on profile: reader | author | admin. Enforce role-based routing.
+Ask Replit:
+
+Can you create test users for each role and sign in/out?
+
+Where is role stored (profiles.role)? Show the schema.
+
+Proof: short screen capture switching accounts and seeing different nav options.
+
+3) Database Schema (Prisma)
+
+Instruction: Tables: users/profiles, clubs, memberships, pitches, votes, messages, badges, user_badges, points_ledger, author_swaps.
+Ask Replit:
+
+Paste the Prisma schema models for those tables (secrets removed).
+
+Are all FKs indexed? Show the prisma migrate diff status.
+
+Proof: run a seed and show row counts in each table.
+
+4) Row-Level Security (RLS) / Access Control
+
+Instruction: Enable RLS; policies so users only read/write what they should (e.g., club hosts manage their clubs).
+Ask Replit:
+
+List each policy by table (one line each) and its intent.
+
+Can a non-member read a private club? (Should be no.)
+
+Proof: Postman (or curl) calls showing forbidden vs allowed requests.
+
+5) Onboarding Flow
+
+Instruction: After signup, force user to choose Reader or Author; save role; route accordingly.
+Ask Replit:
+
+Does the first-run flow block access until a role is selected?
+
+Proof: GIF of signup → role select → role-specific dashboard.
+
+6) Club Creation & Membership
+
+Instruction: Create club (name, description, genres, frequency, host/co-host). Join/leave club; membership stored.
+Ask Replit:
+
+Can a reader create a club and become hostId?
+
+Where is co-host stored?
+
+Proof: DB rows in clubs + memberships after create/join.
+
+7) Club Search & Filters
+
+Instruction: Search clubs by genre, keywords; paginate results.
+Ask Replit:
+
+Which endpoint handles search? Query params supported?
+
+Is search case-insensitive and SQL-injection-safe?
+
+Proof: 3 search queries showing different results + count/offset.
+
+8) Club Room (Tabs)
+
+Instruction: Club page with tabs: Info, Chat/Board, Voting, History/Completed.
+Ask Replit:
+
+Are tabs URL-addressable (e.g., ?tab=votes)?
+
+Is membership enforced to read/post chat?
+
+Proof: screen capture of each tab with sample data.
+
+9) Club Chat / Message Board
+
+Instruction: Simple message feed (messages table), newest first; anti-spam throttling (e.g., 1 msg/5s).
+Ask Replit:
+
+What validation prevents empty/oversized posts?
+
+Is author ID + timestamp stored?
+
+Proof: post a message, refresh, show persistence.
+
+10) Voting System (Book Selection)
+
+Instruction: Club creates a vote for upcoming pick; members cast 1 vote per poll; close poll, persist winner to club history.
+Ask Replit:
+
+How do you prevent duplicate voting? (unique constraint?)
+
+How is a poll closed and winner recorded?
+
+Proof: run a full poll cycle; show final winner saved to club_history.
+
+11) Author Dashboard
+
+Instruction: Author sees “My Pitches”, basic analytics (views, votes, saves).
+Ask Replit:
+
+Where do you compute analytics (view counters, vote totals)?
+
+What’s the route to create/edit a pitch?
+
+Proof: create a pitch; show it rendered and listed.
+
+12) Book Pitches (CRUD + Media)
+
+Instruction: Pitch includes title, cover, synopsis, genre tags, available formats, optional video link.
+Ask Replit:
+
+Validate required fields? Max lengths?
+
+Where are images stored (Supabase Storage)?
+
+Proof: upload cover; show URL served and displayed.
+
+13) AuthorSwap (Phase 1 scaffold)
+
+Instruction: Minimal scaffold: author can propose swap, accept/decline, mark completed.
+Ask Replit:
+
+What states exist? (proposed|accepted|declined|completed)
+
+How do you ensure each side uploads a short proof/review note?
+
+Proof: create → accept → complete flow with DB rows.
+
+14) Points System (MVP)
+
+Instruction: Write points_ledger entries for actions: join club, start club, vote, post message, create pitch, complete swap. Maintain profiles.points as sum.
+Ask Replit:
+
+Show the ledger insert code and the reducer that updates totals.
+
+Is it idempotent (e.g., voting twice doesn’t double-count)?
+
+Proof: perform actions; show ledger rows + updated total points.
+
+15) Badges (MVP)
+
+Instruction: Rule engine: earn badge when thresholds met (e.g., 10 votes = “Active Voter”). Store in user_badges.
+Ask Replit:
+
+Where are rules declared (config JSON/TS enum)?
+
+When are checks run? (cron/hook after ledger write?)
+
+Proof: give a user enough actions to trigger a badge; show badge on profile.
+
+16) Social Sharing
+
+Instruction: Public share pages for club (read-only) and pitch with Open Graph tags.
+Ask Replit:
+
+Do public pages hide private data and show OG tags?
+
+Proof: link inspector (e.g., OG tags output) + a public pitch URL (with dummy data).
+
+17) Admin Utilities
+
+Instruction: Admin view to: view users/clubs/pitches, ban spam, close polls, revoke badges.
+Ask Replit:
+
+How do you gate admin (role check + RLS)?
+
+Proof: admin screen capture performing a safe action (e.g., closing a poll in sandbox).
+
+18) Error Handling & Telemetry
+
+Instruction: Central error handler; toast/UI errors; basic logging.
+Ask Replit:
+
+Where do errors funnel (server + client)?
+
+Proof: intentionally trigger a failed vote; show user-friendly error and server log.
+
+19) Security & Validation
+
+Instruction: Zod/Yup validation on inputs; file type checks for images; rate-limits on chat.
+Ask Replit:
+
+Show the validators; what limits exist for messages & uploads?
+
+Proof: attempt invalid input; show rejection.
+
+20) Stripe (Phase 2 Stub)
+
+Instruction: Stub routes + UI for upcoming paid author features; feature flags off in prod.
+Ask Replit:
+
+Where is the flag? How do you toggle sandbox?
+
+Proof: UI shows “Coming Soon” with disabled actions; server routes 403.
+
+21) Build/Test Scripts
+
+Instruction: npm run dev, npm run build, npm run test, npm run seed.
+Ask Replit:
+
+Share package.json scripts; do tests run in CI?
+
+Proof: test run output (even if minimal).
+
+22) Deployment Readiness
+
+Instruction: Single command start; healthcheck route (/health), .env.example, README with setup steps.
+Ask Replit:
+
+What’s the healthcheck response?
+
+Proof: README excerpt + .env.example screenshot (no secrets).
