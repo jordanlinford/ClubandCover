@@ -145,6 +145,7 @@ model User {
   updatedAt            DateTime  @updatedAt
 
   // Relations
+  profile            UserProfile?
   books              Book[]             @relation("UserBooks")
   clubsCreated       Club[]             @relation("ClubCreator")
   memberships        Membership[]
@@ -169,10 +170,26 @@ model User {
   settings           UserSetting?
   checklistProgress  ChecklistProgress[]
   emailLogs          EmailLog[]
+  clubMessages       ClubMessage[]
 
   @@index([role])
   @@index([tier])
   @@map("users")
+}
+
+model UserProfile {
+  userId        String   @id
+  genres        String[] @default([])
+  booksPerMonth Int?
+  bio           String?  @db.Text
+  avatarUrl     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
 }
 
 model Book {
@@ -205,12 +222,15 @@ model Book {
 }
 
 model Club {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  genres      String[] @default([])
-  imageUrl    String?
-  createdById String
+  id              String   @id @default(uuid())
+  name            String
+  description     String?
+  about           String?  @db.Text
+  preferredGenres String[] @default([])
+  frequency       Int?
+  imageUrl        String?
+  coverImageUrl   String?
+  createdById     String
   maxMembers       Int       @default(50)
   isPublic         Boolean   @default(true)
   joinRules        JoinRules @default(OPEN)
@@ -227,10 +247,26 @@ model Club {
   messageThreads MessageThread[]
   pitches        Pitch[]
   polls          Poll[]
+  messages       ClubMessage[]
 
   @@index([createdById])
   @@index([isPublic])
   @@map("clubs")
+}
+
+model ClubMessage {
+  id        String   @id @default(uuid())
+  clubId    String
+  userId    String
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+
+  // Relations
+  club   Club @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([clubId, createdAt])
+  @@map("club_messages")
 }
 
 model Membership {
