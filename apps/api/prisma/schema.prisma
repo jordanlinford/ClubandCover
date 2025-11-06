@@ -256,11 +256,14 @@ model Club {
 }
 
 model ClubMessage {
-  id        String   @id @default(uuid())
-  clubId    String
-  userId    String
-  body      String   @db.Text
-  createdAt DateTime @default(now())
+  id             String   @id @default(uuid())
+  clubId         String
+  userId         String
+  body           String   @db.Text
+  attachmentUrl  String?  @db.Text
+  attachmentType String?
+  attachmentName String?
+  createdAt      DateTime @default(now())
 
   // Relations
   club   Club @relation(fields: [clubId], references: [id], onDelete: Cascade)

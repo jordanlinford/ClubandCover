@@ -353,6 +353,9 @@ class ApiClient {
       clubId: string;
       userId: string;
       body: string;
+      attachmentUrl: string | null;
+      attachmentType: string | null;
+      attachmentName: string | null;
       createdAt: Date;
       author: { id: string; name: string; avatarUrl: string | null };
     }>;
@@ -370,15 +373,23 @@ class ApiClient {
     return this.get(`/clubs/${clubId}/messages${queryString ? `?${queryString}` : ''}`);
   }
 
-  async postClubMessage(clubId: string, body: string): Promise<{
+  async postClubMessage(clubId: string, data: {
+    body: string;
+    attachmentUrl?: string;
+    attachmentType?: string;
+    attachmentName?: string;
+  }): Promise<{
     id: string;
     clubId: string;
     userId: string;
     body: string;
+    attachmentUrl: string | null;
+    attachmentType: string | null;
+    attachmentName: string | null;
     createdAt: Date;
     author: { id: string; name: string; avatarUrl: string | null };
   }> {
-    return this.post(`/clubs/${clubId}/messages`, { body });
+    return this.post(`/clubs/${clubId}/messages`, data);
   }
 }
 

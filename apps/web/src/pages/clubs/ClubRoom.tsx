@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRoute } from 'wouter';
 import { Card } from '@repo/ui';
 import { Button } from '@repo/ui';
 import { PageHeader } from '@repo/ui';
 import { api } from '../../lib/api';
-import { Users, MessageSquare, BarChart3, Info, Calendar, BookOpen } from 'lucide-react';
+import { Users, MessageSquare, BarChart3, Info, Calendar, BookOpen, Paperclip, X } from 'lucide-react';
 import { Link } from 'wouter';
 
 type Club = {
@@ -39,6 +39,12 @@ export function ClubRoomPage() {
   const [activeTab, setActiveTab] = useState<'feed' | 'polls' | 'info'>('feed');
   const [messageBody, setMessageBody] = useState('');
   const [error, setError] = useState('');
+  const [attachment, setAttachment] = useState<{
+    dataUrl: string;
+    type: string;
+    name: string;
+  } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
   const { data: club, isLoading: clubLoading } = useQuery<Club>({
@@ -53,16 +59,63 @@ export function ClubRoomPage() {
   });
 
   const postMessageMutation = useMutation({
-    mutationFn: (body: string) => api.postClubMessage(clubId, body),
+    mutationFn: (data: {
+      body: string;
+      attachmentUrl?: string;
+      attachmentType?: string;
+      attachmentName?: string;
+    }) => api.postClubMessage(clubId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clubs', clubId, 'messages'] });
       setMessageBody('');
+      setAttachment(null);
       setError('');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     },
     onError: (err: any) => {
       setError(err.message || 'Failed to post message');
     },
   });
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file size (2MB max)
+    if (file.size > 2 * 1024 * 1024) {
+      setError('File is too large. Maximum size is 2MB.');
+      return;
+    }
+
+    // Validate file type (images only for now)
+    if (!file.type.startsWith('image/')) {
+      setError('Only image files are supported.');
+      return;
+    }
+
+    // Read file as data URL
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        setAttachment({
+          dataUrl: event.target.result as string,
+          type: file.type,
+          name: file.name,
+        });
+        setError('');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveAttachment = () => {
+    setAttachment(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   const handlePostMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,7 +127,21 @@ export function ClubRoomPage() {
       setError('Message is too long (max 2000 characters)');
       return;
     }
-    postMessageMutation.mutate(messageBody);
+    
+    const data: {
+      body: string;
+      attachmentUrl?: string;
+      attachmentType?: string;
+      attachmentName?: string;
+    } = { body: messageBody };
+    
+    if (attachment) {
+      data.attachmentUrl = attachment.dataUrl;
+      data.attachmentType = attachment.type;
+      data.attachmentName = attachment.name;
+    }
+    
+    postMessageMutation.mutate(data);
   };
 
   if (clubLoading) {
@@ -224,10 +291,59 @@ export function ClubRoomPage() {
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                   data-testid="input-message"
                 />
+                
+                {/* Attachment Preview */}
+                {attachment && (
+                  <div className="relative border border-gray-300 dark:border-gray-600 rounded-md p-4">
+                    <button
+                      type="button"
+                      onClick={handleRemoveAttachment}
+                      className="absolute top-2 right-2 p-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full hover-elevate active-elevate-2"
+                      data-testid="button-remove-attachment"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                    {attachment.type.startsWith('image/') ? (
+                      <img
+                        src={attachment.dataUrl}
+                        alt={attachment.name}
+                        className="max-h-48 rounded-md object-contain"
+                      />
+                    ) : (
+                      <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                        <Paperclip className="h-5 w-5" />
+                        <span className="text-sm">{attachment.name}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    {messageBody.length}/2000
-                  </span>
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                      {messageBody.length}/2000
+                    </span>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                      data-testid="input-file"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={!!attachment}
+                      className="flex items-center gap-2"
+                      data-testid="button-attach-file"
+                    >
+                      <Paperclip className="h-4 w-4" />
+                      <span>Attach Image</span>
+                    </Button>
+                  </div>
                   <Button
                     type="submit"
                     disabled={postMessageMutation.isPending}
@@ -269,6 +385,34 @@ export function ClubRoomPage() {
                       <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                         {message.body}
                       </p>
+                      
+                      {/* Attachment Display */}
+                      {message.attachmentUrl && (
+                        <div className="mt-3">
+                          {message.attachmentType?.startsWith('image/') ? (
+                            <div className="border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden">
+                              <img
+                                src={message.attachmentUrl}
+                                alt={message.attachmentName || 'Attachment'}
+                                className="max-h-96 w-auto rounded-md cursor-pointer hover-elevate active-elevate-2"
+                                onClick={() => window.open(message.attachmentUrl || '', '_blank')}
+                                data-testid={`attachment-${message.id}`}
+                              />
+                            </div>
+                          ) : (
+                            <a
+                              href={message.attachmentUrl}
+                              download={message.attachmentName || 'attachment'}
+                              className="flex items-center gap-2 p-3 bg-gray-100 dark:bg-gray-800 rounded-md hover-elevate active-elevate-2"
+                            >
+                              <Paperclip className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                              <span className="text-sm text-gray-700 dark:text-gray-300">
+                                {message.attachmentName || 'Download attachment'}
+                              </span>
+                            </a>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </Card>

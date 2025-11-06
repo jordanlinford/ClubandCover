@@ -81,11 +81,46 @@ export default async function clubMessagesRoutes(app: FastifyInstance) {
     async (request, reply) => {
       try {
         const { clubId } = request.params as { clubId: string };
+        
+        // Define allowed image MIME types
+        const ALLOWED_IMAGE_TYPES = [
+          'image/jpeg',
+          'image/jpg',
+          'image/png',
+          'image/gif',
+          'image/webp',
+        ];
+        
         const bodySchema = z.object({
           body: z.string().min(1).max(2000),
+          attachmentUrl: z.string().optional().refine(
+            (url) => {
+              if (!url) return true;
+              // Must be a data URL with allowed image type
+              return url.startsWith('data:image/') && 
+                     ALLOWED_IMAGE_TYPES.some(type => url.startsWith(`data:${type};base64,`));
+            },
+            { message: 'Attachment must be a valid image data URL (JPEG, PNG, GIF, or WebP)' }
+          ),
+          attachmentType: z.string().optional().refine(
+            (type) => {
+              if (!type) return true;
+              return ALLOWED_IMAGE_TYPES.includes(type);
+            },
+            { message: 'Invalid attachment type' }
+          ),
+          attachmentName: z.string().max(255).optional(),
         });
-        const { body } = bodySchema.parse(request.body);
+        const { body, attachmentUrl, attachmentType, attachmentName } = bodySchema.parse(request.body);
         const userId = (request as any).user.id;
+
+        // Validate attachment size (base64 data URLs should be < 2MB)
+        if (attachmentUrl && attachmentUrl.length > 2.5 * 1024 * 1024) {
+          return reply.status(400).send({
+            success: false,
+            error: 'Attachment too large. Maximum size is 2MB.',
+          });
+        }
 
         // Check membership
         const membership = await prisma.membership.findUnique({
@@ -122,6 +157,9 @@ export default async function clubMessagesRoutes(app: FastifyInstance) {
             clubId,
             userId,
             body: body.trim(),
+            attachmentUrl: attachmentUrl || null,
+            attachmentType: attachmentType || null,
+            attachmentName: attachmentName || null,
           },
           include: {
             author: { select: { id: true, name: true, avatarUrl: true } },
