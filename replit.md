@@ -53,16 +53,29 @@ The project utilizes a monorepo structure managed by pnpm workspaces, separating
 - **Points & Badges System:** Gamified points economy for engagement actions (e.g., account creation, voting, pitching), badge catalog (auto-awarded for milestones).
 
 **User Roles:**
-- **READER:** Browse, vote, join clubs, participate, earn points/badges, request swaps.
-- **AUTHOR:** Create pitches, submit to clubs, access analytics, participate in AuthorSwap, subscribe to tiers.
+- **READER:** Browse, vote, join clubs, participate, earn points/badges. **Always free** - no subscription required.
+- **AUTHOR:** Create pitches, submit to clubs, access analytics, participate in AuthorSwap. Can subscribe to paid tiers for advanced features.
 - **CLUB_ADMIN:** Create/manage clubs, nominate pitches, create polls, manage members, earn host badges.
 - **STAFF:** Platform moderation, system administration.
 
-**Subscription Tiers (Current Implementation):**
-- **FREE:** Basic access, limited swaps/AI calls.
-- **PRO_AUTHOR:** Increased limits, author features.
-- **PRO_CLUB:** Advanced club features.
-- **PUBLISHER:** Unlimited features.
+**Subscription Tiers & Business Model:**
+- **Readers:** Always completely free - no subscription ever required.
+- **Authors - FREE Tier:** Includes core features:
+  - AuthorSwap network (swap books with other authors for free)
+  - Get books read by other authors
+  - Receive reviews from other authors
+  - Basic pitch submission
+  - Limited swaps/AI calls
+- **Authors - PRO ($9.99/mo):** Increased limits, pitch boosting with credits, advanced analytics.
+- **Club Admins - PRO CLUB ($19.99/mo):** Advanced club features, sponsorship opportunities.
+- **Authors - PUBLISHER ($49.99/mo):** Unlimited features, priority support.
+
+**Monetization Features (Phase 1 - Implemented):**
+- **Promotion Credits System:** Authors purchase credits to boost pitch visibility or sponsor clubs
+- **Pitch Boosting:** Spend credits to increase pitch impressions for 7/14/30 days
+- **Club Sponsorships:** Target specific clubs with sponsored content
+- **Stripe Integration:** Complete payment flow with 3DS/SCA support
+- **Analytics Dashboard:** Track ROI on promotional spending
 
 ## External Dependencies
 **Third-Party Services:**
