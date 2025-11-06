@@ -1,12 +1,28 @@
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { Card } from '@repo/ui';
 import { Button } from '@repo/ui';
 import { X, Coins, Zap, TrendingUp } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
+import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 
 const stripePublicKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
 const stripePromise = stripePublicKey ? loadStripe(stripePublicKey) : null;
+
+const CARD_ELEMENT_OPTIONS = {
+  style: {
+    base: {
+      fontSize: '16px',
+      color: '#424770',
+      '::placeholder': {
+        color: '#aab7c4',
+      },
+    },
+    invalid: {
+      color: '#9e2146',
+    },
+  },
+};
 
 const CREDIT_PACKAGES = [
   {
@@ -40,20 +56,44 @@ type CreditPurchaseModalProps = {
   currentBalance?: number;
 };
 
-export function CreditPurchaseModal({ isOpen, onClose, currentBalance = 0 }: CreditPurchaseModalProps) {
+function CreditPurchaseForm({ 
+  onClose, 
+  currentBalance 
+}: { 
+  onClose: () => void; 
+  currentBalance: number;
+}) {
   const [selectedPackage, setSelectedPackage] = useState(CREDIT_PACKAGES[1]);
   const [error, setError] = useState('');
+  const [processing, setProcessing] = useState(false);
   const queryClient = useQueryClient();
+  const stripe = useStripe();
+  const elements = useElements();
 
-  const purchaseMutation = useMutation({
-    mutationFn: async (pkg: typeof CREDIT_PACKAGES[0]) => {
+  const handlePurchase = async () => {
+    if (!stripe || !elements) {
+      setError('Payment system not ready');
+      return;
+    }
+
+    const cardElement = elements.getElement(CardElement);
+    if (!cardElement) {
+      setError('Card information missing');
+      return;
+    }
+
+    setProcessing(true);
+    setError('');
+
+    try {
+      // Create payment intent
       const response = await fetch('/api/credits/purchase', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          amount: pkg.amount + (pkg.bonus || 0),
-          price: pkg.price,
+          amount: selectedPackage.amount + (selectedPackage.bonus || 0),
+          price: selectedPackage.price,
         }),
       });
 
@@ -62,85 +102,70 @@ export function CreditPurchaseModal({ isOpen, onClose, currentBalance = 0 }: Cre
         throw new Error(errorData.error || 'Purchase failed');
       }
 
-      return response.json();
-    },
-    onSuccess: async (data) => {
-      if (data.success && data.data.requiresAction) {
-        // Handle 3DS/SCA authentication
-        if (!stripePromise) {
-          setError('Stripe is not configured');
-          return;
+      const data = await response.json();
+
+      // Confirm payment with card details
+      const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(
+        data.data.clientSecret,
+        {
+          payment_method: {
+            card: cardElement,
+          },
         }
+      );
 
-        const stripe = await stripePromise;
-        if (!stripe) {
-          setError('Stripe failed to load');
-          return;
-        }
-
-        const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(
-          data.data.clientSecret
-        );
-
-        if (stripeError) {
-          setError(stripeError.message || 'Payment failed');
-          return;
-        }
-
-        if (paymentIntent?.status === 'succeeded') {
-          // Call confirm endpoint to award credits
-          const confirmResponse = await fetch('/api/credits/confirm', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-              paymentIntentId: paymentIntent.id,
-            }),
-          });
-
-          const confirmData = await confirmResponse.json();
-          if (confirmData.success) {
-            queryClient.invalidateQueries({ queryKey: ['/api/user/me'] });
-            queryClient.invalidateQueries({ queryKey: ['/api/credits/balance'] });
-            onClose();
-          } else {
-            setError('Failed to confirm payment. Please contact support.');
-          }
-        }
-      } else if (data.success) {
-        // Payment succeeded without SCA
-        queryClient.invalidateQueries({ queryKey: ['/api/user/me'] });
-        queryClient.invalidateQueries({ queryKey: ['/api/credits/balance'] });
-        onClose();
+      if (stripeError) {
+        setError(stripeError.message || 'Payment failed');
+        setProcessing(false);
+        return;
       }
-    },
-    onError: (err: any) => {
-      setError(err.message || 'Purchase failed');
-    },
-  });
 
-  if (!isOpen) return null;
+      if (paymentIntent?.status === 'succeeded') {
+        // Call confirm endpoint to award credits
+        const confirmResponse = await fetch('/api/credits/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            paymentIntentId: paymentIntent.id,
+          }),
+        });
+
+        const confirmData = await confirmResponse.json();
+        if (confirmData.success) {
+          queryClient.invalidateQueries({ queryKey: ['/api/user/me'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/credits/balance'] });
+          onClose();
+        } else {
+          setError('Failed to confirm payment. Please contact support.');
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || 'Purchase failed');
+    } finally {
+      setProcessing(false);
+    }
+  };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" data-testid="modal-credit-purchase">
-      <Card className="max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-2xl font-bold" data-testid="text-modal-title">Purchase Credits</h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                Current Balance: <span className="font-semibold" data-testid="text-current-balance">{currentBalance} credits</span>
-              </p>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onClose}
-              data-testid="button-close-modal"
-            >
-              <X className="h-4 w-4" />
-            </Button>
+    <Card className="max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-2xl font-bold" data-testid="text-modal-title">Purchase Credits</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Current Balance: <span className="font-semibold" data-testid="text-current-balance">{currentBalance} credits</span>
+            </p>
           </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            data-testid="button-close-modal"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
 
           {error && (
             <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded text-sm text-destructive" data-testid="text-error">
@@ -213,6 +238,13 @@ export function CreditPurchaseModal({ isOpen, onClose, currentBalance = 0 }: Cre
             </ul>
           </div>
 
+          <div className="mb-6">
+            <h3 className="font-semibold mb-3">Payment Details</h3>
+            <div className="border border-gray-300 dark:border-gray-600 rounded-lg p-3 bg-white dark:bg-gray-800" data-testid="card-element">
+              <CardElement options={CARD_ELEMENT_OPTIONS} />
+            </div>
+          </div>
+
           <div className="flex gap-3">
             <Button
               variant="outline"
@@ -223,16 +255,39 @@ export function CreditPurchaseModal({ isOpen, onClose, currentBalance = 0 }: Cre
               Cancel
             </Button>
             <Button
-              onClick={() => purchaseMutation.mutate(selectedPackage)}
-              disabled={purchaseMutation.isPending}
+              onClick={handlePurchase}
+              disabled={processing || !stripe}
               className="flex-1"
               data-testid="button-purchase"
             >
-              {purchaseMutation.isPending ? 'Processing...' : `Purchase ${selectedPackage.amount + (selectedPackage.bonus || 0)} Credits`}
+              {processing ? 'Processing...' : `Purchase ${selectedPackage.amount + (selectedPackage.bonus || 0)} Credits for $${selectedPackage.price}`}
             </Button>
           </div>
         </div>
       </Card>
+  );
+}
+
+export function CreditPurchaseModal({ isOpen, onClose, currentBalance = 0 }: CreditPurchaseModalProps) {
+  if (!isOpen) return null;
+
+  if (!stripePromise) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <Card className="max-w-md w-full p-6">
+          <h2 className="text-xl font-bold mb-4">Payment System Unavailable</h2>
+          <p className="text-muted-foreground">Stripe is not configured. Please contact support.</p>
+          <Button onClick={onClose} className="mt-4 w-full">Close</Button>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" data-testid="modal-credit-purchase">
+      <Elements stripe={stripePromise}>
+        <CreditPurchaseForm onClose={onClose} currentBalance={currentBalance} />
+      </Elements>
     </div>
   );
 }

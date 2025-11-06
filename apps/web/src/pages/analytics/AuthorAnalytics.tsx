@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { BarChart, TrendingUp, Users, Award, Lightbulb } from 'lucide-react';
+import { BarChart, TrendingUp, Users, Award, Lightbulb, Coins, Zap, Target, DollarSign } from 'lucide-react';
 import type { AuthorAnalytics } from '@repo/types';
 
 export default function AuthorAnalyticsPage() {
@@ -144,6 +144,76 @@ export default function AuthorAnalyticsPage() {
           <p className="text-3xl font-semibold text-gray-900 dark:text-gray-100" data-testid="stat-avg-click-rate">
             {analytics.averageClickRate.toFixed(1)}%
           </p>
+        </div>
+      </div>
+
+      {/* Monetization Stats */}
+      <div className="mb-8">
+        <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+          <DollarSign className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+          Promotion Performance
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-6" data-testid="card-credits-spent">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                <Coins className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+              </div>
+              <h3 className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                Credits Spent
+              </h3>
+            </div>
+            <p className="text-3xl font-semibold text-gray-900 dark:text-gray-100" data-testid="stat-credits-spent">
+              {(analytics as any).creditsSpent || 0}
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-6" data-testid="card-boosts-active">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                <Zap className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              </div>
+              <h3 className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                Active Boosts
+              </h3>
+            </div>
+            <p className="text-3xl font-semibold text-gray-900 dark:text-gray-100" data-testid="stat-boosts-active">
+              {(analytics as any).activeBoosts || 0}
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-6" data-testid="card-sponsorships-active">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-pink-100 dark:bg-pink-900/30 rounded-lg">
+                <Target className="h-5 w-5 text-pink-600 dark:text-pink-400" />
+              </div>
+              <h3 className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                Active Sponsorships
+              </h3>
+            </div>
+            <p className="text-3xl font-semibold text-gray-900 dark:text-gray-100" data-testid="stat-sponsorships-active">
+              {(analytics as any).activeSponsorships || 0}
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-6" data-testid="card-promoted-impressions">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
+              </div>
+              <h3 className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                Promoted Views
+              </h3>
+            </div>
+            <p className="text-3xl font-semibold text-gray-900 dark:text-gray-100" data-testid="stat-promoted-impressions">
+              {(analytics as any).promotedImpressions || 0}
+            </p>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+              {(analytics as any).creditsSpent > 0
+                ? `${(((analytics as any).promotedImpressions || 0) / (analytics as any).creditsSpent).toFixed(1)} views/credit`
+                : 'N/A'}
+            </p>
+          </div>
         </div>
       </div>
 
