@@ -21,6 +21,8 @@ import { checklistsRoutes } from './checklists.js';
 import { analyticsRoutes } from './analytics.js';
 import { cronRoutes } from './cron.js';
 import { pollsFullRoutes } from './polls_full.js';
+import onboardingRoutes from './onboarding.js';
+import clubMessagesRoutes from './club-messages.js';
 
 export async function routes(fastify: FastifyInstance) {
   fastify.get('/health', async () => {
@@ -62,6 +64,10 @@ export async function routes(fastify: FastifyInstance) {
   await fastify.register(analyticsRoutes);
   await fastify.register(cronRoutes);
   await fastify.register(pollsFullRoutes);
+  
+  // Sprint 6: Reader onboarding & club discovery
+  await fastify.register(onboardingRoutes);
+  await fastify.register(clubMessagesRoutes);
   
   // Test support routes (only enabled in test environment)
   await fastify.register(testSupportRoutes, { prefix: '/test' });
