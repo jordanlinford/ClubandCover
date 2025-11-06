@@ -1,0 +1,394 @@
+Book Pitch – Feature Verification Checklist
+1) Auth & Roles
+
+Capabilities
+
+ Sign up / sign in / sign out works
+
+ Role selection on first login: Reader or Author (and Admin via seeding)
+
+ Role stored on profile and enforced in routing/guards
+
+ Password reset flow
+Proof to show
+
+Short screen capture of signup → role selection → role-specific dashboard
+
+DB row for profile showing role value
+
+2) Profiles
+
+Capabilities
+
+ View/edit profile (name, bio, avatar)
+
+ Public profile URL
+
+ Points & badges visible on profile
+Proof to show
+
+Screen of edit → save → refresh shows changes
+
+DB rows for profiles, user_badges join table
+
+3) Clubs: Create & Manage
+
+Capabilities
+
+ Create club (name, description, genres, frequency)
+
+ Host & optional co-host assignment
+
+ Join/leave club; membership persisted
+
+ Club privacy setting (public/private) if supported
+Proof to show
+
+DB rows in clubs and memberships after actions
+
+UI showing host/co-host labels
+
+4) Club Search & Discovery
+
+Capabilities
+
+ Search by genre, keywords; paginated results
+
+ Sorting (e.g., newest, most members)
+
+ SQL-injection-safe, case-insensitive
+Proof to show
+
+3 example searches w/ different outputs
+
+Endpoint and query params in Postman
+
+5) Club Room (Tabs)
+
+Capabilities
+
+ Tabs: Info, Chat/Board, Voting, History/Completed
+
+ URL-addressable tabs (e.g., ?tab=votes)
+
+ Membership-gated access (non-members limited)
+Proof to show
+
+Screen of each tab populated with seed data
+
+Attempt as non-member → blocked/limited view
+
+6) Club Chat / Message Board
+
+Capabilities
+
+ Post messages; latest first
+
+ Validation (length limits, no empty); 1 msg/5s throttle
+
+ Author ID + timestamp persisted
+Proof to show
+
+Post → refresh → persists
+
+DB messages table rows + rate-limit demo
+
+7) Voting / Polls (Book Selection)
+
+Capabilities
+
+ Create poll with multiple book options
+
+ 1 vote per member (duplicate prevented)
+
+ Close poll → winner written to club history
+Proof to show
+
+Full poll cycle video + DB votes and club_history rows
+
+Unique index or server logic preventing duplicates
+
+8) Book Pitches (CRUD + Media)
+
+Capabilities
+
+ Create/edit/delete pitch (title, cover, synopsis, genres, formats, optional video link)
+
+ Image upload to Supabase Storage
+
+ Client/server validation (lengths, required fields)
+Proof to show
+
+Create pitch with cover → renders thumbnail
+
+Storage URL and DB pitches row
+
+9) Author Dashboard & Analytics
+
+Capabilities
+
+ “My Pitches” list
+
+ Counters: views, votes, saves (basic analytics)
+
+ Filter/sort my pitches
+Proof to show
+
+Dashboard screen w/ changing counters
+
+Where counters are incremented in code
+
+10) AuthorSwap (Phase 1)
+
+Capabilities
+
+ Propose swap → accept/decline → mark completed
+
+ States: proposed | accepted | declined | completed
+
+ Optional short verification note on completion
+Proof to show
+
+State transitions in UI + DB rows in author_swaps
+
+Prevent duplicate open swaps with same counterpart/title
+
+11) Points Ledger (MVP)
+
+Capabilities
+
+ Writes ledger entries for: join club, start club, vote, post, create pitch, complete swap
+
+ Profile points = sum of ledger (or computed reliably)
+
+ Idempotent (repeated action doesn’t double-count)
+Proof to show
+
+Perform actions → show points_ledger rows + updated profiles.points
+
+Demonstrate duplicate vote doesn’t add points
+
+12) Badges Engine (MVP)
+
+Capabilities
+
+ Rules defined (config/enum) e.g., Active Voter (10 votes), Club Starter, Influencer
+
+ Badge award on threshold; stored in user_badges
+
+ Badge visible on profile and/or club page
+Proof to show
+
+Trigger a badge live; show DB join row + UI badge
+
+Show where rules live in code
+
+13) Social Sharing & Public Pages
+
+Capabilities
+
+ Public read-only Pitch page and Club page
+
+ Open Graph tags (title, description, image)
+
+ No private data leaked on public pages
+Proof to show
+
+Public URL preview (OG debugger output)
+
+Code showing fields selected for public views
+
+14) Admin Tools
+
+Capabilities
+
+ Admin list of users/clubs/pitches
+
+ Close any poll; revoke a badge; ban obvious spam
+
+ Role-gated routes (admin only)
+Proof to show
+
+Admin screen action demo + 403 for non-admin
+
+RLS/role check snippet
+
+15) Security: RLS & Permissions
+
+Capabilities
+
+ Row-Level Security on all user data tables
+
+ Policies: user can only modify own stuff; hosts manage their clubs
+
+ File type & size validation for uploads
+Proof to show
+
+List of policies per table (one-liners)
+
+Postman calls: forbidden vs allowed
+
+16) Validation & Rate Limits
+
+Capabilities
+
+ Zod/Yup (or similar) schemas server-side
+
+ Rate limits on chat & sensitive endpoints
+
+ Graceful error messages
+Proof to show
+
+Invalid payload returns 400 with friendly message
+
+Log snippet for throttled request
+
+17) Notifications (if included)
+
+Capabilities
+
+ In-app toasts for actions (vote cast, post saved)
+
+ Optional email for swap proposals/acceptance
+Proof to show
+
+Trigger notification; screenshot + code location
+
+Email template (if enabled) or stub
+
+18) Storage & Media
+
+Capabilities
+
+ Supabase Storage buckets organized (e.g., pitch-covers/)
+
+ Signed URLs when needed; public when safe
+
+ Cleanup on pitch delete (optional)
+Proof to show
+
+Storage path structure + example signed URL call
+
+Delete pitch → verify image handling
+
+19) Feature Flags & Environments
+
+Capabilities
+
+ Flags: FEATURE_POINTS, FEATURE_BADGES, FEATURE_STRIPE
+
+ .env.example checked in; staging/prod .env documented
+
+ /health route returns {status:"ok"}
+Proof to show
+
+Toggle a flag → UI/route behavior changes
+
+Screenshot of .env.example (no secrets)
+
+20) Stripe (Phase 2 Stub)
+
+Capabilities
+
+ Stubbed endpoints (return 403/“coming soon”) behind flag
+
+ UI placeholders for paid author features
+Proof to show
+
+Calling stub route returns expected 403
+
+UI shows disabled/teaser component
+
+21) Seed Data & Test Accounts
+
+Capabilities
+
+ Deterministic seed: test users (reader/host/author/admin), clubs, pitches, open/closed polls, some points/badges
+
+ Script: npm run seed
+Proof to show
+
+Seed output counts per table
+
+Credentials for test accounts (dummy emails)
+
+22) Error Handling & Telemetry
+
+Capabilities
+
+ Central server error handler
+
+ Client toasts for common failures
+
+ Basic request logging
+Proof to show
+
+Intentional failure demo with friendly UI error
+
+Server log excerpt
+
+23) Performance & Pagination
+
+Capabilities
+
+ Pagination on lists (clubs, pitches, messages)
+
+ N+1 avoided on common views (e.g., include counts in one query)
+Proof to show
+
+API responses show limit/offset (or cursor)
+
+Code snippet showing eager loading / aggregate
+
+24) Accessibility & Responsive UI
+
+Capabilities
+
+ Keyboard nav on forms and tabs
+
+ Mobile layout verified on small screens
+Proof to show
+
+Mobile screenshot of Club Room & Pitch page
+
+Tab focus outline visible in demo
+
+25) Build, Tests, CI
+
+Capabilities
+
+ Scripts: dev, build, test, seed
+
+ Minimal unit tests for utility/business logic (points reducer, badge award)
+
+ Postman collection checked in
+Proof to show
+
+Test run output (even a few passing tests)
+
+Postman file + example run
+
+26) Documentation & Readiness
+
+Capabilities
+
+ README: setup, env vars, run steps, seed
+
+ API routes list (short table) or OpenAPI stub
+
+ Rollback plan described
+Proof to show
+
+README excerpt
+
+/health + one sample endpoint in docs
+
+Optional “One-Line Status” Return Format for Devs
+
+Ask them to reply like this:
+
+Auth & Roles: ✅ complete (video + DB screenshot attached)
+
+Clubs: ⏳ in progress (blocked by RLS)
+
+Badges: 🛑 not started
