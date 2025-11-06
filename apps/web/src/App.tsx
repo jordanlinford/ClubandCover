@@ -1,6 +1,9 @@
 import { Route, Switch } from 'wouter';
 import { SignInPage } from './pages/auth/SignIn';
 import { SignUpPage } from './pages/auth/SignUp';
+import VerifyEmail from './pages/auth/VerifyEmail';
+import ForgotPassword from './pages/auth/ForgotPassword';
+import ResetPassword from './pages/auth/ResetPassword';
 import { ProfilePage } from './pages/Profile';
 import { BooksListPage } from './pages/books/BooksList';
 import { BookDetailPage } from './pages/books/BookDetail';
@@ -33,6 +36,11 @@ export default function App() {
       <Route path="/" component={HomePage} />
       <Route path="/auth/sign-in" component={SignInPage} />
       <Route path="/auth/sign-up" component={SignUpPage} />
+      <Route path="/auth/signin" component={SignInPage} />
+      <Route path="/auth/signup" component={SignUpPage} />
+      <Route path="/verify-email" component={VerifyEmail} />
+      <Route path="/auth/forgot-password" component={ForgotPassword} />
+      <Route path="/reset-password" component={ResetPassword} />
       <Route path="/profile" component={ProfilePage} />
       <Route path="/books" component={BooksListPage} />
       <Route path="/books/new" component={BookFormPage} />
