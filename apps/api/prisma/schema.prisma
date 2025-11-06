@@ -134,21 +134,26 @@ enum NotificationType {
 
 // Models
 model User {
-  id                   String    @id
-  email                String    @unique
-  name                 String
-  avatarUrl            String?
-  bio                  String?
-  role                 UserRole  @default(READER)
-  tier                 Tier      @default(FREE)
-  stripeCustomerId     String?
-  stripeSubscriptionId String?
-  aiCallsToday         Int       @default(0)
-  aiCallsResetAt       DateTime  @default(now())
-  points               Int       @default(0)
-  reputation           Int       @default(0)
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
+  id                        String    @id
+  email                     String    @unique
+  name                      String
+  avatarUrl                 String?
+  bio                       String?
+  role                      UserRole  @default(READER)
+  tier                      Tier      @default(FREE)
+  stripeCustomerId          String?
+  stripeSubscriptionId      String?
+  aiCallsToday              Int       @default(0)
+  aiCallsResetAt            DateTime  @default(now())
+  points                    Int       @default(0)
+  reputation                Int       @default(0)
+  emailVerified             Boolean   @default(false)
+  emailVerificationToken    String?
+  emailVerificationExpires  DateTime?
+  passwordResetToken        String?
+  passwordResetExpires      DateTime?
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
 
   // Relations
   profile            UserProfile?

@@ -25,6 +25,7 @@ import { pollsFullRoutes } from './polls_full.js';
 import onboardingRoutes from './onboarding.js';
 import clubMessagesRoutes from './club-messages.js';
 import pointsRoutes from './points.js';
+import { authRoutes } from './auth.js';
 
 export async function routes(fastify: FastifyInstance) {
   fastify.get('/health', async () => {
@@ -74,6 +75,9 @@ export async function routes(fastify: FastifyInstance) {
   
   // Points & Badges v1
   await fastify.register(pointsRoutes);
+  
+  // Authentication (email verification, password reset)
+  await fastify.register(authRoutes);
   
   // Test support routes (only enabled in test environment)
   await fastify.register(testSupportRoutes, { prefix: '/test' });
