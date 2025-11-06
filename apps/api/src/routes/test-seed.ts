@@ -222,11 +222,54 @@ export default async function testSeedRoutes(fastify: FastifyInstance) {
           },
         });
 
+        // 8. Seed points for the user
+        const pointsEntries = [
+          { amount: 10, eventType: 'ACCOUNT_CREATED', refType: null, refId: null },
+          { amount: 15, eventType: 'ONBOARDING_COMPLETED', refType: null, refId: null },
+          { amount: 5, eventType: 'JOIN_CLUB', refType: 'CLUB', refId: club.id },
+          { amount: 10, eventType: 'PITCH_CREATED', refType: 'PITCH', refId: pitch1.id },
+          { amount: 10, eventType: 'PITCH_CREATED', refType: 'PITCH', refId: pitch2.id },
+          { amount: 3, eventType: 'VOTE_PARTICIPATION', refType: null, refId: null },
+          { amount: 3, eventType: 'VOTE_PARTICIPATION', refType: null, refId: null },
+          { amount: 1, eventType: 'MESSAGE_POSTED', refType: 'CLUB', refId: club.id },
+        ];
+
+        for (const entry of pointsEntries) {
+          await tx.pointLedger.create({
+            data: {
+              userId: user.id,
+              amount: entry.amount,
+              eventType: entry.eventType as any,
+              refType: entry.refType,
+              refId: entry.refId,
+            },
+          });
+        }
+
+        // 9. Seed badges for the user
+        const badgesToAward = [
+          { badgeId: 'FIRST_VOTE', earnedAt: new Date(Date.now() - 86400000 * 5) }, // 5 days ago
+          { badgeId: 'AUTHOR_LAUNCH', earnedAt: new Date(Date.now() - 86400000 * 3) }, // 3 days ago
+          { badgeId: 'HOST_STARTER', earnedAt: new Date(Date.now() - 86400000 * 2) }, // 2 days ago
+        ];
+
+        for (const badge of badgesToAward) {
+          await tx.userBadge.create({
+            data: {
+              userId: user.id,
+              badgeId: badge.badgeId,
+              earnedAt: badge.earnedAt,
+            },
+          });
+        }
+
         return {
           user: { id: user.id, email: user.email, password: testPassword },
           club: { id: club.id, name: club.name },
           books: [book.id, book2.id, book3.id],
           pitches: [pitch1.id, pitch2.id, pitch3.id],
+          pointsTotal: pointsEntries.reduce((sum, p) => sum + p.amount, 0),
+          badgesCount: badgesToAward.length,
         };
       });
 
