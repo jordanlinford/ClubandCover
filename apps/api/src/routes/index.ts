@@ -65,7 +65,7 @@ export async function routes(fastify: FastifyInstance) {
   await fastify.register(settingsRoutes);
   await fastify.register(discoverRoutes);
   await fastify.register(checklistsRoutes);
-  await fastify.register(analyticsRoutes);
+  await fastify.register(analyticsRoutes, { prefix: '/analytics' });
   await fastify.register(cronRoutes);
   await fastify.register(pollsFullRoutes);
   

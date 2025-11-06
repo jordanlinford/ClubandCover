@@ -214,7 +214,7 @@ export async function analyticsRoutes(fastify: FastifyInstance) {
   // Get club analytics (for club owners)
   fastify.get<{
     Params: { id: string };
-  }>('/api/analytics/clubs/:id', { onRequest: [requireAuth] }, async (request, reply) => {
+  }>('/clubs/:id', { onRequest: [requireAuth] }, async (request, reply) => {
     try {
       const userId = request.user!.id;
       const clubId = request.params.id;
