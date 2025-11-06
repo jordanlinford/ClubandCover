@@ -1,4 +1,5 @@
 import { PrismaClient, PointType } from '@prisma/client';
+import { startOfDay } from 'date-fns';
 
 const prisma = new PrismaClient();
 
@@ -6,75 +7,182 @@ const prisma = new PrismaClient();
  * Point values for different actions
  */
 export const POINT_VALUES: Record<PointType, number> = {
-  SWAP_VERIFIED: 50,        // Points for completing a swap
-  ON_TIME_DELIVERY: 25,     // Bonus for on-time delivery
-  PITCH_SELECTED: 100,      // Points for having your pitch selected
-  VOTE_PARTICIPATION: 3,    // Points for voting in a poll
-  REVIEW_VERIFIED: 10,      // Points for verified book review
-  SOCIAL_SHARE: 5,          // Points for sharing content
-  HOST_ACTION: 15,          // Points for hosting club activities
-  REFERRAL_ACTIVATED: 50,   // Points for successful referral (referrer gets 50, referee gets 25)
+  // Existing
+  SWAP_VERIFIED: 50,
+  ON_TIME_DELIVERY: 25,
+  PITCH_SELECTED: 100,
+  VOTE_PARTICIPATION: 3,
+  REVIEW_VERIFIED: 10,
+  SOCIAL_SHARE: 5,
+  HOST_ACTION: 15,
+  REFERRAL_ACTIVATED: 50,
+  
+  // New (Points & Badges v1)
+  ACCOUNT_CREATED: 10,
+  ONBOARDING_COMPLETED: 15,
+  JOIN_CLUB: 5,
+  MESSAGE_POSTED: 1,
+  PITCH_CREATED: 10,
+  SWAP_COMPLETED: 25,
 } as const;
 
 /**
- * Award points to a user with idempotency guarantees
+ * Daily caps for specific point types (max points per day)
+ */
+export const DAILY_CAPS: Partial<Record<PointType, number>> = {
+  VOTE_PARTICIPATION: 10,    // Max 10 pts/day from voting
+  MESSAGE_POSTED: 10,        // Max 10 pts/day from messages
+  REFERRAL_ACTIVATED: 250,   // Max 5 activations × 50 pts = 250/day
+};
+
+/**
+ * Award points to a user with idempotency and daily caps
  * 
  * @param userId - User to award points to
  * @param type - Type of point action (enum)
- * @param amount - Number of points to award (can be negative for deductions)
+ * @param amount - Number of points to award (optional, uses POINT_VALUES by default)
  * @param refType - Optional reference type for idempotency (e.g., "SWAP", "PITCH", "POLL")
  * @param refId - Optional reference ID for idempotency (e.g., swapId, pollId)
- * @returns The created PointLedger entry, or null if already awarded
+ * @returns Result object with status
  */
 export async function awardPoints(
   userId: string,
   type: PointType,
-  amount: number,
+  amount?: number,
   refType?: string,
   refId?: string
-): Promise<any> {
-  // If refId is provided, check for existing entry (idempotency)
+): Promise<{ ok: boolean; amount?: number; reason?: string; idempotent?: boolean; capped?: boolean }> {
+  // Use default point value if not specified
+  const pointsToAward = amount ?? POINT_VALUES[type];
+  
+  if (!pointsToAward || pointsToAward <= 0) {
+    return { ok: false, reason: 'UNKNOWN_EVENT' };
+  }
+
+  // Check idempotency when refId is provided
   if (refId && refType) {
-    const existing = await prisma.pointLedger.findFirst({
+    const existing = await prisma.pointLedger.findUnique({
       where: {
-        userId,
-        type,
-        refType,
-        refId,
+        userId_type_refType_refId: {
+          userId,
+          type,
+          refType,
+          refId,
+        },
       },
     });
 
     if (existing) {
-      // Already awarded - return null to indicate no-op
-      return null;
+      return { ok: true, idempotent: true };
     }
   }
 
-  // Award points in a transaction
-  return await prisma.$transaction(async (tx) => {
-    // Create ledger entry
-    const entry = await tx.pointLedger.create({
+  // Check daily caps
+  const dailyCap = DAILY_CAPS[type];
+  if (dailyCap !== undefined) {
+    const today = startOfDay(new Date());
+    
+    // Get or create daily counter
+    const dailyCounter = await prisma.dailyPointCounter.upsert({
+      where: {
+        userId_type_date: {
+          userId,
+          type,
+          date: today,
+        },
+      },
+      update: {},
+      create: {
+        userId,
+        type,
+        date: today,
+        total: 0,
+      },
+    });
+
+    // Check if cap reached
+    if (dailyCounter.total >= dailyCap) {
+      return { ok: false, reason: 'DAILY_CAP_REACHED' };
+    }
+
+    // Cap the award amount if it would exceed daily limit
+    const remainingCap = dailyCap - dailyCounter.total;
+    const actualAmount = Math.min(remainingCap, pointsToAward);
+    
+    if (actualAmount <= 0) {
+      return { ok: false, reason: 'DAILY_CAP_REACHED' };
+    }
+
+    // Award points with cap enforcement
+    await prisma.$transaction(async (tx) => {
+      // Create ledger entry
+      await tx.pointLedger.create({
+        data: {
+          userId,
+          type,
+          amount: actualAmount,
+          refType: refType || null,
+          refId: refId || null,
+        },
+      });
+
+      // Update user's total points
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          points: {
+            increment: actualAmount,
+          },
+        },
+      });
+
+      // Update daily counter
+      await tx.dailyPointCounter.update({
+        where: {
+          userId_type_date: {
+            userId,
+            type,
+            date: today,
+          },
+        },
+        data: {
+          total: {
+            increment: actualAmount,
+          },
+        },
+      });
+    });
+
+    return {
+      ok: true,
+      amount: actualAmount,
+      capped: actualAmount < pointsToAward,
+    };
+  }
+
+  // No cap - award full amount
+  await prisma.$transaction(async (tx) => {
+    await tx.pointLedger.create({
       data: {
         userId,
         type,
-        amount,
+        amount: pointsToAward,
         refType: refType || null,
         refId: refId || null,
       },
     });
 
-    // Update user's total points
     await tx.user.update({
       where: { id: userId },
       data: {
         points: {
-          increment: amount,
+          increment: pointsToAward,
         },
       },
     });
-
-    return entry;
   });
+
+  return { ok: true, amount: pointsToAward };
 }
 
 /**
