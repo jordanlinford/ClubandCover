@@ -1,7 +1,5 @@
-import { PrismaClient } from '@prisma/client';
-import crypto from 'crypto';
-
-const prisma = new PrismaClient();
+import * as crypto from 'crypto';
+import { prisma } from './prisma.js';
 
 /**
  * Generate a secure random token
@@ -12,11 +10,11 @@ function generateToken(): string {
 
 /**
  * Create email verification token for a user
- * Token expires in 24 hours
+ * Token expires in 6 hours
  */
 export async function createVerificationToken(userId: string): Promise<string> {
   const token = generateToken();
-  const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+  const expires = new Date(Date.now() + 6 * 60 * 60 * 1000); // 6 hours
 
   await prisma.user.update({
     where: { id: userId },

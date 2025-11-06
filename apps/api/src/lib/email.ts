@@ -254,7 +254,7 @@ export const emailTemplates = {
           <a href="${verificationUrl}" style="color: #4F46E5; word-break: break-all;">${verificationUrl}</a>
         </p>
         <p style="margin-top: 30px; color: #666; font-size: 14px;">
-          This link will expire in 24 hours. If you didn't create an account, you can safely ignore this email.
+          This link will expire in 6 hours. If you didn't create an account, you can safely ignore this email.
         </p>
       </div>
     `,

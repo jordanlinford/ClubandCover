@@ -9,6 +9,7 @@ declare module 'fastify' {
       email?: string;
       role?: string;
       tier?: string;
+      emailVerified?: boolean;
     };
   }
 }
@@ -42,6 +43,7 @@ export async function supabaseAuth(request: FastifyRequest, reply: FastifyReply)
           email: dbUser.email,
           role: dbUser.role,
           tier: dbUser.tier,
+          emailVerified: dbUser.emailVerified,
         };
         return;
       }
@@ -66,6 +68,7 @@ export async function supabaseAuth(request: FastifyRequest, reply: FastifyReply)
       email: dbUser.email,
       role: dbUser.role,
       tier: dbUser.tier,
+      emailVerified: dbUser.emailVerified,
     };
   } catch (error) {
     // If Supabase is not configured, skip auth

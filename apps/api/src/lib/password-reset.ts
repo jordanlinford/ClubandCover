@@ -1,7 +1,5 @@
-import { PrismaClient } from '@prisma/client';
-import crypto from 'crypto';
-
-const prisma = new PrismaClient();
+import * as crypto from 'crypto';
+import { prisma } from './prisma.js';
 
 /**
  * Generate a secure random token
@@ -14,14 +12,15 @@ function generateToken(): string {
  * Create password reset token for a user
  * Token expires in 1 hour
  */
-export async function createPasswordResetToken(email: string): Promise<{ success: boolean; token?: string; userId?: string; error?: string }> {
+export async function createPasswordResetToken(email: string): Promise<{ success: boolean; token?: string; userId?: string }> {
   const user = await prisma.user.findUnique({
     where: { email },
   });
 
   if (!user) {
     // Don't reveal that user doesn't exist (security best practice)
-    return { success: false, error: 'If that email exists, a reset link has been sent' };
+    // Return success to prevent email enumeration
+    return { success: true };
   }
 
   const token = generateToken();
