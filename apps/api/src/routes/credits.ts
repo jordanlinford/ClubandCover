@@ -167,28 +167,31 @@ export default async function creditsRoutes(app: FastifyInstance) {
         });
       }
 
-      // Add credits to user balance
-      const updatedUser = await prisma.user.update({
-        where: { id: userId },
-        data: {
-          creditBalance: {
-            increment: body.amount,
+      // Add credits to user balance and record transaction atomically
+      const updatedUser = await prisma.$transaction(async (tx) => {
+        const updatedUser = await tx.user.update({
+          where: { id: userId },
+          data: {
+            creditBalance: {
+              increment: body.amount,
+            },
           },
-        },
-        select: { creditBalance: true },
-      });
+          select: { creditBalance: true },
+        });
 
-      // Record transaction
-      await prisma.creditTransaction.create({
-        data: {
-          userId,
-          type: 'PURCHASE',
-          amount: body.amount,
-          balanceBefore: user.creditBalance,
-          balanceAfter: updatedUser.creditBalance,
-          stripePaymentId: paymentIntent.id,
-          description: `Purchased ${body.amount} credits`,
-        },
+        await tx.creditTransaction.create({
+          data: {
+            userId,
+            type: 'PURCHASE',
+            amount: body.amount,
+            balanceBefore: user.creditBalance,
+            balanceAfter: updatedUser.creditBalance,
+            stripePaymentId: paymentIntent.id,
+            description: `Purchased ${body.amount} credits`,
+          },
+        });
+
+        return updatedUser;
       });
 
       return reply.send({
@@ -287,28 +290,31 @@ export default async function creditsRoutes(app: FastifyInstance) {
         });
       }
 
-      // Add credits to user balance
-      const updatedUser = await prisma.user.update({
-        where: { id: userId },
-        data: {
-          creditBalance: {
-            increment: credits,
+      // Add credits to user balance and record transaction atomically
+      const updatedUser = await prisma.$transaction(async (tx) => {
+        const updatedUser = await tx.user.update({
+          where: { id: userId },
+          data: {
+            creditBalance: {
+              increment: credits,
+            },
           },
-        },
-        select: { creditBalance: true },
-      });
+          select: { creditBalance: true },
+        });
 
-      // Record transaction
-      await prisma.creditTransaction.create({
-        data: {
-          userId,
-          type: 'PURCHASE',
-          amount: credits,
-          balanceBefore: user.creditBalance,
-          balanceAfter: updatedUser.creditBalance,
-          stripePaymentId: paymentIntent.id,
-          description: `Purchased ${credits} credits (SCA confirmed)`,
-        },
+        await tx.creditTransaction.create({
+          data: {
+            userId,
+            type: 'PURCHASE',
+            amount: credits,
+            balanceBefore: user.creditBalance,
+            balanceAfter: updatedUser.creditBalance,
+            stripePaymentId: paymentIntent.id,
+            description: `Purchased ${credits} credits (SCA confirmed)`,
+          },
+        });
+
+        return updatedUser;
       });
 
       return reply.send({
@@ -374,17 +380,6 @@ export default async function creditsRoutes(app: FastifyInstance) {
         });
       }
 
-      // Check if user has enough credits
-      if (user.creditBalance < body.amount) {
-        return reply.code(400).send({
-          success: false,
-          error: 'Insufficient credits',
-          code: 'INSUFFICIENT_CREDITS',
-          currentBalance: user.creditBalance,
-          required: body.amount,
-        });
-      }
-
       // Calculate new boost end date
       const now = new Date();
       const currentBoostEnd = pitch.boostEndsAt && pitch.boostEndsAt > now 
@@ -393,50 +388,101 @@ export default async function creditsRoutes(app: FastifyInstance) {
       
       const newBoostEnd = new Date(currentBoostEnd.getTime() + body.durationDays * 24 * 60 * 60 * 1000);
 
-      // Deduct credits and boost pitch
-      const [updatedUser, updatedPitch] = await Promise.all([
-        prisma.user.update({
-          where: { id: userId },
-          data: {
-            creditBalance: {
-              decrement: body.amount,
-            },
+      // Deduct credits, boost pitch, and record transaction atomically
+      const result = await prisma.$transaction(async (tx) => {
+        // Atomic conditional update - only deducts if balance is sufficient
+        const updateResult = await tx.user.updateMany({
+          where: {
+            id: userId,
+            creditBalance: { gte: body.amount }, // Only update if balance sufficient
           },
+          data: {
+            creditBalance: { decrement: body.amount },
+          },
+        });
+
+        // Check if update succeeded (balance was sufficient)
+        if (updateResult.count === 0) {
+          // Either user doesn't exist or insufficient balance
+          const currentUser = await tx.user.findUnique({
+            where: { id: userId },
+            select: { creditBalance: true },
+          });
+
+          if (!currentUser) {
+            throw new Error('USER_NOT_FOUND');
+          }
+
+          throw new Error(`INSUFFICIENT_CREDITS:${currentUser.creditBalance}:${body.amount}`);
+        }
+
+        // Fetch updated balance
+        const updatedUser = await tx.user.findUnique({
+          where: { id: userId },
           select: { creditBalance: true },
-        }),
-        prisma.pitch.update({
+        });
+
+        if (!updatedUser) {
+          throw new Error('USER_NOT_FOUND');
+        }
+
+        const balanceBefore = updatedUser.creditBalance + body.amount;
+
+        const updatedPitch = await tx.pitch.update({
           where: { id: body.pitchId },
           data: {
             isBoosted: true,
             boostEndsAt: newBoostEnd,
           },
-        }),
-      ]);
+        });
 
-      // Record transaction
-      await prisma.creditTransaction.create({
-        data: {
-          userId,
-          pitchId: body.pitchId,
-          type: 'BOOST_PITCH',
-          amount: -body.amount, // Negative for spending
-          balanceBefore: user.creditBalance,
-          balanceAfter: updatedUser.creditBalance,
-          description: `Boosted "${pitch.title}" for ${body.durationDays} days`,
-        },
+        await tx.creditTransaction.create({
+          data: {
+            userId,
+            pitchId: body.pitchId,
+            type: 'BOOST_PITCH',
+            amount: -body.amount, // Negative for spending
+            balanceBefore,
+            balanceAfter: updatedUser.creditBalance,
+            description: `Boosted "${pitch.title}" for ${body.durationDays} days`,
+          },
+        });
+
+        return { updatedUser, updatedPitch };
       });
 
       return reply.send({
         success: true,
         data: {
           creditsSpent: body.amount,
-          newBalance: updatedUser.creditBalance,
-          pitch: updatedPitch,
+          newBalance: result.updatedUser.creditBalance,
+          pitch: result.updatedPitch,
           boostEndsAt: newBoostEnd,
         },
       });
     } catch (error: any) {
       request.log.error(error);
+      
+      // Handle user not found
+      if (error.message === 'USER_NOT_FOUND') {
+        return reply.code(404).send({
+          success: false,
+          error: 'User not found',
+        });
+      }
+
+      // Handle insufficient credits error thrown from transaction
+      if (error.message?.startsWith('INSUFFICIENT_CREDITS:')) {
+        const [, currentBalance, required] = error.message.split(':');
+        return reply.code(400).send({
+          success: false,
+          error: 'Insufficient credits',
+          code: 'INSUFFICIENT_CREDITS',
+          currentBalance: parseInt(currentBalance),
+          required: parseInt(required),
+        });
+      }
+
       return reply.code(500).send({
         success: false,
         error: error.message || 'Failed to spend credits',

@@ -68,17 +68,6 @@ export default async function sponsorshipsRoutes(app: FastifyInstance) {
         });
       }
 
-      // Check if user has enough credits
-      if (user.creditBalance < body.budget) {
-        return reply.code(400).send({
-          success: false,
-          error: 'Insufficient credits',
-          code: 'INSUFFICIENT_CREDITS',
-          currentBalance: user.creditBalance,
-          required: body.budget,
-        });
-      }
-
       // Validate targeting parameters
       if (body.minMemberCount && body.maxMemberCount) {
         if (body.minMemberCount > body.maxMemberCount) {
@@ -93,56 +82,107 @@ export default async function sponsorshipsRoutes(app: FastifyInstance) {
       const startDate = new Date();
       const endDate = new Date(startDate.getTime() + body.durationDays * 24 * 60 * 60 * 1000);
 
-      // Create sponsorship
-      const sponsorship = await prisma.sponsoredPitch.create({
-        data: {
-          userId,
-          pitchId,
-          targetGenres: body.targetGenres || [],
-          minMemberCount: body.minMemberCount || null,
-          maxMemberCount: body.maxMemberCount || null,
-          targetFrequency: body.targetFrequency || null,
-          budget: body.budget,
-          startDate,
-          endDate,
-          isActive: true,
-        },
-      });
-
-      // Deduct budget from user's credit balance
-      const updatedUser = await prisma.user.update({
-        where: { id: userId },
-        data: {
-          creditBalance: {
-            decrement: body.budget,
+      // Create sponsorship, deduct credits, and record transaction atomically
+      const result = await prisma.$transaction(async (tx) => {
+        // Atomic conditional update - only deducts if balance is sufficient
+        const updateResult = await tx.user.updateMany({
+          where: {
+            id: userId,
+            creditBalance: { gte: body.budget }, // Only update if balance sufficient
           },
-        },
-        select: { creditBalance: true },
-      });
+          data: {
+            creditBalance: { decrement: body.budget },
+          },
+        });
 
-      // Record credit transaction
-      await prisma.creditTransaction.create({
-        data: {
-          userId,
-          pitchId,
-          type: 'SPONSOR_CLUB',
-          amount: -body.budget, // Negative for spending
-          balanceBefore: user.creditBalance,
-          balanceAfter: updatedUser.creditBalance,
-          description: `Sponsored "${pitch.title}" to targeted clubs for ${body.durationDays} days`,
-        },
+        // Check if update succeeded (balance was sufficient)
+        if (updateResult.count === 0) {
+          // Either user doesn't exist or insufficient balance
+          const currentUser = await tx.user.findUnique({
+            where: { id: userId },
+            select: { creditBalance: true },
+          });
+
+          if (!currentUser) {
+            throw new Error('USER_NOT_FOUND');
+          }
+
+          throw new Error(`INSUFFICIENT_CREDITS:${currentUser.creditBalance}:${body.budget}`);
+        }
+
+        // Fetch updated balance
+        const updatedUser = await tx.user.findUnique({
+          where: { id: userId },
+          select: { creditBalance: true },
+        });
+
+        if (!updatedUser) {
+          throw new Error('USER_NOT_FOUND');
+        }
+
+        const balanceBefore = updatedUser.creditBalance + body.budget;
+
+        const sponsorship = await tx.sponsoredPitch.create({
+          data: {
+            userId,
+            pitchId,
+            targetGenres: body.targetGenres || [],
+            minMemberCount: body.minMemberCount || null,
+            maxMemberCount: body.maxMemberCount || null,
+            targetFrequency: body.targetFrequency || null,
+            budget: body.budget,
+            startDate,
+            endDate,
+            isActive: true,
+          },
+        });
+
+        await tx.creditTransaction.create({
+          data: {
+            userId,
+            pitchId,
+            type: 'SPONSOR_CLUB',
+            amount: -body.budget, // Negative for spending
+            balanceBefore,
+            balanceAfter: updatedUser.creditBalance,
+            description: `Sponsored "${pitch.title}" to targeted clubs for ${body.durationDays} days`,
+          },
+        });
+
+        return { sponsorship, updatedUser };
       });
 
       return reply.send({
         success: true,
         data: {
-          sponsorship,
+          sponsorship: result.sponsorship,
           creditsSpent: body.budget,
-          newBalance: updatedUser.creditBalance,
+          newBalance: result.updatedUser.creditBalance,
         },
       });
     } catch (error: any) {
       request.log.error(error);
+      
+      // Handle user not found
+      if (error.message === 'USER_NOT_FOUND') {
+        return reply.code(404).send({
+          success: false,
+          error: 'User not found',
+        });
+      }
+
+      // Handle insufficient credits error thrown from transaction
+      if (error.message?.startsWith('INSUFFICIENT_CREDITS:')) {
+        const [, currentBalance, required] = error.message.split(':');
+        return reply.code(400).send({
+          success: false,
+          error: 'Insufficient credits',
+          code: 'INSUFFICIENT_CREDITS',
+          currentBalance: parseInt(currentBalance),
+          required: parseInt(required),
+        });
+      }
+
       return reply.code(500).send({
         success: false,
         error: error.message || 'Failed to create sponsorship',
