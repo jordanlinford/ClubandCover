@@ -302,6 +302,84 @@ class ApiClient {
   async createPollFull(request: CreatePollFullRequest): Promise<Poll> {
     return this.post<Poll>('/polls/full', request);
   }
+
+  // Sprint-6: Onboarding API
+  async setUserRole(role: string): Promise<{ success: boolean }> {
+    return this.post<{ success: boolean }>('/onboarding/role', { role });
+  }
+
+  async updateUserProfile(data: { 
+    preferredGenres: string[]; 
+    booksPerMonth: number; 
+    bio?: string 
+  }): Promise<{ success: boolean }> {
+    return this.patch<{ success: boolean }>('/onboarding/profile', data);
+  }
+
+  // Sprint-6: Club Search API
+  async searchClubs(params: {
+    q?: string;
+    genres?: string[];
+    frequency?: number;
+    minPoints?: number;
+    page?: number;
+    limit?: number;
+  }): Promise<{
+    clubs: Club[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> {
+    const query = new URLSearchParams();
+    if (params.q) query.append('q', params.q);
+    if (params.genres) params.genres.forEach(g => query.append('genres', g));
+    if (params.frequency) query.append('frequency', params.frequency.toString());
+    if (params.minPoints !== undefined) query.append('minPoints', params.minPoints.toString());
+    if (params.page) query.append('page', params.page.toString());
+    if (params.limit) query.append('limit', params.limit.toString());
+    return this.get(`/clubs/search?${query.toString()}`);
+  }
+
+  // Sprint-6: Club Messages API
+  async getClubMessages(clubId: string, params?: {
+    page?: number;
+    limit?: number;
+  }): Promise<{
+    messages: Array<{
+      id: string;
+      clubId: string;
+      userId: string;
+      body: string;
+      createdAt: Date;
+      author: { id: string; name: string; avatarUrl: string | null };
+    }>;
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> {
+    const query = new URLSearchParams();
+    if (params?.page) query.append('page', params.page.toString());
+    if (params?.limit) query.append('limit', params.limit.toString());
+    const queryString = query.toString();
+    return this.get(`/clubs/${clubId}/messages${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async postClubMessage(clubId: string, body: string): Promise<{
+    id: string;
+    clubId: string;
+    userId: string;
+    body: string;
+    createdAt: Date;
+    author: { id: string; name: string; avatarUrl: string | null };
+  }> {
+    return this.post(`/clubs/${clubId}/messages`, { body });
+  }
 }
 
 export const api = new ApiClient();
