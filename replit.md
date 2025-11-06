@@ -228,6 +228,40 @@ Preferred communication style: Simple, everyday language.
 - ClubMessage: Simple message feed for club communication
 - Database indexes: ClubMessage indexed by clubId for efficient feed queries
 
+## Sprint-6 Phase B - Pitch Browsing & Advanced Features
+
+**Pitch Browsing & Nomination System** (Date: November 2025):
+- Browse pitches for specific clubs via `/clubs/:id/pitches` page
+- Filter pitches by status (ALL, PENDING, NOMINATED, SELECTED, REJECTED)
+- Nomination system: Only OWNER/ADMIN can nominate pitches for polls
+- API: `/api/pitches/:id/nominate` (POST, owner/admin only)
+- UI: Visual badges for pitch status, nomination button for authorized users
+- Component: `ClubPitchesPage` with status filter tabs
+
+**Club Search UI with Filters** (Date: November 2025):
+- Interactive filter component on Discover page
+- Filter by genres (multi-select), frequency (dropdown), minimum points (number input)
+- Real-time search with debouncing for better UX
+- ClubFilters component integrates with existing search
+- API: Uses existing `/api/clubs/search` endpoint with query parameters
+
+**File Attachments for Messages** (Date: November 2025):
+- ClubMessage model extended with `attachmentUrl`, `attachmentType`, `attachmentName`
+- Backend validates data URLs with strict Zod rules (image MIME types only, max 2MB)
+- Security: Prevents stored XSS attacks via strict validation
+- UI: Image upload with preview, inline image display in messages
+- Note: Migration requires coordination for production deployment (use `prisma db push`)
+
+**Enhanced Member Management** (Date: November 2025):
+- Members tab in ClubRoom (visible to OWNER/ADMIN only)
+- View all club members with roles (OWNER, ADMIN, MEMBER) and statuses
+- **Promote**: Convert MEMBER → ADMIN
+- **Remove/Kick**: Set status to REMOVED (with confirmation)
+- **Ban Prevention**: Users with REMOVED status cannot rejoin clubs
+- **Approve/Decline**: Handle pending membership requests
+- API: `/api/clubs/:id/my-membership` (check user's role), `/api/clubs/:id/members` (list members)
+- Component: Inline member management with role-based access control
+
 **Shared**:
 - TypeScript: Type safety across the stack.
 - Zod: Shared validation schemas.
