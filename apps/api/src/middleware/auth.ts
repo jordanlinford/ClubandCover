@@ -115,6 +115,13 @@ async function ensureUser(id: string, email: string) {
         },
       });
       console.log(`[AUTH] Created new user: ${email} (${id})`);
+      
+      // Award ACCOUNT_CREATED points (async, non-blocking)
+      import('./points.js').then(({ awardPoints }) => {
+        awardPoints(id, 'ACCOUNT_CREATED').catch(err => {
+          console.error('[POINTS] Failed to award ACCOUNT_CREATED points:', err);
+        });
+      });
     } else if (user.email !== email) {
       // Update email if changed in Supabase
       user = await prisma.user.update({

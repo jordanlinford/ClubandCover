@@ -66,6 +66,21 @@ export async function membershipRoutes(fastify: FastifyInstance) {
         },
       });
 
+      // Award JOIN_CLUB points if membership is active (OPEN clubs)
+      if (status === 'ACTIVE') {
+        const { awardPoints } = await import('../lib/points.js');
+        const { maybeAwardLoyalMember, maybeAwardHostStarter } = await import('../lib/award.js');
+        
+        await awardPoints(request.user.id, 'JOIN_CLUB', undefined, 'CLUB', validated.clubId).catch(err => {
+          request.log.error(err, 'Failed to award JOIN_CLUB points');
+        });
+        
+        // Check for LOYAL_MEMBER badge (3 clubs)
+        await maybeAwardLoyalMember(request.user.id).catch(err => {
+          request.log.error(err, 'Failed to check LOYAL_MEMBER badge');
+        });
+      }
+
       reply.code(201);
       return { success: true, data: membership };
     } catch (error) {
@@ -143,6 +158,21 @@ export async function membershipRoutes(fastify: FastifyInstance) {
         where: { id },
         data: updateData,
       });
+
+      // Award JOIN_CLUB points if membership transitions to ACTIVE
+      if (validated.status === 'ACTIVE' && membership.status !== 'ACTIVE') {
+        const { awardPoints } = await import('../lib/points.js');
+        const { maybeAwardLoyalMember } = await import('../lib/award.js');
+        
+        await awardPoints(membership.userId, 'JOIN_CLUB', undefined, 'CLUB', membership.clubId).catch(err => {
+          request.log.error(err, 'Failed to award JOIN_CLUB points');
+        });
+        
+        // Check for LOYAL_MEMBER badge (3 clubs)
+        await maybeAwardLoyalMember(membership.userId).catch(err => {
+          request.log.error(err, 'Failed to check LOYAL_MEMBER badge');
+        });
+      }
 
       return { success: true, data: updated };
     } catch (error) {

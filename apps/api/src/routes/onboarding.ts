@@ -83,6 +83,7 @@ export default async function onboardingRoutes(app: FastifyInstance) {
         });
 
         let profile;
+        let isNewProfile = false;
         if (existingProfile) {
           profile = await prisma.userProfile.update({
             where: { userId },
@@ -95,6 +96,15 @@ export default async function onboardingRoutes(app: FastifyInstance) {
               userId,
               ...data,
             },
+          });
+          isNewProfile = true;
+        }
+
+        // Award ONBOARDING_COMPLETED points for first-time profile completion
+        if (isNewProfile) {
+          const { awardPoints } = await import('../lib/points.js');
+          await awardPoints(userId, 'ONBOARDING_COMPLETED').catch(err => {
+            request.log.error(err, 'Failed to award ONBOARDING_COMPLETED points');
           });
         }
 

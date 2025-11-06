@@ -429,6 +429,15 @@ export default async function pollsRoutes(app: FastifyInstance) {
         pollId
       );
 
+      // Check for vote badges
+      const { maybeAwardFirstVote, maybeAwardBookworm } = await import('../lib/award.js');
+      await maybeAwardFirstVote(userId).catch(err => {
+        request.log.error(err, 'Failed to check FIRST_VOTE badge');
+      });
+      await maybeAwardBookworm(userId).catch(err => {
+        request.log.error(err, 'Failed to check BOOKWORM badge');
+      });
+
       return reply.send({
         success: true,
         data: vote,

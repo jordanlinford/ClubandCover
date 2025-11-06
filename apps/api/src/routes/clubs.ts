@@ -339,6 +339,12 @@ export async function clubRoutes(fastify: FastifyInstance) {
         include: { memberships: true },
       });
 
+      // Award HOST_STARTER badge for first club created
+      const { maybeAwardHostStarter } = await import('../lib/award.js');
+      await maybeAwardHostStarter(request.user.id).catch(err => {
+        fastify.log.error(err, 'Failed to check HOST_STARTER badge');
+      });
+
       // Auto-index embedding if AI is enabled
       if (isAIEnabled()) {
         try {

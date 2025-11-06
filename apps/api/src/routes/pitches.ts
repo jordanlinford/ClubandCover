@@ -87,6 +87,19 @@ export default async function pitchesRoutes(app: FastifyInstance) {
       },
     });
 
+    // Award PITCH_CREATED points
+    const { awardPoints } = await import('../lib/points.js');
+    const { maybeAwardAuthorLaunch } = await import('../lib/award.js');
+    
+    await awardPoints(userId, 'PITCH_CREATED', undefined, 'PITCH', pitch.id).catch(err => {
+      request.log.error(err, 'Failed to award PITCH_CREATED points');
+    });
+    
+    // Check for AUTHOR_LAUNCH badge (first pitch)
+    await maybeAwardAuthorLaunch(userId).catch(err => {
+      request.log.error(err, 'Failed to check AUTHOR_LAUNCH badge');
+    });
+
     return reply.send({
       success: true,
       data: pitch,

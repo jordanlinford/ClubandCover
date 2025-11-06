@@ -166,6 +166,21 @@ export default async function clubMessagesRoutes(app: FastifyInstance) {
           },
         });
 
+        // Award MESSAGE_POSTED points if message is >= 10 characters
+        if (body.trim().length >= 10) {
+          const { awardPoints } = await import('../lib/points.js');
+          const { maybeAwardSociable } = await import('../lib/award.js');
+          
+          await awardPoints(userId, 'MESSAGE_POSTED', undefined, 'MESSAGE', message.id).catch(err => {
+            request.log.error(err, 'Failed to award MESSAGE_POSTED points');
+          });
+          
+          // Check for SOCIABLE badge (20 messages ≥10 chars)
+          await maybeAwardSociable(userId).catch(err => {
+            request.log.error(err, 'Failed to check SOCIABLE badge');
+          });
+        }
+
         return reply.status(201).send({
           success: true,
           data: message,
