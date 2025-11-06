@@ -48,7 +48,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   });
 
   const updateProfileMutation = useMutation({
-    mutationFn: (data: { preferredGenres: string[]; booksPerMonth: number; bio?: string }) =>
+    mutationFn: (data: { genres: string[]; booksPerMonth: number; bio?: string }) =>
       api.patch('/onboarding/profile', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
@@ -97,7 +97,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       return;
     }
     updateProfileMutation.mutate({
-      preferredGenres: selectedGenres,
+      genres: selectedGenres,
       booksPerMonth,
       bio: bio || undefined,
     });

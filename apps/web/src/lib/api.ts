@@ -309,7 +309,7 @@ class ApiClient {
   }
 
   async updateUserProfile(data: { 
-    preferredGenres: string[]; 
+    genres: string[]; 
     booksPerMonth: number; 
     bio?: string 
   }): Promise<{ success: boolean }> {
