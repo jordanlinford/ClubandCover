@@ -1,6 +1,9 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import fastifyStatic from '@fastify/static';
+import helmet from '@fastify/helmet';
+import cookie from '@fastify/cookie';
+import csrf from '@fastify/csrf-protection';
 import { config } from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
@@ -42,6 +45,46 @@ await fastify.register(cors, {
 
 // Log CORS configuration
 fastify.log.info({ allowedOrigins }, 'CORS configured');
+
+// Register cookie support (required for CSRF)
+await fastify.register(cookie, {
+  secret: process.env.SESSION_SECRET || 'fallback-secret-for-development',
+});
+
+// Register helmet for security headers
+await fastify.register(helmet, {
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Vite needs unsafe-eval in dev
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:", "blob:"],
+      connectSrc: ["'self'", "https://api.stripe.com", "wss:", "ws:"],
+      frameSrc: ["'self'", "https://js.stripe.com"],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null,
+    },
+  },
+  crossOriginEmbedderPolicy: false, // Required for some third-party embeds
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true,
+  },
+});
+
+// Register CSRF protection
+await fastify.register(csrf, {
+  sessionPlugin: '@fastify/cookie',
+  cookieOpts: { 
+    signed: true,
+    sameSite: 'lax',
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+  },
+});
+
+fastify.log.info('Security headers and CSRF protection enabled');
 
 // Serve web build from apps/web/dist
 await fastify.register(fastifyStatic, {

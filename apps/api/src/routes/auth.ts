@@ -4,6 +4,7 @@ import { createVerificationToken, verifyEmail, resendVerificationToken } from '.
 import { createPasswordResetToken, verifyResetToken, clearResetToken } from '../lib/password-reset.js';
 import { emailTemplates, sendTransactionalEmail } from '../lib/email.js';
 import { prisma } from '../lib/prisma.js';
+import { createAuthRateLimit } from '../middleware/rateLimitAuth.js';
 
 /**
  * Auth routes for email verification and password reset
@@ -17,7 +18,9 @@ export async function authRoutes(server: FastifyInstance) {
    * POST /api/auth/send-verification
    * Send verification email to a user
    */
-  server.post('/api/auth/send-verification', async (request, reply) => {
+  server.post('/api/auth/send-verification', {
+    preHandler: createAuthRateLimit('emailVerification'),
+  }, async (request, reply) => {
     const schema = z.object({
       userId: z.string(),
     });
@@ -80,7 +83,9 @@ export async function authRoutes(server: FastifyInstance) {
    * POST /api/auth/verify-email
    * Verify email with token
    */
-  server.post('/api/auth/verify-email', async (request, reply) => {
+  server.post('/api/auth/verify-email', {
+    preHandler: createAuthRateLimit('emailVerification'),
+  }, async (request, reply) => {
     const schema = z.object({
       token: z.string(),
     });
@@ -116,7 +121,9 @@ export async function authRoutes(server: FastifyInstance) {
    * POST /api/auth/resend-verification
    * Resend verification email
    */
-  server.post('/api/auth/resend-verification', async (request, reply) => {
+  server.post('/api/auth/resend-verification', {
+    preHandler: createAuthRateLimit('emailVerification'),
+  }, async (request, reply) => {
     const schema = z.object({
       userId: z.string(),
     });
@@ -179,7 +186,9 @@ export async function authRoutes(server: FastifyInstance) {
    * POST /api/auth/forgot-password
    * Request password reset
    */
-  server.post('/api/auth/forgot-password', async (request, reply) => {
+  server.post('/api/auth/forgot-password', {
+    preHandler: createAuthRateLimit('passwordReset'),
+  }, async (request, reply) => {
     const schema = z.object({
       email: z.string().email(),
     });
@@ -264,7 +273,9 @@ export async function authRoutes(server: FastifyInstance) {
    * POST /api/auth/reset-password
    * Reset password with token (using Supabase Auth)
    */
-  server.post('/api/auth/reset-password', async (request, reply) => {
+  server.post('/api/auth/reset-password', {
+    preHandler: createAuthRateLimit('passwordReset'),
+  }, async (request, reply) => {
     const schema = z.object({
       token: z.string(),
       newPassword: z.string().min(8),
