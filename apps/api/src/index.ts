@@ -22,6 +22,8 @@ const fastify = Fastify({
   logger: {
     level: process.env.LOG_LEVEL || 'info',
   },
+  // Trust proxy headers (required for correct client IP detection behind reverse proxies)
+  trustProxy: true,
 });
 
 // CORS: support comma-separated list of allowed origins
@@ -52,20 +54,24 @@ await fastify.register(cookie, {
 });
 
 // Register helmet for security headers
+const isDevelopment = process.env.NODE_ENV !== 'production';
 await fastify.register(helmet, {
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Vite needs unsafe-eval in dev
-      styleSrc: ["'self'", "'unsafe-inline'"],
+      // Stripe requires js.stripe.com for scripts; unsafe-* only in dev
+      scriptSrc: isDevelopment 
+        ? ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://js.stripe.com"]
+        : ["'self'", "https://js.stripe.com"],
+      styleSrc: ["'self'", "'unsafe-inline'"], // inline styles needed for components
       imgSrc: ["'self'", "data:", "https:", "blob:"],
-      connectSrc: ["'self'", "https://api.stripe.com", "wss:", "ws:"],
-      frameSrc: ["'self'", "https://js.stripe.com"],
+      connectSrc: ["'self'", "https://api.stripe.com", ...(isDevelopment ? ["wss:", "ws:"] : [])],
+      frameSrc: ["'self'", "https://js.stripe.com", "https://hooks.stripe.com"],
       objectSrc: ["'none'"],
-      upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null,
+      upgradeInsecureRequests: isDevelopment ? null : [],
     },
   },
-  crossOriginEmbedderPolicy: false, // Required for some third-party embeds
+  crossOriginEmbedderPolicy: false, // Required for Stripe embeds
   hsts: {
     maxAge: 31536000,
     includeSubDomains: true,
