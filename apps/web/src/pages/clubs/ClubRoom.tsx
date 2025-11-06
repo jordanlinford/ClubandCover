@@ -5,7 +5,8 @@ import { Card } from '@repo/ui';
 import { Button } from '@repo/ui';
 import { PageHeader } from '@repo/ui';
 import { api } from '../../lib/api';
-import { Users, MessageSquare, BarChart3, Info, Calendar } from 'lucide-react';
+import { Users, MessageSquare, BarChart3, Info, Calendar, BookOpen } from 'lucide-react';
+import { Link } from 'wouter';
 
 type Club = {
   id: string;
@@ -145,21 +146,22 @@ export function ClubRoomPage() {
           </div>
         </div>
 
-        {/* Tabs */}
+        {/* Tabs and Actions */}
         <div className="mb-6">
-          <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700">
-            <button
-              onClick={() => setActiveTab('feed')}
-              className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${
-                activeTab === 'feed'
-                  ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400 font-semibold'
-                  : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
-              }`}
-              data-testid="tab-feed"
-            >
-              <MessageSquare className="h-4 w-4" />
-              <span>Feed</span>
-            </button>
+          <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700">
+            <div className="flex gap-2">
+              <button
+                onClick={() => setActiveTab('feed')}
+                className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${
+                  activeTab === 'feed'
+                    ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400 font-semibold'
+                    : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
+                }`}
+                data-testid="tab-feed"
+              >
+                <MessageSquare className="h-4 w-4" />
+                <span>Feed</span>
+              </button>
             <button
               onClick={() => setActiveTab('polls')}
               className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${
@@ -189,6 +191,13 @@ export function ClubRoomPage() {
               <Info className="h-4 w-4" />
               <span>Info</span>
             </button>
+            </div>
+            <Link href={`/clubs/${clubId}/pitches`}>
+              <Button variant="outline" size="sm" className="flex items-center gap-2" data-testid="link-browse-pitches">
+                <BookOpen className="h-4 w-4" />
+                <span>Browse Pitches</span>
+              </Button>
+            </Link>
           </div>
         </div>
 
