@@ -3,22 +3,27 @@ import { Card } from '@repo/ui';
 import { Button } from '@repo/ui';
 import { PageHeader } from '@repo/ui';
 import { DataTable } from '@repo/ui';
-import type { UserPoints, PointLedger } from '@repo/types';
+import type { PointLedger } from '@repo/types';
 import { useAuth } from '../contexts/AuthContext';
 import { PointsBadge } from '../components/PointsBadge';
+import { BadgesDisplay } from '../components/BadgesDisplay';
 
 export function ProfilePage() {
   const { user } = useAuth();
 
-  const { data: pointsData } = useQuery<UserPoints>({
-    queryKey: ['/api/users', user?.id, 'points'],
+  const { data: pointsResponse } = useQuery<any>({
+    queryKey: ['/api/points/me'],
     enabled: !!user?.id,
   });
 
-  const { data: ledger = [] } = useQuery<PointLedger[]>({
-    queryKey: ['/api/users', user?.id, 'ledger'],
+  const { data: badgesResponse } = useQuery<any>({
+    queryKey: ['/api/badges/me'],
     enabled: !!user?.id,
   });
+
+  const pointsData = pointsResponse?.data;
+  const ledger = pointsResponse?.data?.ledger || [];
+  const badges = badgesResponse?.data?.badges || [];
 
   // Display user data - use Supabase user if available, otherwise mock
   const displayName = user?.email?.split('@')[0] || 'Demo User';
@@ -122,6 +127,11 @@ export function ProfilePage() {
               )}
             </Card>
           )}
+
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-4">Badges</h2>
+            <BadgesDisplay badges={badges} />
+          </Card>
           
           {!user && (
             <Card className="p-6 border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-950">

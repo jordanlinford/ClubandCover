@@ -18,3 +18,4 @@ export * from './checklist';
 export * from './search';
 export * from './analytics';
 export * from './settings';
+export * from './badge';
