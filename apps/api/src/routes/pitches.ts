@@ -10,7 +10,7 @@ const prisma = new PrismaClient();
  */
 export default async function pitchesRoutes(app: FastifyInstance) {
   // Create a new pitch
-  app.post('/api/pitches', { preHandler: [requireAuth] }, async (request, reply) => {
+  app.post('/', { preHandler: [requireAuth] }, async (request, reply) => {
     const userId = request.user!.id;
 
     // Validate request body
@@ -149,7 +149,7 @@ export default async function pitchesRoutes(app: FastifyInstance) {
   });
 
   // List pitches with filters
-  app.get('/api/pitches', async (request, reply) => {
+  app.get('/', async (request, reply) => {
     const schema = z.object({
       status: z.enum(['SUBMITTED', 'ACCEPTED', 'REJECTED', 'ARCHIVED']).optional(),
       authorId: z.string().uuid().optional(),
@@ -213,7 +213,7 @@ export default async function pitchesRoutes(app: FastifyInstance) {
   });
 
   // Get a single pitch by ID
-  app.get('/api/pitches/:id', async (request, reply) => {
+  app.get('/:id', async (request, reply) => {
     const schema = z.object({
       id: z.string().uuid(),
     });
@@ -256,7 +256,7 @@ export default async function pitchesRoutes(app: FastifyInstance) {
   });
 
   // Update pitch status (club hosts only for ACCEPTED/REJECTED)
-  app.patch('/api/pitches/:id', { preHandler: [requireAuth] }, async (request, reply) => {
+  app.patch('/:id', { preHandler: [requireAuth] }, async (request, reply) => {
     const userId = request.user!.id;
 
     const paramsSchema = z.object({

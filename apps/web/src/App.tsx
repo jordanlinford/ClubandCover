@@ -64,7 +64,7 @@ export default function App() {
       <Route path="/referrals" component={ReferralDashboard} />
       <Route path="/discover" component={DiscoverPage} />
       <Route path="/onboarding" component={OnboardingPage} />
-      <Route path="/analytics" component={AuthorAnalyticsPage} />
+      <Route path="/analytics/author" component={AuthorAnalyticsPage} />
       <Route component={NotFoundPage} />
     </Switch>
   );
