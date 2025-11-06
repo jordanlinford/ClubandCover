@@ -1,0 +1,279 @@
+Prompt 1 — PLAN ONLY (reader onboarding, club discovery, club room)
+Paste to Replit:
+
+PAUSE FIRST. Plan Sprint-6 / Phase A (don’t execute yet).
+Scope: Reader onboarding → Club discovery → Club room (feed + polls + info).
+Deliverables: Prisma changes, backend routes, web pages/components/hooks, tests, docs, env keys. Print a file tree + endpoint contracts + test plan, then wait for approval.
+Schema (Prisma)
+Add/modify models (new migration name: sprint6_readers_clubs):
+// User profile extensions
+model UserProfile {
+  userId        String   @id
+  genres        String[] // reader or host prefs
+  booksPerMonth Int?     // 0..N
+  bio           String?
+  avatarUrl     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id])
+}
+
+// Club metadata for discovery & room
+model Club {
+  id              String   @id @default(uuid())
+  ownerId         String
+  owner           User     @relation(fields: [ownerId], references: [id])
+  name            String
+  description     String?
+  about           String?
+  frequency       Int?        // books/month
+  preferredGenres String[]
+  coverImageUrl   String?
+  minPointsToJoin Int?     @default(0)
+  isPublic        Boolean  @default(true)
+  joinRules       JoinRules @default(OPEN)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  memberships     Membership[]
+  events          ClubEvent[]
+  messageThread   MessageThread[]
+}
+
+// Club messaging
+model ClubMessage {
+  id        String   @id @default(uuid())
+  clubId    String
+  userId    String
+  body      String
+  createdAt DateTime @default(now())
+  club      Club     @relation(fields: [clubId], references: [id])
+  author    User     @relation(fields: [userId], references: [id])
+  @@index([clubId, createdAt])
+}
+
+(Assume Poll, Vote, Pitch, Membership, etc., already exist from Sprint-4.)
+Backend (Fastify + Zod)
+New/updated routes (types + validation):
+
+
+POST /api/onboarding/role → { role: 'READER'|'AUTHOR'|'HOST' } (updates User.role and creates UserProfile if missing)
+
+
+PATCH /api/onboarding/profile → { genres: string[], booksPerMonth?: number, bio?: string, avatarUrl?: string }
+
+
+POST /api/clubs (Host only) → { name, about?, preferredGenres[], frequency?, coverImageUrl?, isPublic?, minPointsToJoin? }
+
+
+GET /api/clubs/search?q?=&genres?[]= &frequency?=&minPoints?=&page?=&limit?= → returns Club[] + page meta
+
+
+GET /api/clubs/:clubId → club with owner, coHosts, memberCount, currentPoll?, lastBooks[] (from closed polls)
+
+
+GET /api/clubs/:clubId/messages?page?= → paginated ClubMessage[] (newest first)
+
+
+POST /api/clubs/:clubId/messages (member) → { body: string }
+
+
+(Existing) POST /api/clubs/:clubId/polls, GET /api/polls/:id, POST /api/polls/:id/votes used in room
+
+
+RBAC: joining rules enforced (OPEN/APPROVAL/INVITE_ONLY + minPointsToJoin)
+
+
+Frontend (React + TanStack Query)
+Pages
+
+
+/onboarding (wizard: pick role → preferences)
+
+
+/clubs/discover (search + filters + cards)
+
+
+/clubs/new (host create form)
+
+
+/clubs/:clubId (Club Room with tabs: Feed | Polls | Info)
+
+
+Components
+
+
+OnboardingWizard.tsx (role select + preferences)
+
+
+ClubSearchFilters.tsx (genres multi-select, frequency slider, minPoints)
+
+
+ClubCard.tsx (name, genres, frequency, member count, join CTA)
+
+
+ClubCreateForm.tsx (host)
+
+
+ClubRoomHeader.tsx (title, cover, badges, join/leave button)
+
+
+ClubRoomTabs.tsx (Feed/Polls/Info)
+
+
+MessageList.tsx + MessageInput.tsx
+
+
+PollList.tsx (active + recent)
+
+
+ClubInfoPanel.tsx (about, host/co-host, past books)
+
+
+Hooks
+
+
+useOnboarding() → setRole, saveProfile
+
+
+useClubSearch() → query w/ filters & pagination
+
+
+useClubRoom(clubId) → summary (owner, counts, current poll, past books)
+
+
+useClubMessages(clubId) → list + postMessage
+
+
+Navigation
+
+
+Update navbar: Home | Discover Clubs | Start a Club | Profile
+
+
+After READER sign-up → redirect /clubs/discover
+
+
+After HOST choose “start a club” → /clubs/new
+
+
+Tests
+API (vitest + supertest)
+
+
+onboarding.role → role set; onboarding.profile → genres saved
+
+
+club create (host) → 201; non-host → 403
+
+
+club search filters working (genres/frequency/minPoints)
+
+
+join club respecting minPointsToJoin + joinRules
+
+
+messages CRUD: member can post/list, non-member → 403
+
+
+E2E (Playwright)
+
+
+Reader: sign up → onboarding → discover → join club → see room feed/polls
+
+
+Host: start a club → appears in search → open poll → member votes
+
+
+Deep link /clubs/:id loads SPA & data
+
+
+Docs
+
+
+Update docs/ROUTE_MAP.md (new endpoints)
+
+
+Add docs/USER_JOURNEYS.md (Reader/Host flows)
+
+
+Append to docs/TEST_LOG.md for Sprint-6
+
+
+Print: file tree, endpoint contracts, migration diff, and test plan. Stop and wait for approval.
+
+
+Prompt 2 — APPROVE & EXECUTE
+Paste after Replit prints its plan:
+
+Approved — proceed.
+Execute Sprint-6 / Phase A exactly as planned with these guardrails:
+
+
+Prisma first → run migration sprint6_readers_clubs, then npx prisma generate.
+
+
+Search must support: q (title/description/about), genres[], frequency, minPointsToJoin, isPublic=true. Paginate limit=20.
+
+
+Join checks: enforce minPointsToJoin and joinRules at POST /api/memberships. Return 403 with a machine code (MIN_POINTS_REQUIRED).
+
+
+Messaging: member-only posting, paginated list, newest first; trim/validate body with Zod; basic rate-limit (60/min/user).
+
+
+ClubRoom: Feed tab default; Polls tab shows active poll first; Info tab shows host/co-hosts, about, preferredGenres, frequency, past selected books (from closed polls).
+
+
+Onboarding: after setting role=READER, redirect to /clubs/discover; after role=HOST and creating a club, redirect to /clubs/:id.
+
+
+Tests: implement all API + E2E listed; print pass/fail summary; on failure, print route, payload, response.
+
+
+Docs: update ROUTE_MAP.md, USER_JOURNEYS.md, TEST_LOG.md.
+On completion, print: migration result, new routes, pages/components added, and SMOKE_SPRINT6.md with curl steps.
+
+
+
+
+Prompt 3 — (Optional now, helpful) Badge seeds for Club Room header
+Paste if you want quick badges visible in UI:
+
+Add a static BADGES map and a tiny award helper (idempotent) for early visuals:
+
+
+Codes: FIRST_VOTE, HOST_STARTER, AUTHOR_LAUNCH
+
+
+Expose /api/badges/mine and show on ClubRoom header (club-level badges read from Club JSON for now).
+
+
+Add one seed badge to any club created by a new host: HOST_STARTER.
+
+
+
+
+Prompt 4 — Home page (light marketing, routes wired)
+Paste when you want the homepage next (can be in parallel):
+
+Create / (Home) with two CTAs: Join a Club (Free) → /onboarding?role=READER and Pitch Your Book → /onboarding?role=AUTHOR.
+Include a features grid and a “How it works” (3 steps) for both readers and authors.
+Add to navbar and ensure SPA fallback loads it.
+
+
+What this delivers (MVP you asked for)
+
+
+Readers can sign up, set preferences, find a club or start a club ✅
+
+
+Search/filter clubs by genre, frequency, min points, keyword ✅
+
+
+Joining honors minPointsToJoin + OPEN/APPROVAL/INVITE_ONLY ✅
+
+
+Club Room with feed (messages), polls, and info (host/co-host, past books) ✅
+
+
+When Replit posts back the plan/results, drop them here and I’ll keep driving the next micro-steps (author dashboard + swaps + badges polish + subscriptions page).
