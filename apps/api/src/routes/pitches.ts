@@ -57,6 +57,48 @@ export default async function pitchesRoutes(app: FastifyInstance) {
       }
     }
 
+    // Enforce tier-based pitch limits
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { tier: true },
+    });
+
+    if (!user) {
+      return reply.code(401).send({
+        success: false,
+        error: 'User not found',
+      });
+    }
+
+    // Count active pitches (not archived)
+    const activePitchCount = await prisma.pitch.count({
+      where: {
+        authorId: userId,
+        status: { in: ['SUBMITTED', 'ACCEPTED', 'REJECTED'] },
+      },
+    });
+
+    // Tier limits for active pitches
+    const tierLimits: Record<string, number> = {
+      FREE: 1,
+      PRO_AUTHOR: 5,
+      PRO_CLUB: 5,
+      PUBLISHER: 999, // Essentially unlimited
+    };
+
+    const limit = tierLimits[user.tier] || 1;
+
+    if (activePitchCount >= limit) {
+      return reply.code(403).send({
+        success: false,
+        error: `You have reached your pitch limit (${limit} active pitches)`,
+        code: 'PITCH_LIMIT_REACHED',
+        currentCount: activePitchCount,
+        limit: limit,
+        requiredTier: user.tier === 'FREE' ? 'PRO_AUTHOR' : undefined,
+      } as any);
+    }
+
     // Create the pitch
     const pitch = await prisma.pitch.create({
       data: {

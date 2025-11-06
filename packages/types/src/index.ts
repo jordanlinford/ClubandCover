@@ -19,3 +19,5 @@ export * from './search';
 export * from './analytics';
 export * from './settings';
 export * from './badge';
+export * from './credit';
+export * from './sponsorship';

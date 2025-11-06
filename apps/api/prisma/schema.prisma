@@ -132,6 +132,13 @@ enum NotificationType {
   NEW_MESSAGE
 }
 
+enum CreditTransactionType {
+  PURCHASE
+  BOOST_PITCH
+  SPONSOR_CLUB
+  REFUND
+}
+
 // Models
 model User {
   id                        String    @id
@@ -143,6 +150,7 @@ model User {
   tier                      Tier      @default(FREE)
   stripeCustomerId          String?
   stripeSubscriptionId      String?
+  creditBalance             Int       @default(0) // Promotion credits for visibility boosts
   aiCallsToday              Int       @default(0)
   aiCallsResetAt            DateTime  @default(now())
   points                    Int       @default(0)
@@ -185,6 +193,8 @@ model User {
   clubMessages       ClubMessage[]
   badges             UserBadge[]
   dailyCounters      DailyPointCounter[]
+  creditTransactions CreditTransaction[]
+  sponsoredPitches   SponsoredPitch[]
 
   @@index([role])
   @@index([tier])
@@ -487,20 +497,26 @@ model Pitch {
   sampleUrl     String?
   status        PitchStatus  @default(SUBMITTED)
   impressions   Int          @default(0)
+  // Visibility boost fields
+  isBoosted     Boolean      @default(false)
+  boostEndsAt   DateTime?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
   // Relations
-  author      User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  book        Book              @relation(fields: [bookId], references: [id], onDelete: Cascade)
-  targetClub  Club?             @relation(fields: [targetClubId], references: [id], onDelete: Cascade)
-  pollOptions PollOption[]
-  nominations PitchNomination[]
+  author           User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  book             Book              @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  targetClub       Club?             @relation(fields: [targetClubId], references: [id], onDelete: Cascade)
+  pollOptions      PollOption[]
+  nominations      PitchNomination[]
+  sponsorships     SponsoredPitch[]
+  creditTransactions CreditTransaction[]
 
   @@index([authorId])
   @@index([bookId])
   @@index([targetClubId])
   @@index([status])
+  @@index([isBoosted])
   @@map("pitches")
 }
 
@@ -704,4 +720,56 @@ model DailyPointCounter {
   @@unique([userId, type, date])
   @@index([userId, type, date])
   @@map("daily_point_counters")
+}
+
+model CreditTransaction {
+  id              String                 @id @default(uuid())
+  userId          String
+  pitchId         String?
+  type            CreditTransactionType
+  amount          Int // Credits added (positive) or spent (negative)
+  balanceBefore   Int
+  balanceAfter    Int
+  stripePaymentId String?
+  description     String?
+  createdAt       DateTime               @default(now())
+
+  // Relations
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pitch Pitch? @relation(fields: [pitchId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([pitchId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("credit_transactions")
+}
+
+model SponsoredPitch {
+  id              String   @id @default(uuid())
+  userId          String // Author who purchased the sponsorship
+  pitchId         String
+  targetGenres    String[] @default([]) // Empty = all genres
+  minMemberCount  Int?     // Minimum club members (null = no limit)
+  maxMemberCount  Int?     // Maximum club members (null = no limit)
+  targetFrequency String?  // Club reading frequency filter (null = all)
+  budget          Int      // Total credits allocated
+  creditsSpent    Int      @default(0)
+  impressions     Int      @default(0) // How many times shown to clubs
+  clicks          Int      @default(0) // How many times clicked
+  startDate       DateTime @default(now())
+  endDate         DateTime
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pitch Pitch @relation(fields: [pitchId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([pitchId])
+  @@index([isActive])
+  @@index([startDate, endDate])
+  @@map("sponsored_pitches")
 }

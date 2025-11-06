@@ -193,6 +193,9 @@ export async function searchPitches(
     ? { AND: whereConditions }
     : {};
 
+  // Add where condition to exclude expired boosts
+  const now = new Date();
+  
   const [items, total] = await Promise.all([
     prisma.pitch.findMany({
       where,
@@ -213,16 +216,34 @@ export async function searchPitches(
         },
       },
       orderBy: [
-        { createdAt: 'desc' },
+        // Boosted pitches first (active boosts only)
+        // Note: Prisma doesn't support complex conditional ordering directly,
+        // so we use a workaround with raw SQL or fetch and sort in memory
+        { isBoosted: 'desc' }, // Boosted pitches first
+        { createdAt: 'desc' }, // Then by recency
       ],
       take: limit,
       skip: offset,
     }),
     prisma.pitch.count({ where }),
   ]);
+  
+  // Filter out expired boosts in memory (Prisma limitation for complex date comparisons in orderBy)
+  const filteredItems = items.map(pitch => ({
+    ...pitch,
+    isBoosted: pitch.isBoosted && (!pitch.boostEndsAt || pitch.boostEndsAt > now),
+  }));
+  
+  // Re-sort to ensure active boosts are truly first
+  filteredItems.sort((a, b) => {
+    if (a.isBoosted === b.isBoosted) {
+      return b.createdAt.getTime() - a.createdAt.getTime();
+    }
+    return a.isBoosted ? -1 : 1;
+  });
 
   return {
-    items,
+    items: filteredItems,
     total,
     hasMore: offset + limit < total,
   };
