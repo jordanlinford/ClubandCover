@@ -1,0 +1,170 @@
+Book Pitch — Full Synopsis
+Overview
+
+Book Pitch is a social marketplace and discovery platform that connects authors, book clubs, and readers through an engaging, gamified ecosystem. It blends the best parts of Goodreads, Substack, and Kickstarter — letting authors pitch their books to real readers and clubs, while readers and clubs earn points, badges, and rewards for participation and discovery.
+
+At its core, Book Pitch is built around community, creativity, and credibility:
+
+Authors showcase their work, get real feedback, and grow authentic audiences.
+
+Book clubs find fresh reads, vote on pitches, and connect directly with emerging writers.
+
+Readers join clubs or start their own, earn points for engagement, and shape what gets discovered next.
+
+How It Works
+1. Readers
+
+Readers can join Book Pitch as individuals or by joining/creating a club. They can:
+
+Browse book pitches from emerging and established authors.
+
+Vote on which books their club should read next.
+
+Chat in club discussion rooms.
+
+Earn points and badges for reading, reviewing, and engaging in club activity.
+
+Participate in book votes, polls, and challenges hosted by authors or Book Pitch itself.
+
+Share their club’s activity on social media for extra points and recognition.
+
+When a reader first joins, they are prompted to either:
+
+Find a club that matches their interests (using filters like genre, frequency, style, or vibe).
+
+Or start a new club, choosing details such as genres, meeting frequency, and co-hosts.
+
+2. Book Clubs
+
+Book clubs are the beating heart of the Book Pitch ecosystem. Clubs can:
+
+Host members (readers) and designate a Host and optional Co-Host.
+
+Set preferences for genre, pace, and number of books per month.
+
+Have a Club Page that includes:
+
+Club name, description, banner, and badges.
+
+A message board / discussion feed.
+
+Voting polls for upcoming reads.
+
+A history of books completed and pitches reviewed.
+
+A list of members and hosts, and possibly verified author guests.
+
+Earn Club Badges for milestones such as “100 books completed” or “Author Collab Club.”
+
+Earn Points for hosting authors, leaving reviews, or participating in reading challenges.
+
+Clubs can also be featured or sponsored by authors looking to get exposure for their book.
+
+3. Authors
+
+Authors join Book Pitch to get their work discovered by real readers and clubs — not algorithms. They can:
+
+Create Book Pitches, which include:
+
+Title, synopsis, genre, and cover.
+
+Formats available (ebook, paperback, audiobook, ARC, etc.)
+
+Optional video pitch or trailer.
+
+Download links or pre-order buttons.
+
+Choose whether to join the AuthorSwap network — a community where authors trade books and provide verified reviews to each other.
+
+View analytics showing:
+
+How many clubs viewed or voted on their pitch.
+
+Which genres or reader types engaged most.
+
+Feedback, reviews, and engagement data.
+
+Earn Author Points for verified reviews, completed swaps, or hosting Q&A sessions with clubs.
+
+Authors can also sponsor featured listings or buy credits to reach more clubs (e.g., “Show my pitch to 50 mystery clubs this week”).
+
+Gamification & Rewards
+
+Book Pitch includes a points and badge system that powers the community economy:
+
+Action	Points Earned	Possible Badges
+Join a club	+50	“New Reader”
+Host or co-host a club	+100	“Club Leader”
+Vote on a book pitch	+10	“Active Voter”
+Read and review a book	+75	“Page Turner”
+Complete an AuthorSwap	+100	“Reciprocal Reader”
+Share on social media	+20	“Community Promoter”
+Invite new members	+50	“Influencer”
+
+Badges are displayed on user or club profiles and unlock perks, such as:
+
+Exclusive access to early book pitches.
+
+Entry into raffles or giveaways.
+
+Discounts on paid author features.
+
+Economy & Monetization
+
+Book Pitch’s model is designed to be self-sustaining through:
+
+Author Subscriptions
+Authors choose from tiered plans (Basic, Pro, Premium) that control:
+
+Number of active book pitches.
+
+Visibility boost.
+
+Access to AuthorSwap network and advanced analytics.
+
+Club Sponsorships
+Authors can pay to feature their books to selected clubs (e.g., “Show to all Fantasy clubs with 25+ members”).
+
+Marketplace Add-ons
+
+Paid rewards for redeeming points.
+
+Sponsored reading challenges.
+
+Premium features for large clubs (e.g., private forums, event hosting).
+
+Technology Foundation
+
+Built with Supabase, Prisma, Fastify, and React, Book Pitch is structured around a scalable modular architecture:
+
+Users (Reader, Author, Admin)
+
+Clubs (Hosts, Members, Chat, Badges)
+
+Book Pitches (Votes, Comments, Stats)
+
+Points & Badges System
+
+AuthorSwap System
+
+Payments (Stripe Integration)
+
+Vision & Future Roadmap
+
+Book Pitch’s long-term goal is to become the central hub for modern literary discovery — where readers don’t just consume books, they shape what succeeds.
+
+Future roadmap includes:
+
+AI Book Matchmaking (personalized club recommendations based on reading patterns).
+
+Author Q&A Events & Live Streams.
+
+Verified Reviews & Smart Credibility Scores.
+
+Mobile App with chat, push notifications, and gamified daily activity.
+
+Publishing Partnerships to give high-ranking books access to agents or small press deals.
+
+In One Sentence
+
+Book Pitch is where authors pitch their stories, readers discover new favorites, and book clubs earn rewards for shaping the future of publishing — together.
