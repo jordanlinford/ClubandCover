@@ -192,6 +192,42 @@ Preferred communication style: Simple, everyday language.
 - Eliminates multi-step client flow for better UX
 - `PollBuilderModal` uses single mutation instead of separate create/add-options calls
 
+## Sprint-6 Reader & Club Features
+
+**Reader Onboarding** (Date: November 2025):
+- Two-step wizard: role selection (READER, AUTHOR, CLUB_ADMIN) + profile preferences
+- Profile preferences: favorite genres, books/month reading pace, bio
+- UserProfile model with `genres`, `booksPerMonth`, `bio`, `avatarUrl` fields
+- API: `/api/onboarding/role` (POST), `/api/onboarding/profile` (PATCH)
+- Routes: `apps/api/src/routes/onboarding.ts`
+- Component: `OnboardingWizard` with interactive genre selection and reading pace slider
+- Page: `/onboarding` displays wizard for new users without profiles
+
+**Enhanced Club Discovery** (Date: November 2025):
+- Advanced search with filters: text query, genres, reading frequency, minPointsToJoin
+- Pagination support with configurable page size
+- Club model enhancements: `about`, `genres`, `frequency`, `minPointsToJoin` fields
+- API: `/api/clubs/search?q=...&genres=...&frequency=...&minPoints=...` (GET)
+- Enhanced club creation validates new fields with Zod schemas
+- Service: Club search logic in `apps/api/src/routes/clubs.ts`
+
+**Club Room** (Date: November 2025):
+- Tabbed interface: Feed (messages), Polls (voting), Info (club details)
+- Feed tab: Post and view club messages with author attribution
+- Messages limited to club members with rate limiting (60 messages/hour per user)
+- ClubMessage model: `id`, `clubId`, `userId`, `body`, `createdAt`
+- API: `/api/clubs/:id/messages` (GET with pagination, POST to create)
+- Routes: `apps/api/src/routes/club-messages.ts`
+- Page: `/clubs/:id/room` with `ClubRoomPage` component
+- UI: Shows club header with genres, frequency, member count, and current poll status
+
+**Data Model Updates** (Date: November 2025):
+- Migration: `sprint6_readers_clubs` adds UserProfile table and extends Club/ClubMessage models
+- UserProfile: Stores user role and reading preferences separate from core User model
+- Club: Added `about` (longform description), `genres` (array), `frequency` (books/year), `minPointsToJoin`
+- ClubMessage: Simple message feed for club communication
+- Database indexes: ClubMessage indexed by clubId for efficient feed queries
+
 **Shared**:
 - TypeScript: Type safety across the stack.
 - Zod: Shared validation schemas.
