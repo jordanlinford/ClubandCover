@@ -104,6 +104,12 @@ enum PointType {
   SOCIAL_SHARE
   HOST_ACTION
   REFERRAL_ACTIVATED
+  ACCOUNT_CREATED
+  ONBOARDING_COMPLETED
+  JOIN_CLUB
+  MESSAGE_POSTED
+  PITCH_CREATED
+  SWAP_COMPLETED
 }
 
 enum ReferralStatus {
@@ -172,6 +178,8 @@ model User {
   checklistProgress  ChecklistProgress[]
   emailLogs          EmailLog[]
   clubMessages       ClubMessage[]
+  badges             UserBadge[]
+  dailyCounters      DailyPointCounter[]
 
   @@index([role])
   @@index([tier])
@@ -662,4 +670,33 @@ model EmailLog {
 
   @@index([userId, emailType, sentAt])
   @@map("email_logs")
+}
+
+model UserBadge {
+  id        String   @id @default(uuid())
+  userId    String
+  code      String
+  awardedAt DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, code])
+  @@index([userId])
+  @@map("user_badges")
+}
+
+model DailyPointCounter {
+  id     String    @id @default(uuid())
+  userId String
+  type   PointType
+  date   DateTime
+  total  Int       @default(0)
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type, date])
+  @@index([userId, type, date])
+  @@map("daily_point_counters")
 }
