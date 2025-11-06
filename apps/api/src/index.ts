@@ -92,6 +92,16 @@ await fastify.register(csrf, {
 
 fastify.log.info('Security headers and CSRF protection enabled');
 
+// Health check endpoint for monitoring
+fastify.get('/health', async (request, reply) => {
+  return {
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development',
+  };
+});
+
 // Serve web build from apps/web/dist
 await fastify.register(fastifyStatic, {
   root: resolve(__dirname, '../../web/dist'),
