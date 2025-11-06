@@ -8,58 +8,78 @@ const prisma = new PrismaClient();
 export const BADGE_CATALOG = {
   // Reader badges
   FIRST_VOTE: {
+    id: 'FIRST_VOTE',
     name: 'First Vote',
     description: 'Cast your first vote in a poll',
     category: 'READER',
+    icon: 'Target',
   },
   BOOKWORM: {
+    id: 'BOOKWORM',
     name: 'Bookworm',
     description: 'Cast votes on 10 different polls',
     category: 'READER',
+    icon: 'BookOpen',
   },
   SOCIABLE: {
+    id: 'SOCIABLE',
     name: 'Sociable',
     description: 'Posted 20 valid messages (≥10 chars) in club rooms',
     category: 'READER',
+    icon: 'Users',
   },
   LOYAL_MEMBER: {
+    id: 'LOYAL_MEMBER',
     name: 'Loyal Member',
     description: 'Member of 3 clubs',
     category: 'READER',
+    icon: 'Sparkles',
   },
 
   // Host/Club badges
   HOST_STARTER: {
+    id: 'HOST_STARTER',
     name: 'Host Starter',
     description: 'Created a club',
     category: 'HOST',
+    icon: 'Users',
   },
   COMMUNITY_ACTIVE: {
+    id: 'COMMUNITY_ACTIVE',
     name: 'Community Active',
     description: '5 unique members posted messages in last 7 days',
     category: 'HOST',
+    icon: 'TrendingUp',
   },
   DECISIVE: {
+    id: 'DECISIVE',
     name: 'Decisive',
     description: 'Completed 3 polls',
     category: 'HOST',
+    icon: 'Trophy',
   },
 
   // Author badges
   AUTHOR_LAUNCH: {
+    id: 'AUTHOR_LAUNCH',
     name: 'Author Launch',
     description: 'Created your first pitch',
     category: 'AUTHOR',
+    icon: 'Feather',
   },
   FAN_FAVORITE: {
+    id: 'FAN_FAVORITE',
     name: 'Fan Favorite',
     description: 'Pitch selected by 3 different clubs',
     category: 'AUTHOR',
+    icon: 'Trophy',
   },
   SWAP_MASTER: {
+    id: 'SWAP_MASTER',
     name: 'Swap Master',
     description: 'Completed 5 swaps',
     category: 'AUTHOR',
+    icon: 'Repeat',
   },
 } as const;
 
@@ -111,10 +131,16 @@ export async function hasBadge(userId: string, code: BadgeCode): Promise<boolean
  * Get all badges for a user
  */
 export async function getUserBadges(userId: string) {
-  return await prisma.userBadge.findMany({
+  const userBadges = await prisma.userBadge.findMany({
     where: { userId },
     orderBy: { awardedAt: 'desc' },
   });
+
+  // Augment with badge metadata from catalog
+  return userBadges.map(ub => ({
+    ...ub,
+    badge: BADGE_CATALOG[ub.code as keyof typeof BADGE_CATALOG],
+  }));
 }
 
 /**

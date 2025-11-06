@@ -248,17 +248,17 @@ export default async function testSeedRoutes(fastify: FastifyInstance) {
 
         // 9. Seed badges for the user
         const badgesToAward = [
-          { badgeId: 'FIRST_VOTE', earnedAt: new Date(Date.now() - 86400000 * 5) }, // 5 days ago
-          { badgeId: 'AUTHOR_LAUNCH', earnedAt: new Date(Date.now() - 86400000 * 3) }, // 3 days ago
-          { badgeId: 'HOST_STARTER', earnedAt: new Date(Date.now() - 86400000 * 2) }, // 2 days ago
+          { code: 'FIRST_VOTE', awardedAt: new Date(Date.now() - 86400000 * 5) }, // 5 days ago
+          { code: 'AUTHOR_LAUNCH', awardedAt: new Date(Date.now() - 86400000 * 3) }, // 3 days ago
+          { code: 'HOST_STARTER', awardedAt: new Date(Date.now() - 86400000 * 2) }, // 2 days ago
         ];
 
         for (const badge of badgesToAward) {
           await tx.userBadge.create({
             data: {
               userId: user.id,
-              badgeId: badge.badgeId,
-              earnedAt: badge.earnedAt,
+              code: badge.code,
+              awardedAt: badge.awardedAt,
             },
           });
         }

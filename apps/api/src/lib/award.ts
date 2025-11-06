@@ -12,7 +12,7 @@ export async function maybeAwardFirstVote(userId: string) {
     where: { userId, type: 'VOTE_PARTICIPATION' },
   });
 
-  if (voteCount === 1) {
+  if (voteCount >= 1) {
     await awardBadge(userId, 'FIRST_VOTE');
   }
 }
@@ -25,7 +25,7 @@ export async function maybeAwardBookworm(userId: string) {
     where: { userId },
   });
 
-  if (voteCount === 10) {
+  if (voteCount >= 10) {
     await awardBadge(userId, 'BOOKWORM');
   }
 }
@@ -38,7 +38,7 @@ export async function maybeAwardAuthorLaunch(userId: string) {
     where: { userId, type: 'PITCH_CREATED' },
   });
 
-  if (pitchCount === 1) {
+  if (pitchCount >= 1) {
     await awardBadge(userId, 'AUTHOR_LAUNCH');
   }
 }
@@ -55,7 +55,7 @@ export async function maybeAwardSociable(userId: string) {
 
   const validMessages = messages.filter(m => m.body.length >= 10);
   
-  if (validMessages.length === 20) {
+  if (validMessages.length >= 20) {
     await awardBadge(userId, 'SOCIABLE');
   }
 }
@@ -68,7 +68,7 @@ export async function maybeAwardLoyalMember(userId: string) {
     where: { userId, status: 'ACTIVE' },
   });
 
-  if (clubCount === 3) {
+  if (clubCount >= 3) {
     await awardBadge(userId, 'LOYAL_MEMBER');
   }
 }
@@ -81,7 +81,7 @@ export async function maybeAwardHostStarter(userId: string) {
     where: { createdById: userId },
   });
 
-  if (clubCount === 1) {
+  if (clubCount >= 1) {
     await awardBadge(userId, 'HOST_STARTER');
   }
 }
@@ -108,7 +108,7 @@ export async function maybeAwardFanFavorite(userId: string) {
     distinct: ['clubId'],
   });
 
-  if (selectedPitches.length === 3) {
+  if (selectedPitches.length >= 3) {
     await awardBadge(userId, 'FAN_FAVORITE');
   }
 }
@@ -124,7 +124,7 @@ export async function maybeAwardSwapMaster(userId: string) {
     },
   });
 
-  if (swapCount === 5) {
+  if (swapCount >= 5) {
     await awardBadge(userId, 'SWAP_MASTER');
   }
 }
@@ -137,7 +137,7 @@ export async function maybeAwardDecisive(userId: string) {
     where: { createdById: userId, status: 'CLOSED' },
   });
 
-  if (pollCount === 3) {
+  if (pollCount >= 3) {
     await awardBadge(userId, 'DECISIVE');
   }
 }

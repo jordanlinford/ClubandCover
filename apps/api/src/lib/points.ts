@@ -80,7 +80,9 @@ export async function awardPoints(
   // Check daily caps
   const dailyCap = DAILY_CAPS[type];
   if (dailyCap !== undefined) {
-    const today = startOfDay(new Date());
+    // Use UTC midnight for consistent daily boundaries
+    const now = new Date();
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
     
     // Get or create daily counter
     const dailyCounter = await prisma.dailyPointCounter.upsert({
