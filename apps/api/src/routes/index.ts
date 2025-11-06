@@ -79,6 +79,12 @@ export async function routes(fastify: FastifyInstance) {
   // Authentication (email verification, password reset)
   await fastify.register(authRoutes, { prefix: '/auth' });
   
+  // Phase 1 Monetization routes
+  const creditsRoutes = (await import('./credits.js')).default;
+  const sponsorshipsRoutes = (await import('./sponsorships.js')).default;
+  await fastify.register(creditsRoutes);
+  await fastify.register(sponsorshipsRoutes);
+  
   // Test support routes (only enabled in test environment)
   await fastify.register(testSupportRoutes, { prefix: '/test' });
 }

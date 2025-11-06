@@ -107,7 +107,7 @@ export async function searchClubs(
   // Add filter conditions
   if (filters.genres && filters.genres.length > 0) {
     whereConditions.push({
-      genres: {
+      preferredGenres: {
         hasSome: filters.genres,
       },
     });
@@ -189,16 +189,32 @@ export async function searchPitches(
     });
   }
 
-  const where: Prisma.PitchWhereInput = whereConditions.length > 0
-    ? { AND: whereConditions }
-    : {};
-
   // Add where condition to exclude expired boosts
   const now = new Date();
   
+  const where: Prisma.PitchWhereInput = whereConditions.length > 0
+    ? { AND: whereConditions }
+    : {};
+  
   const [items, total] = await Promise.all([
     prisma.pitch.findMany({
-      where,
+      where: {
+        ...where,
+        OR: [
+          // Either not boosted
+          { isBoosted: false },
+          // Or boosted but not expired
+          {
+            isBoosted: true,
+            boostEndsAt: { gte: now },
+          },
+          // Or boosted with no end date (shouldn't happen, but be defensive)
+          {
+            isBoosted: true,
+            boostEndsAt: null,
+          },
+        ],
+      },
       include: {
         author: {
           select: {
@@ -216,34 +232,34 @@ export async function searchPitches(
         },
       },
       orderBy: [
-        // Boosted pitches first (active boosts only)
-        // Note: Prisma doesn't support complex conditional ordering directly,
-        // so we use a workaround with raw SQL or fetch and sort in memory
-        { isBoosted: 'desc' }, // Boosted pitches first
-        { createdAt: 'desc' }, // Then by recency
+        // Boosted pitches first (only active boosts will be returned due to where clause)
+        { isBoosted: 'desc' },
+        // Then by recency
+        { createdAt: 'desc' },
       ],
       take: limit,
       skip: offset,
     }),
-    prisma.pitch.count({ where }),
+    prisma.pitch.count({ 
+      where: {
+        ...where,
+        OR: [
+          { isBoosted: false },
+          {
+            isBoosted: true,
+            boostEndsAt: { gte: now },
+          },
+          {
+            isBoosted: true,
+            boostEndsAt: null,
+          },
+        ],
+      },
+    }),
   ]);
-  
-  // Filter out expired boosts in memory (Prisma limitation for complex date comparisons in orderBy)
-  const filteredItems = items.map(pitch => ({
-    ...pitch,
-    isBoosted: pitch.isBoosted && (!pitch.boostEndsAt || pitch.boostEndsAt > now),
-  }));
-  
-  // Re-sort to ensure active boosts are truly first
-  filteredItems.sort((a, b) => {
-    if (a.isBoosted === b.isBoosted) {
-      return b.createdAt.getTime() - a.createdAt.getTime();
-    }
-    return a.isBoosted ? -1 : 1;
-  });
 
   return {
-    items: filteredItems,
+    items,
     total,
     hasMore: offset + limit < total,
   };
