@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@repo/ui';
 import { Input } from '@repo/ui';
 import { Card } from '@repo/ui';
+import { BookOpen, Pen } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 export function SignUpPage() {
@@ -12,6 +13,17 @@ export function SignUpPage() {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [role, setRole] = useState<string>('');
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const roleParam = params.get('role');
+    if (roleParam === 'READER' || roleParam === 'AUTHOR') {
+      setRole(roleParam);
+    } else {
+      setLocation('/auth/role');
+    }
+  }, [setLocation]);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +40,7 @@ export function SignUpPage() {
       const { error } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { name } },
+        options: { data: { name, role } },
       });
       if (error) throw error;
       setLocation('/');
@@ -38,12 +50,30 @@ export function SignUpPage() {
     }
   };
 
+  if (!role) {
+    return null;
+  }
+
+  const RoleIcon = role === 'READER' ? BookOpen : Pen;
+  const roleName = role === 'READER' ? 'Reader' : 'Author';
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <Card className="w-full max-w-md p-8">
-        <h1 className="text-2xl font-bold mb-6 text-center">Create Account</h1>
+        <div className="flex items-center justify-center gap-3 mb-6">
+          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+            <RoleIcon className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-semibold">Create Account</h1>
+            <p className="text-sm text-muted-foreground">
+              Signing up as {roleName}
+            </p>
+          </div>
+        </div>
+
         {error && (
-          <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/20 border border-red-400 dark:border-red-800 rounded text-sm text-red-700 dark:text-red-400" data-testid="text-error">
+          <div className="mb-4 p-3 bg-destructive/10 border border-destructive/50 rounded-lg text-sm text-destructive" data-testid="text-error">
             {error}
           </div>
         )}
@@ -104,12 +134,20 @@ export function SignUpPage() {
           </Button>
         </form>
         
-        <p className="mt-4 text-center text-sm">
-          Already have an account?{' '}
-          <a href="/auth/sign-in" className="text-blue-600 hover:underline" data-testid="link-signin">
-            Sign in
-          </a>
-        </p>
+        <div className="mt-6 space-y-3">
+          <p className="text-center text-sm text-muted-foreground">
+            Already have an account?{' '}
+            <a href="/auth/sign-in" className="text-primary hover:underline" data-testid="link-signin">
+              Sign in
+            </a>
+          </p>
+          <p className="text-center text-sm text-muted-foreground">
+            Want to sign up as {role === 'READER' ? 'an Author' : 'a Reader'}?{' '}
+            <a href="/auth/role" className="text-primary hover:underline" data-testid="link-change-role">
+              Change role
+            </a>
+          </p>
+        </div>
       </Card>
     </div>
   );
