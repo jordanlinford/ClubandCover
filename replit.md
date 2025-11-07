@@ -72,15 +72,15 @@ The project utilizes a monorepo structure managed by pnpm workspaces, separating
 - **Club Admins - PRO CLUB ($19.99/mo):** Advanced club features, sponsorship opportunities.
 - **Authors - PUBLISHER ($49.99/mo):** Unlimited features, priority support.
 
-**Monetization Features (Phase 1 - In Progress):**
+**Monetization Features (Phase 1 - COMPLETE ✅):**
 - **Tier-Based Pitch Limits:** ✅ Enforced limits (FREE: 3, PRO: 10, PUBLISHER: unlimited) with usage indicators
 - **Visibility Boost Algorithm:** ✅ Premium tier pitches ranked higher in discovery (PUBLISHER > PRO > FREE)
 - **Tier Synchronization:** ✅ Denormalized authorTier field auto-syncs across all tier changes (admin, webhooks, creation)
-- **Promotion Credits System:** (Pending) Authors purchase credits to boost pitch visibility or sponsor clubs
-- **Pitch Boosting:** (Pending) Spend credits to increase pitch impressions for 7/14/30 days
-- **Club Sponsorships:** (Pending) Target specific clubs with sponsored content
-- **Stripe Integration:** Complete payment flow with 3DS/SCA support
-- **Analytics Dashboard:** Track ROI on promotional spending
+- **Promotion Credits System:** ✅ Three credit packages (10, 50, 100 credits at $0.10 each) with Stripe checkout integration
+- **Pitch Boosting:** ✅ Authors spend credits to boost pitch visibility for 7/14/30 days with automatic expiration handling
+- **Club Sponsorships:** ✅ Full sponsorship system with club targeting (genres, member count, frequency), impression/click tracking, and analytics endpoints
+- **Stripe Integration:** ✅ Complete payment flow with 3DS/SCA support, webhook handlers for subscription and credit purchases
+- **Transaction History:** ✅ Credit purchase/spend tracking with balance history displayed on Billing page
 
 ## External Dependencies
 **Third-Party Services:**
