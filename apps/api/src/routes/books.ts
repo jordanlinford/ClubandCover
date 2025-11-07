@@ -5,8 +5,18 @@ import type { ApiResponse } from '@repo/types';
 import { isAIEnabled, generateEmbedding, getEmbeddingText } from '../lib/ai.js';
 
 export async function bookRoutes(fastify: FastifyInstance) {
-  // List all available books
+  // List all available books (Authors only - AuthorSwap feature)
   fastify.get('/', async (request, reply) => {
+    if (!request.user) {
+      reply.code(401);
+      return { success: false, error: 'Unauthorized' } as ApiResponse;
+    }
+
+    if (request.user.role !== 'AUTHOR') {
+      reply.code(403);
+      return { success: false, error: 'Books feature is only available to authors' } as ApiResponse;
+    }
+
     try {
       const books = await prisma.book.findMany({
         where: { isAvailable: true },
@@ -23,11 +33,16 @@ export async function bookRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Get user's own books
+  // Get user's own books (Authors only - AuthorSwap feature)
   fastify.get('/my-books', async (request, reply) => {
     if (!request.user) {
       reply.code(401);
       return { success: false, error: 'Unauthorized' } as ApiResponse;
+    }
+
+    if (request.user.role !== 'AUTHOR') {
+      reply.code(403);
+      return { success: false, error: 'Books feature is only available to authors' } as ApiResponse;
     }
 
     try {
@@ -45,8 +60,18 @@ export async function bookRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Get single book
+  // Get single book (Authors only - AuthorSwap feature)
   fastify.get('/:id', async (request, reply) => {
+    if (!request.user) {
+      reply.code(401);
+      return { success: false, error: 'Unauthorized' } as ApiResponse;
+    }
+
+    if (request.user.role !== 'AUTHOR') {
+      reply.code(403);
+      return { success: false, error: 'Books feature is only available to authors' } as ApiResponse;
+    }
+
     try {
       const { id } = request.params as { id: string };
       const book = await prisma.book.findUnique({
@@ -69,11 +94,16 @@ export async function bookRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Create book
+  // Create book (Authors only - AuthorSwap feature)
   fastify.post('/', async (request, reply) => {
     if (!request.user) {
       reply.code(401);
       return { success: false, error: 'Unauthorized' } as ApiResponse;
+    }
+
+    if (request.user.role !== 'AUTHOR') {
+      reply.code(403);
+      return { success: false, error: 'Books feature is only available to authors' } as ApiResponse;
     }
 
     try {
@@ -114,11 +144,16 @@ export async function bookRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Update book (owner only)
+  // Update book (Authors only - AuthorSwap feature)
   fastify.patch('/:id', async (request, reply) => {
     if (!request.user) {
       reply.code(401);
       return { success: false, error: 'Unauthorized' } as ApiResponse;
+    }
+
+    if (request.user.role !== 'AUTHOR') {
+      reply.code(403);
+      return { success: false, error: 'Books feature is only available to authors' } as ApiResponse;
     }
 
     try {
@@ -151,11 +186,16 @@ export async function bookRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Delete book (owner only)
+  // Delete book (Authors only - AuthorSwap feature)
   fastify.delete('/:id', async (request, reply) => {
     if (!request.user) {
       reply.code(401);
       return { success: false, error: 'Unauthorized' } as ApiResponse;
+    }
+
+    if (request.user.role !== 'AUTHOR') {
+      reply.code(403);
+      return { success: false, error: 'Books feature is only available to authors' } as ApiResponse;
     }
 
     try {
