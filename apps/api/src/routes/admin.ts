@@ -3,19 +3,21 @@ import { requireAuth } from '../middleware/auth.js';
 import { prisma } from '../lib/prisma.js';
 import { z } from 'zod';
 
-function requireStaff(request: any, reply: any) {
+function requireStaff(request: any, reply: any): boolean {
   if (!request.user || request.user.role !== 'STAFF') {
-    return reply.code(403).send({
+    reply.code(403).send({
       success: false,
       error: 'Access denied. STAFF only.',
     });
+    return false;
   }
+  return true;
 }
 
 export async function adminRoutes(fastify: FastifyInstance) {
   // Get platform stats
   fastify.get('/stats', { onRequest: [requireAuth] }, async (request, reply) => {
-    requireStaff(request, reply);
+    if (!requireStaff(request, reply)) return;
     
     try {
       const [totalUsers, totalClubs, totalPitches, activeSwaps] = await Promise.all([
@@ -50,7 +52,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
   // Get all users with details
   fastify.get('/users', { onRequest: [requireAuth] }, async (request, reply) => {
-    requireStaff(request, reply);
+    if (!requireStaff(request, reply)) return;
 
     try {
       const users = await prisma.user.findMany({
@@ -67,7 +69,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
             select: {
               pitches: true,
               memberships: true,
-              swapsInitiated: true,
+              swapsRequested: true,
             },
           },
         },
@@ -79,7 +81,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
         users.map(async (user) => {
           const badges = await prisma.userBadge.findMany({
             where: { userId: user.id },
-            select: { code: true, earnedAt: true },
+            select: { code: true, awardedAt: true },
           });
           return { ...user, badges };
         })
@@ -101,7 +103,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
   fastify.patch<{
     Params: { userId: string };
   }>('/users/:userId/role', { onRequest: [requireAuth] }, async (request, reply) => {
-    requireStaff(request, reply);
+    if (!requireStaff(request, reply)) return;
 
     try {
       const schema = z.object({
@@ -130,7 +132,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
   fastify.patch<{
     Params: { userId: string };
   }>('/users/:userId/tier', { onRequest: [requireAuth] }, async (request, reply) => {
-    requireStaff(request, reply);
+    if (!requireStaff(request, reply)) return;
 
     try {
       const schema = z.object({
@@ -157,7 +159,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
   // Get all clubs with details
   fastify.get('/clubs', { onRequest: [requireAuth] }, async (request, reply) => {
-    requireStaff(request, reply);
+    if (!requireStaff(request, reply)) return;
 
     try {
       const clubs = await prisma.club.findMany({
@@ -190,11 +192,10 @@ export async function adminRoutes(fastify: FastifyInstance) {
             },
             select: {
               id: true,
-              title: true,
               type: true,
               createdAt: true,
-              _count: {
-                select: { votes: true },
+              votes: {
+                select: { id: true },
               },
             },
           });
@@ -203,8 +204,10 @@ export async function adminRoutes(fastify: FastifyInstance) {
             ...club,
             memberCount: club._count.memberships,
             activePolls: activePolls.map((poll) => ({
-              ...poll,
-              voteCount: poll._count.votes,
+              id: poll.id,
+              type: poll.type,
+              createdAt: poll.createdAt,
+              voteCount: poll.votes.length,
               title: `${poll.type} Poll`,
             })),
           };
@@ -225,7 +228,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
   // Get all pitches with details
   fastify.get('/pitches', { onRequest: [requireAuth] }, async (request, reply) => {
-    requireStaff(request, reply);
+    if (!requireStaff(request, reply)) return;
 
     try {
       const pitches = await prisma.pitch.findMany({
@@ -255,26 +258,16 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
       const pitchesWithPromotion = await Promise.all(
         pitches.map(async (pitch) => {
-          const [boostedPitch, sponsoredPitch] = await Promise.all([
-            prisma.boostedPitch.findFirst({
-              where: {
-                pitchId: pitch.id,
-                isActive: true,
-                endDate: { gte: new Date() },
-              },
-            }),
-            prisma.sponsoredPitch.findFirst({
-              where: {
-                pitchId: pitch.id,
-                isActive: true,
-                endDate: { gte: new Date() },
-              },
-            }),
-          ]);
+          const sponsoredPitch = await prisma.sponsoredPitch.findFirst({
+            where: {
+              pitchId: pitch.id,
+              isActive: true,
+              endDate: { gte: new Date() },
+            },
+          });
 
           return {
             ...pitch,
-            isBoosted: !!boostedPitch,
             isSponsored: !!sponsoredPitch,
           };
         })
@@ -296,7 +289,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
   fastify.post<{
     Params: { pollId: string };
   }>('/polls/:pollId/close', { onRequest: [requireAuth] }, async (request, reply) => {
-    requireStaff(request, reply);
+    if (!requireStaff(request, reply)) return;
 
     try {
       const poll = await prisma.poll.update({
@@ -318,7 +311,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
   // Revoke a badge from a user
   fastify.post('/badges/revoke', { onRequest: [requireAuth] }, async (request, reply) => {
-    requireStaff(request, reply);
+    if (!requireStaff(request, reply)) return;
 
     try {
       const schema = z.object({

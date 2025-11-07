@@ -26,6 +26,7 @@ import onboardingRoutes from './onboarding.js';
 import clubMessagesRoutes from './club-messages.js';
 import pointsRoutes from './points.js';
 import { authRoutes } from './auth.js';
+import { adminRoutes } from './admin.js';
 
 export async function routes(fastify: FastifyInstance) {
   fastify.get('/health', async () => {
@@ -84,6 +85,9 @@ export async function routes(fastify: FastifyInstance) {
   const sponsorshipsRoutes = (await import('./sponsorships.js')).default;
   await fastify.register(creditsRoutes);
   await fastify.register(sponsorshipsRoutes);
+  
+  // Admin routes (STAFF only)
+  await fastify.register(adminRoutes, { prefix: '/admin' });
   
   // Test support routes (only enabled in test environment)
   await fastify.register(testSupportRoutes, { prefix: '/test' });
