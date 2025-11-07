@@ -1,8 +1,30 @@
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { Button, Card, CardTitle, CardDescription } from '@repo/ui';
 import { BookOpen, Users, TrendingUp, Award, Zap, Heart } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { useEffect } from 'react';
 
 export function HomePage() {
+  const { user, loading } = useAuth();
+  const [, setLocation] = useLocation();
+
+  // If user is logged in, redirect to discover page
+  useEffect(() => {
+    if (!loading && user) {
+      setLocation('/discover');
+    }
+  }, [user, loading, setLocation]);
+
+  // Show nothing while checking auth status
+  if (loading) {
+    return null;
+  }
+
+  // If user is logged in, they'll be redirected - don't show the page
+  if (user) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Section */}
