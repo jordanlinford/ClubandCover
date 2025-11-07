@@ -82,6 +82,12 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     },
   });
 
+  // Sync authorTier on all user's pitches for visibility boost algorithm
+  await prisma.pitch.updateMany({
+    where: { authorId: userId },
+    data: { authorTier: plan },
+  });
+
   // Create payment record
   await prisma.payment.create({
     data: {
@@ -117,6 +123,11 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
         where: { id: user.id },
         data: { tier },
       });
+      // Sync authorTier on all user's pitches for visibility boost algorithm
+      await prisma.pitch.updateMany({
+        where: { authorId: user.id },
+        data: { authorTier: tier },
+      });
       console.log(`[WEBHOOK] User ${user.id} subscription updated to ${tier}`);
     }
   } else if (subscription.status === 'canceled' || subscription.status === 'unpaid') {
@@ -124,6 +135,11 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
     await prisma.user.update({
       where: { id: user.id },
       data: { tier: 'FREE' },
+    });
+    // Sync authorTier on all user's pitches
+    await prisma.pitch.updateMany({
+      where: { authorId: user.id },
+      data: { authorTier: 'FREE' },
     });
     console.log(`[WEBHOOK] User ${user.id} downgraded to FREE`);
   }
@@ -146,6 +162,12 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
       tier: 'FREE',
       stripeSubscriptionId: null,
     },
+  });
+
+  // Sync authorTier on all user's pitches
+  await prisma.pitch.updateMany({
+    where: { authorId: user.id },
+    data: { authorTier: 'FREE' },
   });
 
   console.log(`[WEBHOOK] User ${user.id} subscription deleted, downgraded to FREE`);

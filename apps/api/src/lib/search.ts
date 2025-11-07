@@ -234,6 +234,8 @@ export async function searchPitches(
       orderBy: [
         // Boosted pitches first (only active boosts will be returned due to where clause)
         { isBoosted: 'desc' },
+        // Then by author tier (PUBLISHER > PRO_AUTHOR/PRO_CLUB > FREE)
+        { authorTier: 'desc' },
         // Then by recency
         { createdAt: 'desc' },
       ],

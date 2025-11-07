@@ -500,6 +500,8 @@ model Pitch {
   // Visibility boost fields
   isBoosted     Boolean      @default(false)
   boostEndsAt   DateTime?
+  // Denormalized author tier for efficient sorting (synced on pitch creation & tier changes)
+  authorTier    Tier         @default(FREE)
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 

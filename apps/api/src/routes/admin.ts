@@ -145,6 +145,12 @@ export async function adminRoutes(fastify: FastifyInstance) {
         data: { tier },
       });
 
+      // Sync authorTier on all user's pitches for visibility boost algorithm
+      await prisma.pitch.updateMany({
+        where: { authorId: request.params.userId },
+        data: { authorTier: tier },
+      });
+
       return reply.send({
         success: true,
         data: user,

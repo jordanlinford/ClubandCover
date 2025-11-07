@@ -109,6 +109,7 @@ export default async function pitchesRoutes(app: FastifyInstance) {
         synopsis: body.synopsis || null,
         sampleUrl: body.sampleUrl || null,
         status: 'SUBMITTED',
+        authorTier: user.tier, // Set author tier for visibility boost sorting
       },
       include: {
         author: {
@@ -194,7 +195,14 @@ export default async function pitchesRoutes(app: FastifyInstance) {
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: [
+          // Boosted pitches first
+          { isBoosted: 'desc' },
+          // Then by author tier for visibility boost
+          { authorTier: 'desc' },
+          // Then by recency
+          { createdAt: 'desc' },
+        ],
         take: query.limit,
         skip: query.offset,
       }),
