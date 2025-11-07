@@ -3,11 +3,16 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Supabase credentials not configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables.');
+// Check if credentials are properly configured (not empty strings or undefined)
+const isConfigured = supabaseUrl && supabaseAnonKey && 
+  typeof supabaseUrl === 'string' && supabaseUrl.trim() !== '' &&
+  typeof supabaseAnonKey === 'string' && supabaseAnonKey.trim() !== '';
+
+if (!isConfigured) {
+  console.warn('Supabase credentials not configured. Authentication features will be disabled.');
 }
 
-export const supabase = (supabaseUrl && supabaseAnonKey) 
+export const supabase = isConfigured 
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 
