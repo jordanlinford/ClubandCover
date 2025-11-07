@@ -5,7 +5,7 @@ import { Button } from '@repo/ui';
 import { PageHeader } from '@repo/ui';
 import { useAuth } from '../contexts/AuthContext';
 import { CreditPurchaseModal } from '../components/CreditPurchaseModal';
-import { Coins } from 'lucide-react';
+import { Coins, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 
 const PLANS = [
   {
@@ -40,6 +40,11 @@ export function BillingPage() {
 
   const { data: userData } = useQuery({
     queryKey: ['/api/user/me'],
+    enabled: !!user,
+  });
+
+  const { data: transactionsData } = useQuery({
+    queryKey: ['/api/credits/balance'],
     enabled: !!user,
   });
 
@@ -108,6 +113,51 @@ export function BillingPage() {
           <div className="mt-4 p-4 bg-red-100 dark:bg-red-900/20 border border-red-400 dark:border-red-800 rounded text-sm text-red-700 dark:text-red-400" data-testid="text-error">
             {error}
           </div>
+        )}
+
+        {transactionsData && (transactionsData as any).data?.transactions?.length > 0 && (
+          <Card className="mt-6 p-6">
+            <h3 className="font-semibold mb-4">Recent Transactions</h3>
+            <div className="space-y-3">
+              {(transactionsData as any).data.transactions.slice(0, 10).map((txn: any) => (
+                <div
+                  key={txn.id}
+                  className="flex items-center justify-between p-3 rounded-md hover-elevate"
+                  data-testid={`transaction-${txn.id}`}
+                >
+                  <div className="flex items-center gap-3">
+                    {txn.amount > 0 ? (
+                      <div className="p-2 rounded-md bg-green-100 dark:bg-green-900">
+                        <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
+                      </div>
+                    ) : txn.type === 'PURCHASE' ? (
+                      <div className="p-2 rounded-md bg-blue-100 dark:bg-blue-900">
+                        <DollarSign className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      </div>
+                    ) : (
+                      <div className="p-2 rounded-md bg-orange-100 dark:bg-orange-900">
+                        <TrendingDown className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-sm font-medium">{txn.description}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(txn.createdAt).toLocaleDateString()} at {new Date(txn.createdAt).toLocaleTimeString()}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className={`font-semibold ${txn.amount > 0 ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'}`}>
+                      {txn.amount > 0 ? '+' : ''}{txn.amount}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Balance: {txn.balanceAfter}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
         )}
 
         <div className="mt-8 grid md:grid-cols-2 gap-6">

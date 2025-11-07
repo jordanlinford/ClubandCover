@@ -489,4 +489,244 @@ export default async function creditsRoutes(app: FastifyInstance) {
       });
     }
   });
+
+  // Create club sponsorship
+  app.post('/api/credits/sponsor/:pitchId', { preHandler: [requireAuth] }, async (request, reply) => {
+    try {
+      const userId = request.user!.id;
+      const { pitchId } = request.params as { pitchId: string };
+      
+      const schema = z.object({
+        targetGenres: z.array(z.string()).optional().default([]),
+        minMemberCount: z.number().optional(),
+        maxMemberCount: z.number().optional(),
+        targetFrequency: z.string().optional(),
+        budget: z.number().min(10),
+        durationDays: z.number().min(7).max(90),
+      });
+      const body = schema.parse(request.body);
+
+      // Get pitch and user
+      const [pitch, user] = await Promise.all([
+        prisma.pitch.findUnique({
+          where: { id: pitchId },
+          select: { 
+            id: true,
+            authorId: true,
+            title: true,
+          },
+        }),
+        prisma.user.findUnique({
+          where: { id: userId },
+          select: { creditBalance: true },
+        }),
+      ]);
+
+      if (!user) {
+        return reply.code(404).send({
+          success: false,
+          error: 'User not found',
+        });
+      }
+
+      if (!pitch) {
+        return reply.code(404).send({
+          success: false,
+          error: 'Pitch not found',
+        });
+      }
+
+      if (pitch.authorId !== userId) {
+        return reply.code(403).send({
+          success: false,
+          error: 'You can only sponsor your own pitches',
+        });
+      }
+
+      // Check sufficient credits
+      if (user.creditBalance < body.budget) {
+        return reply.code(400).send({
+          success: false,
+          error: `Insufficient credits. Need ${body.budget}, have ${user.creditBalance}`,
+        });
+      }
+
+      const balanceBefore = user.creditBalance;
+      const startDate = new Date();
+      const endDate = new Date(startDate.getTime() + body.durationDays * 24 * 60 * 60 * 1000);
+
+      // Create sponsorship and deduct credits atomically
+      const result = await prisma.$transaction(async (tx) => {
+        const sponsorship = await tx.sponsoredPitch.create({
+          data: {
+            userId,
+            pitchId,
+            targetGenres: body.targetGenres,
+            minMemberCount: body.minMemberCount,
+            maxMemberCount: body.maxMemberCount,
+            targetFrequency: body.targetFrequency,
+            budget: body.budget,
+            startDate,
+            endDate,
+          },
+        });
+
+        const updatedUser = await tx.user.update({
+          where: { id: userId },
+          data: { creditBalance: { decrement: body.budget } },
+          select: { creditBalance: true },
+        });
+
+        await tx.creditTransaction.create({
+          data: {
+            userId,
+            pitchId,
+            type: 'SPONSOR_CLUB',
+            amount: -body.budget,
+            balanceBefore,
+            balanceAfter: updatedUser.creditBalance,
+            description: `Club sponsorship for "${pitch.title}" (${body.durationDays} days)`,
+          },
+        });
+
+        return { sponsorship, updatedUser };
+      });
+
+      return reply.send({
+        success: true,
+        data: {
+          sponsorship: result.sponsorship,
+          newBalance: result.updatedUser.creditBalance,
+        },
+      });
+    } catch (error: any) {
+      request.log.error(error);
+      return reply.code(500).send({
+        success: false,
+        error: error.message || 'Failed to create sponsorship',
+      });
+    }
+  });
+
+  // Get sponsored pitches for a club
+  app.get('/api/credits/sponsored/:clubId', { preHandler: [requireAuth] }, async (request, reply) => {
+    try {
+      const { clubId } = request.params as { clubId: string };
+
+      const club = await prisma.club.findUnique({
+        where: { id: clubId },
+        select: {
+          preferredGenres: true,
+          _count: {
+            select: {
+              memberships: {
+                where: { status: 'ACTIVE' },
+              },
+            },
+          },
+        },
+      });
+
+      if (!club) {
+        return reply.code(404).send({
+          success: false,
+          error: 'Club not found',
+        });
+      }
+
+      const memberCount = club._count.memberships;
+      const now = new Date();
+
+      const sponsorships = await prisma.sponsoredPitch.findMany({
+        where: {
+          isActive: true,
+          startDate: { lte: now },
+          endDate: { gte: now },
+          OR: [
+            { targetGenres: { isEmpty: true } },
+            { targetGenres: { hasSome: club.preferredGenres } },
+          ],
+          AND: [
+            {
+              OR: [
+                { minMemberCount: null },
+                { minMemberCount: { lte: memberCount } },
+              ],
+            },
+            {
+              OR: [
+                { maxMemberCount: null },
+                { maxMemberCount: { gte: memberCount } },
+              ],
+            },
+          ],
+        },
+        include: {
+          pitch: {
+            include: {
+              author: {
+                select: { id: true, name: true, avatarUrl: true },
+              },
+              book: {
+                select: { id: true, title: true, author: true, genres: true, imageUrl: true },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+      });
+
+      // Update impressions
+      await prisma.sponsoredPitch.updateMany({
+        where: { id: { in: sponsorships.map((s) => s.id) } },
+        data: { impressions: { increment: 1 } },
+      });
+
+      return reply.send({
+        success: true,
+        data: sponsorships.map((s) => s.pitch),
+      });
+    } catch (error: any) {
+      request.log.error(error);
+      return reply.code(500).send({
+        success: false,
+        error: error.message || 'Failed to get sponsored pitches',
+      });
+    }
+  });
+
+  // Get user's sponsorship analytics
+  app.get('/api/credits/sponsorships', { preHandler: [requireAuth] }, async (request, reply) => {
+    try {
+      const userId = request.user!.id;
+
+      const sponsorships = await prisma.sponsoredPitch.findMany({
+        where: { userId },
+        include: {
+          pitch: {
+            select: {
+              id: true,
+              title: true,
+              book: {
+                select: { title: true, author: true },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      return reply.send({
+        success: true,
+        data: sponsorships,
+      });
+    } catch (error: any) {
+      request.log.error(error);
+      return reply.code(500).send({
+        success: false,
+        error: error.message || 'Failed to get sponsorships',
+      });
+    }
+  });
 }
