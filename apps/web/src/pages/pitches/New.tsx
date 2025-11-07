@@ -83,7 +83,7 @@ export function NewPitchPage() {
                   </h3>
                   <p className="text-sm text-muted-foreground mb-4">
                     You've reached your limit of {tierLimitError.limit} active pitch{tierLimitError.limit === 1 ? '' : 'es'}. 
-                    Upgrade to Pro Author for up to 5 pitches, or Publisher for unlimited pitches.
+                    Upgrade to Pro Author for up to 10 pitches, or Publisher for unlimited pitches.
                   </p>
                   <div className="flex gap-3">
                     <Link href="/billing">

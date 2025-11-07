@@ -80,9 +80,9 @@ export default async function pitchesRoutes(app: FastifyInstance) {
 
     // Tier limits for active pitches
     const tierLimits: Record<string, number> = {
-      FREE: 1,
-      PRO_AUTHOR: 5,
-      PRO_CLUB: 5,
+      FREE: 3,
+      PRO_AUTHOR: 10,
+      PRO_CLUB: 10,
       PUBLISHER: 999, // Essentially unlimited
     };
 

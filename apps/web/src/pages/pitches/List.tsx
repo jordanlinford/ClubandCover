@@ -6,6 +6,14 @@ import { PageHeader } from '@repo/ui';
 import type { Pitch } from '@repo/types';
 import { PitchCard } from '../../components/PitchCard';
 import { useAuth } from '../../contexts/AuthContext';
+import { TrendingUp, Sparkles } from 'lucide-react';
+
+interface UserData {
+  user: {
+    id: string;
+    tier: string;
+  };
+}
 
 export function PitchesListPage() {
   const { user } = useAuth();
@@ -13,9 +21,31 @@ export function PitchesListPage() {
     queryKey: ['/api/pitches'],
   });
 
+  const { data: userData } = useQuery<UserData>({
+    queryKey: ['/api/user/me'],
+    enabled: !!user,
+  });
+
   const pitches = data?.pitches || [];
   const myPitches = pitches.filter(p => p.authorId === user?.id);
   const otherPitches = pitches.filter(p => p.authorId !== user?.id);
+
+  // Calculate active pitch count and limit
+  const activePitches = myPitches.filter(p => 
+    ['SUBMITTED', 'ACCEPTED', 'REJECTED'].includes(p.status)
+  );
+  
+  const tierLimits: Record<string, number> = {
+    FREE: 3,
+    PRO_AUTHOR: 10,
+    PRO_CLUB: 10,
+    PUBLISHER: 999,
+  };
+  
+  const userTier = userData?.user?.tier || 'FREE';
+  const pitchLimit = tierLimits[userTier] || 3;
+  const isNearLimit = activePitches.length >= pitchLimit * 0.8;
+  const isAtLimit = activePitches.length >= pitchLimit;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -31,6 +61,42 @@ export function PitchesListPage() {
             </Link>
           )}
         </div>
+
+        {user && (
+          <Card className="p-4 mb-6" data-testid="card-pitch-stats">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <TrendingUp className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">
+                    Active Pitches: {activePitches.length} / {pitchLimit === 999 ? '∞' : pitchLimit}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {userTier === 'FREE' ? 'Free Tier' : userTier === 'PRO_AUTHOR' ? 'Pro Author' : userTier === 'PUBLISHER' ? 'Publisher' : userTier}
+                  </p>
+                </div>
+              </div>
+              {isNearLimit && userTier !== 'PUBLISHER' && (
+                <Link href="/billing">
+                  <Button variant={isAtLimit ? 'default' : 'outline'} size="sm" data-testid="button-upgrade-pitches">
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    {isAtLimit ? 'Upgrade for More' : 'Upgrade'}
+                  </Button>
+                </Link>
+              )}
+            </div>
+            {isNearLimit && userTier !== 'PUBLISHER' && (
+              <div className="mt-3 pt-3 border-t border-border">
+                <p className="text-xs text-muted-foreground">
+                  {isAtLimit 
+                    ? `You've reached your pitch limit. Upgrade to ${userTier === 'FREE' ? 'Pro Author for 10 pitches' : 'Publisher for unlimited pitches'}.`
+                    : `You're using ${Math.round((activePitches.length / pitchLimit) * 100)}% of your pitch limit.`
+                  }
+                </p>
+              </div>
+            )}
+          </Card>
+        )}
 
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
