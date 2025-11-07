@@ -35,7 +35,14 @@ export async function webhookRoutes(fastify: FastifyInstance) {
       try {
         switch (event.type) {
           case 'checkout.session.completed':
-            await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session);
+            const session = event.data.object as Stripe.Checkout.Session;
+            if (session.mode === 'payment') {
+              // Credit purchase
+              await handleCreditPurchase(session);
+            } else {
+              // Subscription purchase
+              await handleCheckoutCompleted(session);
+            }
             break;
 
           case 'customer.subscription.updated':
@@ -171,6 +178,52 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   });
 
   console.log(`[WEBHOOK] User ${user.id} subscription deleted, downgraded to FREE`);
+}
+
+async function handleCreditPurchase(session: Stripe.Checkout.Session) {
+  const userId = session.metadata?.userId;
+  const credits = parseInt(session.metadata?.credits || '0');
+  const packageType = session.metadata?.packageType;
+
+  if (!userId || !credits) {
+    console.error('[WEBHOOK] Missing userId or credits in session metadata');
+    return;
+  }
+
+  // Get current user
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { creditBalance: true },
+  });
+
+  if (!user) {
+    console.error('[WEBHOOK] User not found:', userId);
+    return;
+  }
+
+  const balanceBefore = user.creditBalance;
+  const balanceAfter = balanceBefore + credits;
+
+  // Update user credit balance
+  await prisma.user.update({
+    where: { id: userId },
+    data: { creditBalance: balanceAfter },
+  });
+
+  // Create credit transaction record
+  await prisma.creditTransaction.create({
+    data: {
+      userId,
+      type: 'PURCHASE',
+      amount: credits,
+      balanceBefore,
+      balanceAfter,
+      stripePaymentId: session.id,
+      description: `Purchased ${packageType?.replace('CREDITS_', '')} credits`,
+    },
+  });
+
+  console.log(`[WEBHOOK] User ${userId} purchased ${credits} credits, new balance: ${balanceAfter}`);
 }
 
 function mapProductToTier(productId: string): 'PRO_AUTHOR' | 'PRO_CLUB' | 'PUBLISHER' | null {
