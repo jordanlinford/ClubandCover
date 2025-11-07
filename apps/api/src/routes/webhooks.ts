@@ -1,7 +1,6 @@
 import type { FastifyInstance } from 'fastify';
-import { stripe } from '../lib/stripe';
-import { prisma } from '../lib/prisma';
-import type { ApiResponse } from '@repo/types';
+import { stripe } from '../lib/stripe.js';
+import { prisma } from '../lib/prisma.js';
 import Stripe from 'stripe';
 
 export async function webhookRoutes(fastify: FastifyInstance) {
@@ -16,7 +15,7 @@ export async function webhookRoutes(fastify: FastifyInstance) {
 
       if (!webhookSecret) {
         reply.code(500);
-        return { success: false, error: 'Webhook secret not configured' } as ApiResponse;
+        return { success: false, error: 'Webhook secret not configured' };
       }
 
       let event: Stripe.Event;
@@ -27,7 +26,7 @@ export async function webhookRoutes(fastify: FastifyInstance) {
       } catch (err: any) {
         console.error('[WEBHOOK] Signature verification failed:', err.message);
         reply.code(400);
-        return { success: false, error: `Webhook Error: ${err.message}` } as ApiResponse;
+        return { success: false, error: `Webhook Error: ${err.message}` };
       }
 
       console.log('[WEBHOOK] Received event:', event.type);
@@ -57,14 +56,14 @@ export async function webhookRoutes(fastify: FastifyInstance) {
             console.log(`[WEBHOOK] Unhandled event type: ${event.type}`);
         }
 
-        return { success: true } as ApiResponse;
+        return { success: true };
       } catch (error) {
         console.error('[WEBHOOK] Handler error:', error);
         reply.code(500);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Webhook handler failed',
-        } as ApiResponse;
+        };
       }
     },
   });
