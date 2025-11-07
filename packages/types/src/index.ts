@@ -21,3 +21,4 @@ export * from './settings';
 export * from './badge';
 export * from './credit';
 export * from './sponsorship';
+export * from './genres';

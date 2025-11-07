@@ -4,23 +4,9 @@ import { Card } from '@repo/ui';
 import { Button } from '@repo/ui';
 import { BookOpen, Pen, Users, Check } from 'lucide-react';
 import { api } from '../lib/api';
+import { BOOK_GENRES } from '@repo/types';
 
-const AVAILABLE_GENRES = [
-  'Fiction',
-  'Non-Fiction',
-  'Mystery',
-  'Thriller',
-  'Romance',
-  'Sci-Fi',
-  'Fantasy',
-  'Biography',
-  'History',
-  'Self-Help',
-  'Poetry',
-  'Young Adult',
-  'Horror',
-  'Literary Fiction',
-];
+const AVAILABLE_GENRES = [...BOOK_GENRES];
 
 interface OnboardingWizardProps {
   onComplete: () => void;
@@ -64,13 +50,13 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     {
       value: 'READER',
       label: 'Reader',
-      description: 'Join clubs, vote on books, and participate in discussions',
+      description: 'Join clubs, vote on books, and earn points. Always completely free.',
       icon: BookOpen,
     },
     {
       value: 'AUTHOR',
       label: 'Author',
-      description: 'Pitch your books to clubs and earn points from reader engagement',
+      description: 'Pitch books to clubs, access AuthorSwap network. Free to start, upgrade for advanced features.',
       icon: Pen,
     },
     {
@@ -115,7 +101,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-900">
         <Card className="w-full max-w-2xl p-8">
-          <h1 className="text-3xl font-bold mb-2 text-gray-900 dark:text-gray-100">Welcome to Club & Cover</h1>
+          <h1 className="text-3xl font-bold mb-2 text-gray-900 dark:text-gray-100">Welcome to Book Pitch</h1>
           <p className="text-gray-600 dark:text-gray-400 mb-8">
             Let's set up your account. First, choose your role:
           </p>

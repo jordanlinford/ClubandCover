@@ -4,19 +4,56 @@ import { Card } from '@repo/ui';
 import { Button } from '@repo/ui';
 import { PageHeader } from '@repo/ui';
 import type { Book } from '@repo/types';
+import { useAuth } from '@/contexts/AuthContext';
+import { AlertCircle } from 'lucide-react';
 
 export function BooksListPage() {
+  const { user } = useAuth();
+  const isAuthor = user?.role === 'AUTHOR';
+  
   const { data: books, isLoading } = useQuery<Book[]>({
     queryKey: ['/api/books'],
+    enabled: isAuthor,
   });
+
+  if (!isAuthor) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="max-w-4xl mx-auto p-6">
+          <Card className="p-12 text-center">
+            <AlertCircle className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+            <h2 className="text-2xl font-semibold mb-2">Author-Only Feature</h2>
+            <p className="text-muted-foreground mb-6">
+              The AuthorSwap book collection is available for authors only. This feature allows authors to exchange physical books with other authors for reviews.
+            </p>
+            <div className="space-y-2 text-sm text-muted-foreground">
+              <p>As a reader, you can:</p>
+              <ul className="list-disc list-inside space-y-1">
+                <li>Join book clubs and vote on pitches</li>
+                <li>Discover new books through community recommendations</li>
+                <li>Earn points and badges for participation</li>
+              </ul>
+            </div>
+            <div className="mt-6">
+              <Link href="/discover">
+                <Button data-testid="button-go-discover">
+                  Explore Books & Clubs
+                </Button>
+              </Link>
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-7xl mx-auto p-6">
         <div className="flex justify-between items-center mb-6">
           <PageHeader
-            title="Books"
-            description="Browse and manage your book collection"
+            title="My Books"
+            description="Manage your book collection for AuthorSwap"
           />
           <Link href="/books/new">
             <Button data-testid="button-add-book">Add Book</Button>
@@ -65,7 +102,7 @@ export function BooksListPage() {
         ) : (
           <Card className="p-12 text-center">
             <p className="text-gray-600 dark:text-gray-400 mb-4">
-              No books yet. Add your first book to get started!
+              No books in your AuthorSwap collection yet. Add your first book to start exchanging with other authors!
             </p>
             <Link href="/books/new">
               <Button data-testid="button-add-first-book">Add Your First Book</Button>

@@ -7,6 +7,7 @@ import { Input } from '@repo/ui';
 import { PageHeader } from '@repo/ui';
 import { api } from '../../lib/api';
 import type { Book, CreateBook, BookCondition } from '@repo/types';
+import { BOOK_GENRES } from '@repo/types';
 import { GenerateBlurbButton } from '../../components/ai/GenerateBlurbButton';
 import { AIDisabledBanner } from '../../components/ai/AIDisabledBanner';
 
@@ -149,27 +150,39 @@ export function BookFormPage() {
             </div>
 
             <div>
-              <label htmlFor="genres" className="block text-sm font-medium mb-2">
+              <label className="block text-sm font-medium mb-2">
                 Genres
               </label>
-              <Input
-                id="genres"
-                value={formData.genres.join(', ')}
-                onChange={(e) => {
-                  const genres = e.target.value
-                    .split(',')
-                    .map(g => g.trim())
-                    .filter(g => g.length > 0)
-                    .map(g => g.toLowerCase());
-                  const uniqueGenres = Array.from(new Set(genres));
-                  setFormData({ ...formData, genres: uniqueGenres });
-                }}
-                placeholder="Fiction, Mystery, Thriller (comma-separated)"
-                data-testid="input-genres"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Enter genres separated by commas
+              <p className="text-xs text-muted-foreground mb-3">
+                Select genres for this book
               </p>
+              <div className="flex flex-wrap gap-2">
+                {BOOK_GENRES.map((genre) => {
+                  const isSelected = formData.genres.includes(genre);
+                  return (
+                    <button
+                      key={genre}
+                      type="button"
+                      onClick={() => {
+                        setFormData({
+                          ...formData,
+                          genres: isSelected
+                            ? formData.genres.filter(g => g !== genre)
+                            : [...formData.genres, genre]
+                        });
+                      }}
+                      className={`px-3 py-1 rounded-full text-sm border transition-colors ${
+                        isSelected
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-background text-foreground border-border hover:border-primary/50'
+                      }`}
+                      data-testid={`badge-genre-${genre.toLowerCase().replace(/\s/g, '-')}`}
+                    >
+                      {genre}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <div>

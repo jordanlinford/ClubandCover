@@ -1,0 +1,30 @@
+export const BOOK_GENRES = [
+  'Fiction',
+  'Mystery & Thriller',
+  'Science Fiction & Fantasy',
+  'Romance',
+  'Historical Fiction',
+  'Literary Fiction',
+  'Horror',
+  'Young Adult',
+  'Children\'s Books',
+  'Biography & Memoir',
+  'History',
+  'Self-Help',
+  'Business & Economics',
+  'Science & Nature',
+  'Health & Wellness',
+  'Cookbooks & Food',
+  'Art & Photography',
+  'Travel',
+  'Religion & Spirituality',
+  'Philosophy',
+  'Psychology',
+  'True Crime',
+  'Poetry',
+  'Drama',
+  'Comics & Graphic Novels',
+  'Other'
+] as const;
+
+export type BookGenre = typeof BOOK_GENRES[number];
