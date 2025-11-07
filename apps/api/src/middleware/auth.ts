@@ -61,7 +61,7 @@ export async function supabaseAuth(request: FastifyRequest, reply: FastifyReply)
     }
     
     // Ensure user exists in our database (sync from Supabase)
-    const dbUser = await ensureUser(user.id, user.email || '');
+    const dbUser = await ensureUser(user.id, user.email || '', user.user_metadata);
     
     request.user = {
       id: dbUser.id,
@@ -99,7 +99,7 @@ export async function requireAuth(request: FastifyRequest, reply: FastifyReply) 
  * Ensure user exists in database, create if not exists
  * This syncs Supabase Auth users with our application database
  */
-async function ensureUser(id: string, email: string) {
+async function ensureUser(id: string, email: string, metadata?: Record<string, any>) {
   try {
     // Try to find existing user
     let user = await prisma.user.findUnique({
@@ -107,17 +107,21 @@ async function ensureUser(id: string, email: string) {
     });
 
     if (!user) {
-      // Create new user with defaults
+      // Extract role and name from metadata
+      const role = metadata?.role === 'AUTHOR' ? 'AUTHOR' : 'READER';
+      const name = metadata?.name || email.split('@')[0];
+      
+      // Create new user with data from Supabase metadata
       user = await prisma.user.create({
         data: {
           id,
           email,
-          name: email.split('@')[0], // Default name from email
-          role: 'READER',
+          name,
+          role,
           tier: 'FREE',
         },
       });
-      console.log(`[AUTH] Created new user: ${email} (${id})`);
+      console.log(`[AUTH] Created new user: ${email} (${id}) as ${role}`);
       
       // Award ACCOUNT_CREATED points (async, non-blocking)
       import('./points.js').then(({ awardPoints }) => {
