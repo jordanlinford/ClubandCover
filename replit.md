@@ -14,7 +14,7 @@ The project utilizes a monorepo structure managed by pnpm workspaces, separating
 - **Design System:** Linear-inspired aesthetic emphasizing clarity, purposeful whitespace, and typography (Inter and JetBrains Mono).
 - **State Management:** TanStack Query for server state.
 - **Component Library:** Custom UI components built with Radix UI primitives, CVA, and Tailwind CSS.
-- **Key Pages:** Authentication, Onboarding (role selection, profile preferences), Discovery (search, trending, club browsing), Profile (points, badges, history), Books (library, swaps), Clubs (creation, discovery, room, management), Pitches (browsing, submission, analytics), Analytics (author dashboard), Billing (subscriptions, credits - planned), Referrals.
+- **Key Pages:** Authentication, Onboarding (role selection, profile preferences), Discovery (search, trending, club browsing), Profile (points, badges, history), Books (library, swaps), Clubs (creation, discovery, room, management), Pitches (browsing, submission, analytics), Analytics (author dashboard), Billing (subscriptions, credits - planned), Referrals, Admin (STAFF-only dashboard).
 - **UI/UX Decisions:** Strict adherence to Lucide React for icons; no emojis allowed.
 
 **Backend Architecture:**
@@ -36,7 +36,8 @@ The project utilizes a monorepo structure managed by pnpm workspaces, separating
 **Authentication and Authorization:**
 - **Provider:** Supabase Auth (email verification, password reset, rate limiting, email enumeration prevention).
 - **Flow:** Frontend handles Supabase Auth, stores JWT; backend middleware verifies JWT.
-- **Authorization:** Resource-level ownership checks.
+- **Authorization:** Resource-level ownership checks, STAFF role-based access control for admin features.
+- **Admin Security:** Dual-layer protection with backend `requireStaff` middleware (returns boolean, forces early exit on failure) and frontend role verification (fetches user data, renders access denied for non-STAFF).
 
 **Single-Port Deployment:**
 - Both React SPA and Fastify API are served from a single port (5000) in production/Replit environments, with Fastify serving static files and handling SPA routing fallback.
@@ -51,6 +52,7 @@ The project utilizes a monorepo structure managed by pnpm workspaces, separating
 - **Referral System:** Unique codes, referrer/referee tracking, point rewards.
 - **Notifications:** Various types (POLL_CREATED, PITCH_ACCEPTED, SWAP_DELIVERED, etc.), unread counts, history.
 - **Points & Badges System:** Gamified points economy for engagement actions (e.g., account creation, voting, pitching), badge catalog (auto-awarded for milestones).
+- **Admin Dashboard (STAFF-only):** Comprehensive platform administration interface with tabs for Overview, Users, Clubs, Pitches, and Badges. Includes platform stats, user/tier/role management, poll closing, badge revocation, and content moderation. Features dual-layer authorization with backend `requireStaff` guards (early return pattern) and frontend role verification before rendering UI.
 
 **User Roles:**
 - **READER:** Browse, vote, join clubs, participate, earn points/badges. **Always free** - no subscription required.
