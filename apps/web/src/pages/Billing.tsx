@@ -115,7 +115,7 @@ export function BillingPage() {
           </div>
         )}
 
-        {transactionsData && (transactionsData as any).data?.transactions?.length > 0 && (
+        {transactionsData && (transactionsData as any).data?.transactions?.length > 0 ? (
           <Card className="mt-6 p-6">
             <h3 className="font-semibold mb-4">Recent Transactions</h3>
             <div className="space-y-3">
@@ -158,7 +158,7 @@ export function BillingPage() {
               ))}
             </div>
           </Card>
-        )}
+        ) : null}
 
         <div className="mt-8 grid md:grid-cols-2 gap-6">
           {PLANS.map((plan) => (
