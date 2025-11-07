@@ -14,6 +14,7 @@ export function SignUpPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [role, setRole] = useState<string>('');
+  const [signupSuccess, setSignupSuccess] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -37,13 +38,22 @@ export function SignUpPage() {
     }
 
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: { data: { name, role } },
       });
       if (error) throw error;
-      setLocation('/');
+      
+      // Check if email confirmation is required
+      if (data?.user && !data?.session) {
+        // Email confirmation required
+        setSignupSuccess(true);
+        setLoading(false);
+      } else if (data?.session) {
+        // User is automatically signed in (email confirmation disabled)
+        setLocation('/onboarding');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to sign up');
       setLoading(false);
@@ -56,6 +66,40 @@ export function SignUpPage() {
 
   const RoleIcon = role === 'READER' ? BookOpen : Pen;
   const roleName = role === 'READER' ? 'Reader' : 'Author';
+
+  // Show success message if signup succeeded and email verification is required
+  if (signupSuccess) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <Card className="w-full max-w-md p-8">
+          <div className="text-center space-y-4">
+            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+              <RoleIcon className="w-8 h-8 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-semibold mb-2">Check Your Email</h1>
+              <p className="text-muted-foreground">
+                We sent a verification link to <strong>{email}</strong>
+              </p>
+            </div>
+            <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground">
+              <p className="mb-2">To complete your {roleName.toLowerCase()} account registration:</p>
+              <ol className="list-decimal list-inside space-y-1 text-left">
+                <li>Check your email inbox</li>
+                <li>Click the verification link</li>
+                <li>You'll be redirected to sign in</li>
+              </ol>
+            </div>
+            <div className="pt-4">
+              <a href="/auth/sign-in" className="text-primary hover:underline text-sm" data-testid="link-signin">
+                Already verified? Sign in here
+              </a>
+            </div>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
