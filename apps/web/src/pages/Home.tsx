@@ -16,7 +16,7 @@ export function HomePage() {
               Book Pitch is where authors find their audience and readers discover their next favorite book
             </p>
             <div className="flex flex-wrap justify-center gap-4">
-              <Link href="/auth/sign-up">
+              <Link href="/auth/role">
                 <Button size="lg" data-testid="button-get-started">
                   Get Started
                 </Button>
@@ -79,9 +79,9 @@ export function HomePage() {
             <div className="pt-4 border-t">
               <div className="flex items-center justify-between">
                 <p className="text-lg font-semibold">Always Free</p>
-                <Link href="/auth/sign-up">
+                <Link href="/auth/role">
                   <Button variant="outline" data-testid="button-reader-signup">
-                    Sign Up as Reader
+                    Get Started
                   </Button>
                 </Link>
               </div>
@@ -136,9 +136,9 @@ export function HomePage() {
                   <p className="text-lg font-semibold">Free to Start</p>
                   <p className="text-xs text-muted-foreground">Upgrade for advanced features</p>
                 </div>
-                <Link href="/auth/sign-up">
+                <Link href="/auth/role">
                   <Button data-testid="button-author-signup">
-                    Sign Up as Author
+                    Get Started
                   </Button>
                 </Link>
               </div>
@@ -200,7 +200,7 @@ export function HomePage() {
           <p className="text-lg text-muted-foreground mb-8">
             Join thousands of readers and authors discovering books together
           </p>
-          <Link href="/auth/sign-up">
+          <Link href="/auth/role">
             <Button size="lg" data-testid="button-cta-signup">
               Create Your Free Account
             </Button>
