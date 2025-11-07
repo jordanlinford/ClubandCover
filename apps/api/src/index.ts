@@ -55,6 +55,23 @@ await fastify.register(cookie, {
 
 // Register helmet for security headers
 const isDevelopment = process.env.NODE_ENV !== 'production';
+
+// Build connectSrc list including Supabase URL
+const connectSrcList = ["'self'", "https://api.stripe.com"];
+
+// Add Supabase URL to CSP if configured (check both SUPABASE_URL and VITE_SUPABASE_URL)
+const supabaseUrl = process.env.SUPABASE_URL?.startsWith('http') 
+  ? process.env.SUPABASE_URL 
+  : process.env.VITE_SUPABASE_URL;
+
+if (supabaseUrl && supabaseUrl.startsWith('http')) {
+  connectSrcList.push(supabaseUrl);
+}
+
+if (isDevelopment) {
+  connectSrcList.push("wss:", "ws:");
+}
+
 await fastify.register(helmet, {
   contentSecurityPolicy: {
     directives: {
@@ -65,7 +82,7 @@ await fastify.register(helmet, {
         : ["'self'", "https://js.stripe.com"],
       styleSrc: ["'self'", "'unsafe-inline'"], // inline styles needed for components
       imgSrc: ["'self'", "data:", "https:", "blob:"],
-      connectSrc: ["'self'", "https://api.stripe.com", ...(isDevelopment ? ["wss:", "ws:"] : [])],
+      connectSrc: connectSrcList,
       frameSrc: ["'self'", "https://js.stripe.com", "https://hooks.stripe.com"],
       objectSrc: ["'none'"],
       upgradeInsecureRequests: isDevelopment ? null : [],
