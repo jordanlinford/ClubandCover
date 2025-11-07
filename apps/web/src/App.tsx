@@ -1,4 +1,5 @@
 import { Route, Switch } from 'wouter';
+import { RoleSelectionPage } from './pages/auth/RoleSelection';
 import { SignInPage } from './pages/auth/SignIn';
 import { SignUpPage } from './pages/auth/SignUp';
 import VerifyEmail from './pages/auth/VerifyEmail';
@@ -35,6 +36,7 @@ export default function App() {
   return (
     <Switch>
       <Route path="/" component={HomePage} />
+      <Route path="/auth/role" component={RoleSelectionPage} />
       <Route path="/auth/sign-in" component={SignInPage} />
       <Route path="/auth/sign-up" component={SignUpPage} />
       <Route path="/auth/signin" component={SignInPage} />
