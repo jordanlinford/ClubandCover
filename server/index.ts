@@ -15,6 +15,7 @@ const buildWeb = spawn('pnpm', ['-F', '@repo/web', 'build'], {
   cwd: rootDir,
   stdio: 'inherit',
   shell: true,
+  env: process.env, // Pass all environment variables to the build process
 });
 
 buildWeb.on('exit', (code) => {
@@ -31,6 +32,7 @@ buildWeb.on('exit', (code) => {
     cwd: rootDir,
     stdio: 'inherit',
     shell: true,
+    env: process.env, // Pass all environment variables to the API server
   });
 
   process.on('SIGINT', () => {
