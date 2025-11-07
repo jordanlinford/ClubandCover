@@ -3,17 +3,29 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Check if credentials are properly configured (not empty strings or undefined)
-const isConfigured = supabaseUrl && supabaseAnonKey && 
-  typeof supabaseUrl === 'string' && supabaseUrl.trim() !== '' &&
-  typeof supabaseAnonKey === 'string' && supabaseAnonKey.trim() !== '';
+// Check if credentials are properly configured and are valid URLs
+const isValidUrl = (url: any): boolean => {
+  if (!url || typeof url !== 'string' || url.trim() === '') return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
+const isConfigured = 
+  isValidUrl(supabaseUrl) && 
+  supabaseAnonKey && 
+  typeof supabaseAnonKey === 'string' && 
+  supabaseAnonKey.trim() !== '';
 
 if (!isConfigured) {
   console.warn('Supabase credentials not configured. Authentication features will be disabled.');
 }
 
 export const supabase = isConfigured 
-  ? createClient(supabaseUrl, supabaseAnonKey)
+  ? createClient(supabaseUrl as string, supabaseAnonKey as string)
   : null;
 
 export async function signUp(email: string, password: string) {
