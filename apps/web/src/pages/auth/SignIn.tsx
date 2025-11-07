@@ -34,11 +34,11 @@ export function SignInPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <Card className="w-full max-w-md p-8">
-        <h1 className="text-2xl font-bold mb-6 text-center">Sign In</h1>
+        <h1 className="text-2xl font-semibold mb-6 text-center">Sign In</h1>
         {error && (
-          <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/20 border border-red-400 dark:border-red-800 rounded text-sm text-red-700 dark:text-red-400" data-testid="text-error">
+          <div className="mb-4 p-3 bg-destructive/10 border border-destructive/50 rounded-lg text-sm text-destructive" data-testid="text-error">
             {error}
           </div>
         )}
@@ -64,7 +64,7 @@ export function SignInPage() {
               <label htmlFor="password" className="block text-sm font-medium">
                 Password
               </label>
-              <a href="/auth/forgot-password" className="text-xs text-blue-600 hover:underline" data-testid="link-forgot-password">
+              <a href="/auth/forgot-password" className="text-xs text-primary hover:underline" data-testid="link-forgot-password">
                 Forgot password?
               </a>
             </div>
@@ -89,9 +89,9 @@ export function SignInPage() {
           </Button>
         </form>
         
-        <p className="mt-4 text-center text-sm">
+        <p className="mt-6 text-center text-sm text-muted-foreground">
           Don't have an account?{' '}
-          <a href="/auth/sign-up" className="text-blue-600 hover:underline" data-testid="link-signup">
+          <a href="/auth/role" className="text-primary hover:underline" data-testid="link-signup">
             Sign up
           </a>
         </p>
