@@ -114,18 +114,54 @@ export async function maybeAwardFanFavorite(userId: string) {
 }
 
 /**
- * Auto-award SWAP_MASTER badge after 5 completed swaps
+ * Auto-award SWAP_VERIFIED badge after first verified swap with review
  */
-export async function maybeAwardSwapMaster(userId: string) {
-  const swapCount = await prisma.swap.count({
-    where: {
-      OR: [{ requesterId: userId }, { responderId: userId }],
-      status: 'VERIFIED',
-    },
+export async function maybeAwardSwapVerified(userId: string) {
+  const verifiedSwapReviewCount = await prisma.review.count({
+    where: { reviewerId: userId, verifiedSwap: true },
   });
 
-  if (swapCount >= 5) {
+  if (verifiedSwapReviewCount >= 1) {
+    await awardBadge(userId, 'SWAP_VERIFIED');
+  }
+}
+
+/**
+ * Auto-award SWAP_MASTER badge after 5 verified swaps with reviews
+ */
+export async function maybeAwardSwapMaster(userId: string) {
+  const verifiedSwapReviewCount = await prisma.review.count({
+    where: { reviewerId: userId, verifiedSwap: true },
+  });
+
+  if (verifiedSwapReviewCount >= 5) {
     await awardBadge(userId, 'SWAP_MASTER');
+  }
+}
+
+/**
+ * Auto-award BOOK_REVIEWER badge after first club book review
+ */
+export async function maybeAwardBookReviewer(userId: string) {
+  const clubReviewCount = await prisma.review.count({
+    where: { reviewerId: userId, clubBookId: { not: null } },
+  });
+
+  if (clubReviewCount >= 1) {
+    await awardBadge(userId, 'BOOK_REVIEWER');
+  }
+}
+
+/**
+ * Auto-award CRITIC badge after 10 club book reviews
+ */
+export async function maybeAwardCritic(userId: string) {
+  const clubReviewCount = await prisma.review.count({
+    where: { reviewerId: userId, clubBookId: { not: null } },
+  });
+
+  if (clubReviewCount >= 10) {
+    await awardBadge(userId, 'CRITIC');
   }
 }
 
@@ -134,7 +170,7 @@ export async function maybeAwardSwapMaster(userId: string) {
  */
 export async function maybeAwardDecisive(userId: string) {
   const pollCount = await prisma.poll.count({
-    where: { createdById: userId, status: 'CLOSED' },
+    where: { createdBy: userId, status: 'CLOSED' },
   });
 
   if (pollCount >= 3) {

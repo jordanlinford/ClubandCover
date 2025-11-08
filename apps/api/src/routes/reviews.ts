@@ -136,17 +136,14 @@ export async function reviewRoutes(fastify: FastifyInstance) {
         },
       });
 
-      // Award points if this is a verified swap review
+      // Award badges for verified swap reviews (no points for swaps)
       if (swap.status === 'VERIFIED') {
-        const { awardPoints } = await import('../lib/points.js');
-        await awardPoints(
-          request.user.id,
-          'REVIEW_VERIFIED',
-          undefined,
-          'REVIEW',
-          review.id
-        ).catch(err => {
-          fastify.log.error(err, 'Failed to award REVIEW_VERIFIED points');
+        const { maybeAwardSwapVerified, maybeAwardSwapMaster } = await import('../lib/award.js');
+        await maybeAwardSwapVerified(request.user.id).catch(err => {
+          fastify.log.error(err, 'Failed to check SWAP_VERIFIED badge');
+        });
+        await maybeAwardSwapMaster(request.user.id).catch(err => {
+          fastify.log.error(err, 'Failed to check SWAP_MASTER badge');
         });
       }
 
@@ -157,6 +154,167 @@ export async function reviewRoutes(fastify: FastifyInstance) {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to create review',
+      } as ApiResponse;
+    }
+  });
+
+  // Submit club book review (club members reviewing club-selected books)
+  fastify.post('/club', async (request, reply) => {
+    if (!request.user) {
+      reply.code(401);
+      return { success: false, error: 'Unauthorized' } as ApiResponse;
+    }
+
+    try {
+      const schema = z.object({
+        clubId: z.string().uuid(),
+        bookId: z.string().uuid(),
+        rating: z.number().int().min(1).max(5),
+        reviewUrl: z.string().url(),
+        platform: z.enum(['goodreads', 'amazon']),
+      });
+
+      const validated = schema.parse(request.body);
+
+      // Validate URL hostname matches platform (security: prevent phishing)
+      let hostname: string;
+      try {
+        const url = new URL(validated.reviewUrl);
+        hostname = url.hostname.toLowerCase();
+      } catch {
+        reply.code(400);
+        return {
+          success: false,
+          error: 'Invalid review URL format',
+        } as ApiResponse;
+      }
+
+      // Strict hostname validation
+      if (validated.platform === 'goodreads') {
+        if (hostname !== 'goodreads.com' && hostname !== 'www.goodreads.com') {
+          reply.code(400);
+          return {
+            success: false,
+            error: 'Review URL must be from goodreads.com or www.goodreads.com',
+          } as ApiResponse;
+        }
+      }
+
+      if (validated.platform === 'amazon') {
+        const validAmazonDomains = [
+          'amazon.com', 'www.amazon.com',
+          'amazon.co.uk', 'www.amazon.co.uk',
+          'amazon.ca', 'www.amazon.ca',
+          'amazon.de', 'www.amazon.de',
+          'amazon.fr', 'www.amazon.fr',
+          'amazon.es', 'www.amazon.es',
+          'amazon.it', 'www.amazon.it',
+          'amazon.co.jp', 'www.amazon.co.jp',
+          'amazon.in', 'www.amazon.in',
+          'amazon.com.au', 'www.amazon.com.au',
+        ];
+        if (!validAmazonDomains.includes(hostname)) {
+          reply.code(400);
+          return {
+            success: false,
+            error: 'Review URL must be from a valid Amazon domain',
+          } as ApiResponse;
+        }
+      }
+
+      // Verify user is an active member of the club
+      const membership = await prisma.membership.findFirst({
+        where: {
+          userId: request.user.id,
+          clubId: validated.clubId,
+          status: 'ACTIVE',
+        },
+      });
+
+      if (!membership) {
+        reply.code(403);
+        return {
+          success: false,
+          error: 'Must be an active club member to review club books',
+        } as ApiResponse;
+      }
+
+      // Verify book is in the club's ClubBook list (club selected it)
+      const clubBook = await prisma.clubBook.findFirst({
+        where: {
+          clubId: validated.clubId,
+          bookId: validated.bookId,
+        },
+      });
+
+      if (!clubBook) {
+        reply.code(404);
+        return {
+          success: false,
+          error: 'Book is not in this club\'s selected books list',
+        } as ApiResponse;
+      }
+
+      // Check if user already reviewed this club book
+      const existingReview = await prisma.review.findFirst({
+        where: {
+          clubBookId: clubBook.id,
+          reviewerId: request.user.id,
+        },
+      });
+
+      if (existingReview) {
+        reply.code(409);
+        return {
+          success: false,
+          error: 'You have already reviewed this club book',
+        } as ApiResponse;
+      }
+
+      // Create club book review
+      const review = await prisma.review.create({
+        data: {
+          reviewerId: request.user.id,
+          clubBookId: clubBook.id,
+          bookId: validated.bookId,
+          rating: validated.rating,
+          reviewUrl: validated.reviewUrl,
+          platform: validated.platform,
+          verifiedSwap: false,
+        },
+        include: {
+          reviewer: { select: { id: true, name: true, avatarUrl: true } },
+        },
+      });
+
+      // Award 50 points for club book review
+      const { awardPoints } = await import('../lib/points.js');
+      await awardPoints(
+        request.user.id,
+        'REVIEW_VERIFIED',
+        50,
+        'CLUB_REVIEW',
+        review.id
+      ).catch(err => {
+        fastify.log.error(err, 'Failed to award points for club review');
+      });
+
+      // Check and award badges
+      const { maybeAwardBookReviewer, maybeAwardCritic } = await import('../lib/award.js');
+      await maybeAwardBookReviewer(request.user.id).catch(err => {
+        fastify.log.error(err, 'Failed to check BOOK_REVIEWER badge');
+      });
+      await maybeAwardCritic(request.user.id).catch(err => {
+        fastify.log.error(err, 'Failed to check CRITIC badge');
+      });
+
+      reply.code(201);
+      return { success: true, data: review } as ApiResponse;
+    } catch (error) {
+      reply.code(400);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to create club review',
       } as ApiResponse;
     }
   });

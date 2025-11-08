@@ -434,6 +434,76 @@ export async function clubRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // Get club's selected books with review counts
+  fastify.get('/:clubId/books', async (request, reply) => {
+    try {
+      const { clubId } = request.params as { clubId: string };
+
+      // Verify club exists
+      const club = await prisma.club.findUnique({
+        where: { id: clubId },
+        select: { id: true, name: true },
+      });
+
+      if (!club) {
+        reply.code(404);
+        return { success: false, error: 'Club not found' };
+      }
+
+      // Get all club books with review counts
+      const clubBooks = await prisma.clubBook.findMany({
+        where: { clubId },
+        include: {
+          book: {
+            select: {
+              id: true,
+              title: true,
+              subtitle: true,
+              author: true,
+              genres: true,
+              imageUrl: true,
+              description: true,
+            },
+          },
+          poll: {
+            select: {
+              id: true,
+              closesAt: true,
+            },
+          },
+          _count: {
+            select: {
+              reviews: true,
+            },
+          },
+        },
+        orderBy: { selectedAt: 'desc' },
+      });
+
+      // Transform to include review count at the top level
+      const booksWithReviewCounts = clubBooks.map((cb) => ({
+        id: cb.id,
+        clubId: cb.clubId,
+        bookId: cb.bookId,
+        selectedAt: cb.selectedAt.toISOString(),
+        book: cb.book,
+        poll: cb.poll,
+        reviewCount: cb._count.reviews,
+      }));
+
+      return {
+        success: true,
+        data: booksWithReviewCounts,
+      };
+    } catch (error) {
+      reply.code(500);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch club books',
+      };
+    }
+  });
+
   // Choose a book for the club (from pitch selection) - owner/admin only
   fastify.post('/:clubId/choose-book', async (request, reply) => {
     if (!request.user) {

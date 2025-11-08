@@ -217,19 +217,22 @@ model UserProfile {
 }
 
 model Book {
-  id          String        @id @default(uuid())
-  ownerId     String
-  title       String
-  subtitle    String?
-  author      String
-  genres      String[]      @default([])
-  isbn        String?
-  description String?
-  condition   BookCondition @default(GOOD)
-  imageUrl    String?
-  isAvailable Boolean       @default(true)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id            String        @id @default(uuid())
+  ownerId       String
+  title         String
+  subtitle      String?
+  author        String
+  genres        String[]      @default([])
+  isbn          String?
+  description   String?
+  condition     BookCondition @default(GOOD)
+  imageUrl      String?
+  isAvailable   Boolean       @default(true)
+  // Review tracking URLs (provided by author for readers to leave reviews)
+  goodreadsUrl  String?
+  amazonUrl     String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   // Relations
   owner          User         @relation("UserBooks", fields: [ownerId], references: [id], onDelete: Cascade)
@@ -239,6 +242,7 @@ model Book {
   reviews        Review[]
   pitches        Pitch[]
   pollOptions    PollOption[]
+  clubBooks      ClubBook[]
 
   @@index([ownerId])
   @@index([isAvailable])
@@ -272,10 +276,32 @@ model Club {
   pitches        Pitch[]
   polls          Poll[]
   messages       ClubMessage[]
+  clubBooks      ClubBook[]
 
   @@index([createdById])
   @@index([isPublic])
   @@map("clubs")
+}
+
+// Tracks books each club has selected for reading (allows readers to review)
+model ClubBook {
+  id         String   @id @default(uuid())
+  clubId     String
+  bookId     String
+  pollId     String? // Optional: which poll selected this book
+  selectedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  // Relations
+  club    Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  book    Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  poll    Poll?    @relation(fields: [pollId], references: [id], onDelete: SetNull)
+  reviews Review[]
+
+  @@unique([clubId, bookId]) // Each book can only be selected once per club
+  @@index([clubId])
+  @@index([bookId])
+  @@map("club_books")
 }
 
 model ClubMessage {
@@ -351,25 +377,29 @@ model Swap {
 model Review {
   id           String   @id @default(uuid())
   reviewerId   String
-  revieweeId   String
-  swapId       String
+  revieweeId   String? // Null for club reviews (no specific reviewee)
+  swapId       String? // Null for club reviews
+  clubBookId   String? // Set for club-based reviews
   bookId       String
   rating       Int // 1-5
-  reviewUrl    String? // URL to Goodreads/Amazon review
-  platform     String? // "goodreads" or "amazon"
-  verifiedSwap Boolean  @default(false)
+  reviewUrl    String // REQUIRED: URL to Goodreads/Amazon review
+  platform     String // REQUIRED: "goodreads" or "amazon"
+  verifiedSwap Boolean  @default(false) // For author swap reviews
   createdAt    DateTime @default(now())
 
   // Relations
-  reviewer User @relation("Reviewer", fields: [reviewerId], references: [id])
-  reviewee User @relation("Reviewee", fields: [revieweeId], references: [id])
-  swap     Swap @relation(fields: [swapId], references: [id], onDelete: Cascade)
-  book     Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  reviewer User      @relation("Reviewer", fields: [reviewerId], references: [id])
+  reviewee User?     @relation("Reviewee", fields: [revieweeId], references: [id])
+  swap     Swap?     @relation(fields: [swapId], references: [id], onDelete: Cascade)
+  clubBook ClubBook? @relation(fields: [clubBookId], references: [id], onDelete: Cascade)
+  book     Book      @relation(fields: [bookId], references: [id], onDelete: Cascade)
 
-  @@unique([swapId, reviewerId]) // One review per swap per reviewer
+  @@unique([swapId, reviewerId], map: "unique_swap_review") // One review per swap per reviewer
+  @@unique([clubBookId, reviewerId], map: "unique_club_review") // One review per club book per reader
   @@index([reviewerId])
   @@index([revieweeId])
   @@index([bookId])
+  @@index([clubBookId])
   @@map("reviews")
 }
 
@@ -552,10 +582,11 @@ model Poll {
   updatedAt DateTime   @updatedAt
 
   // Relations
-  club    Club         @relation(fields: [clubId], references: [id], onDelete: Cascade)
-  creator User         @relation(fields: [createdBy], references: [id])
-  options PollOption[]
-  votes   Vote[]
+  club      Club         @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  creator   User         @relation(fields: [createdBy], references: [id])
+  options   PollOption[]
+  votes     Vote[]
+  clubBooks ClubBook[]
 
   @@index([clubId])
   @@index([status])

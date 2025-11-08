@@ -259,10 +259,49 @@ export default async function pollsRoutes(app: FastifyInstance) {
                 },
               },
               book: true,
+              votes: true,
             },
           },
         },
       });
+
+      // If poll was closed, create ClubBook entry for winning option with bookId
+      if (body.status === 'CLOSED' && poll.status !== 'CLOSED') {
+        try {
+          // Find winning option (most votes)
+          const winningOption = updatedPoll.options.reduce((max, opt) =>
+            opt.votes.length > max.votes.length ? opt : max
+          );
+
+          // If winning option has a bookId, create ClubBook entry
+          if (winningOption.bookId) {
+            await prisma.clubBook.upsert({
+              where: {
+                clubId_bookId: {
+                  clubId: poll.clubId,
+                  bookId: winningOption.bookId,
+                },
+              },
+              create: {
+                clubId: poll.clubId,
+                bookId: winningOption.bookId,
+                pollId: pollId,
+              },
+              update: {
+                pollId: pollId,
+              },
+            });
+
+            app.log.info(
+              { pollId, bookId: winningOption.bookId },
+              'Created ClubBook entry for winning poll option'
+            );
+          }
+        } catch (error) {
+          app.log.error(error, 'Failed to create ClubBook entry when closing poll');
+          // Don't fail the poll update if ClubBook creation fails
+        }
+      }
 
       return reply.send({
         success: true,

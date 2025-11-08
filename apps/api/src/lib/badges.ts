@@ -74,12 +74,34 @@ export const BADGE_CATALOG = {
     category: 'AUTHOR',
     icon: 'Trophy',
   },
+  SWAP_VERIFIED: {
+    id: 'SWAP_VERIFIED',
+    name: 'Swap Verified',
+    description: 'Completed your first swap with review proof',
+    category: 'AUTHOR',
+    icon: 'CheckCircle',
+  },
   SWAP_MASTER: {
     id: 'SWAP_MASTER',
     name: 'Swap Master',
-    description: 'Completed 5 swaps',
+    description: 'Completed 5 verified swaps with review proof',
     category: 'AUTHOR',
     icon: 'Repeat',
+  },
+  // Reader badges (reviews)
+  BOOK_REVIEWER: {
+    id: 'BOOK_REVIEWER',
+    name: 'Book Reviewer',
+    description: 'Reviewed your first club book',
+    category: 'READER',
+    icon: 'Star',
+  },
+  CRITIC: {
+    id: 'CRITIC',
+    name: 'Critic',
+    description: 'Reviewed 10 club books',
+    category: 'READER',
+    icon: 'Award',
   },
 } as const;
 
@@ -179,7 +201,7 @@ export async function getBadgeProgress(userId: string) {
     
     // Count closed polls created by user
     prisma.poll.count({
-      where: { createdById: userId, status: 'CLOSED' },
+      where: { createdBy: userId, status: 'CLOSED' },
     }),
   ]);
 
