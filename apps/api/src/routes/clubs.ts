@@ -289,17 +289,11 @@ export async function clubRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Create club (CLUB_ADMIN role required)
+  // Create club (any authenticated user can create a club)
   fastify.post('/', async (request, reply) => {
     if (!request.user) {
       reply.code(401);
       return { success: false, error: 'Unauthorized' };
-    }
-
-    // Check role
-    if (request.user.role !== 'CLUB_ADMIN' && request.user.role !== 'STAFF') {
-      reply.code(403);
-      return { success: false, error: 'Only CLUB_ADMIN users can create clubs' };
     }
 
     try {
@@ -316,27 +310,43 @@ export async function clubRoutes(fastify: FastifyInstance) {
       });
       const validated = schema.parse(request.body);
       
-      const club = await prisma.club.create({
-        data: {
-          name: validated.name,
-          description: validated.description,
-          about: validated.about,
-          preferredGenres: validated.preferredGenres,
-          frequency: validated.frequency,
-          coverImageUrl: validated.coverImageUrl,
-          isPublic: validated.isPublic,
-          minPointsToJoin: validated.minPointsToJoin || 0,
-          joinRules: validated.joinRules || 'APPROVAL',
-          createdById: request.user.id,
-          memberships: {
-            create: {
-              userId: request.user.id,
-              role: 'OWNER',
-              status: 'ACTIVE',
+      // Create club and upgrade user role atomically in a transaction
+      const wasReader = request.user.role === 'READER';
+      
+      const club = await prisma.$transaction(async (tx) => {
+        // Create the club
+        const newClub = await tx.club.create({
+          data: {
+            name: validated.name,
+            description: validated.description,
+            about: validated.about,
+            preferredGenres: validated.preferredGenres,
+            frequency: validated.frequency,
+            coverImageUrl: validated.coverImageUrl,
+            isPublic: validated.isPublic,
+            minPointsToJoin: validated.minPointsToJoin || 0,
+            joinRules: validated.joinRules || 'APPROVAL',
+            createdById: request.user!.id,
+            memberships: {
+              create: {
+                userId: request.user!.id,
+                role: 'OWNER',
+                status: 'ACTIVE',
+              },
             },
           },
-        },
-        include: { memberships: true },
+          include: { memberships: true },
+        });
+        
+        // If user is a READER, upgrade them to CLUB_ADMIN after successful club creation
+        if (wasReader) {
+          await tx.user.update({
+            where: { id: request.user!.id },
+            data: { role: 'CLUB_ADMIN' },
+          });
+        }
+        
+        return newClub;
       });
 
       // Award HOST_STARTER badge for first club created

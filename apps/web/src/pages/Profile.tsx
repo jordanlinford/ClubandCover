@@ -7,9 +7,12 @@ import type { PointLedger } from '@repo/types';
 import { useAuth } from '../contexts/AuthContext';
 import { PointsBadge } from '../components/PointsBadge';
 import { BadgesDisplay } from '../components/BadgesDisplay';
+import { Users, BookOpen, Star } from 'lucide-react';
+import { useLocation } from 'wouter';
 
 export function ProfilePage() {
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
 
   const { data: pointsResponse } = useQuery<any>({
     queryKey: ['/api/points/me'],
@@ -21,9 +24,21 @@ export function ProfilePage() {
     enabled: !!user?.id,
   });
 
+  const { data: clubsResponse } = useQuery<any>({
+    queryKey: ['/api/users/me/clubs'],
+    enabled: !!user?.id,
+  });
+
+  const { data: reviewedBooksResponse } = useQuery<any>({
+    queryKey: ['/api/users/me/reviewed-books'],
+    enabled: !!user?.id,
+  });
+
   const pointsData = pointsResponse?.data;
   const ledger = pointsResponse?.data?.ledger || [];
   const badges = badgesResponse?.data?.badges || [];
+  const myClubs = clubsResponse?.data || [];
+  const reviewedBooks = reviewedBooksResponse?.data || [];
 
   // Display user data - use Supabase user if available, otherwise mock
   const displayName = user?.email?.split('@')[0] || 'Demo User';
@@ -131,6 +146,114 @@ export function ProfilePage() {
           <Card className="p-6">
             <h2 className="text-xl font-semibold mb-4">Badges</h2>
             <BadgesDisplay badges={badges} />
+          </Card>
+
+          {/* My Clubs Section */}
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-primary" />
+                <h2 className="text-xl font-semibold">My Clubs</h2>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setLocation('/discover?tab=clubs')}
+                data-testid="button-browse-clubs"
+              >
+                Browse Clubs
+              </Button>
+            </div>
+
+            {myClubs.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {myClubs.map((club: any) => (
+                  <div
+                    key={club.id}
+                    className="p-4 border rounded-md cursor-pointer hover-elevate active-elevate-2 transition-all"
+                    onClick={() => setLocation(`/clubs/${club.id}`)}
+                    data-testid={`club-card-${club.id}`}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <h3 className="font-semibold text-lg">{club.name}</h3>
+                      <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary">
+                        {club.myRole}
+                      </span>
+                    </div>
+                    {club.description && (
+                      <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                        {club.description}
+                      </p>
+                    )}
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <Users className="h-4 w-4" />
+                        <span>{club._count?.memberships || 0} members</span>
+                      </div>
+                      <span>Joined {new Date(club.joinedAt).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p>You haven't joined any clubs yet.</p>
+                <Button
+                  variant="outline"
+                  className="mt-4"
+                  onClick={() => setLocation('/discover?tab=clubs')}
+                  data-testid="button-discover-clubs"
+                >
+                  Discover Clubs
+                </Button>
+              </div>
+            )}
+          </Card>
+
+          {/* Reviewed Books Section */}
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <BookOpen className="h-5 w-5 text-primary" />
+              <h2 className="text-xl font-semibold">Books I've Read & Rated</h2>
+            </div>
+
+            {reviewedBooks.length > 0 ? (
+              <div className="space-y-4">
+                {reviewedBooks.map((book: any) => (
+                  <div
+                    key={book.id}
+                    className="p-4 border rounded-md cursor-pointer hover-elevate active-elevate-2 transition-all"
+                    onClick={() => setLocation(`/books/${book.id}`)}
+                    data-testid={`book-card-${book.id}`}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <h3 className="font-semibold">{book.title}</h3>
+                        <p className="text-sm text-muted-foreground">{book.author}</p>
+                      </div>
+                      <div className="flex items-center gap-1 text-sm">
+                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                        <span className="font-medium">{book.rating}/5</span>
+                      </div>
+                    </div>
+                    {book.reviewText && (
+                      <p className="text-sm text-muted-foreground line-clamp-2 mt-2">
+                        {book.reviewText}
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Reviewed {new Date(book.reviewedAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <BookOpen className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p>You haven't reviewed any books yet.</p>
+              </div>
+            )}
           </Card>
           
           {!user && (
