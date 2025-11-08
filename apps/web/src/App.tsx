@@ -31,11 +31,13 @@ import ReferralDashboard from './pages/ReferralDashboard';
 import DiscoverPage from './pages/Discover';
 import OnboardingPage from './pages/Onboarding';
 import AuthorAnalyticsPage from './pages/analytics/AuthorAnalytics';
+import AuthorDashboard from './pages/AuthorDashboard';
 
 export default function App() {
   return (
     <Switch>
       <Route path="/" component={HomePage} />
+      <Route path="/author-dashboard" component={AuthorDashboard} />
       <Route path="/auth/role" component={RoleSelectionPage} />
       <Route path="/auth/sign-in" component={SignInPage} />
       <Route path="/auth/sign-up" component={SignUpPage} />

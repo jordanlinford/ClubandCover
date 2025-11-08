@@ -1,11 +1,20 @@
 import { Link, useLocation } from 'wouter';
 import { Button } from '@repo/ui';
 import { useAuth } from '../contexts/AuthContext';
-import { BookOpen, LogOut, User, TrendingUp, Users, Lightbulb, MessageSquare } from 'lucide-react';
+import { BookOpen, LogOut, User, TrendingUp, Users, Lightbulb, MessageSquare, LayoutDashboard } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 
 export function AppHeader() {
   const { user, signOut } = useAuth();
   const [location] = useLocation();
+
+  const { data: userData } = useQuery<any>({
+    queryKey: ['/api/user/me'],
+    enabled: !!user,
+  });
+
+  const userRole = (userData as any)?.role || user?.user_metadata?.role;
+  const isAuthor = userRole === 'AUTHOR';
 
   const handleLogout = async () => {
     await signOut();
@@ -13,6 +22,7 @@ export function AppHeader() {
   };
 
   const navItems = [
+    ...(isAuthor ? [{ href: '/author-dashboard', label: 'Dashboard', icon: LayoutDashboard }] : []),
     { href: '/discover', label: 'Discover', icon: TrendingUp },
     { href: '/clubs', label: 'Clubs', icon: Users },
     { href: '/pitches', label: 'Pitches', icon: Lightbulb },

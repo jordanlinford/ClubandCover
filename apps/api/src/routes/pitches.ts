@@ -149,6 +149,67 @@ export default async function pitchesRoutes(app: FastifyInstance) {
     });
   });
 
+  // Get current author's pitches
+  app.get('/me', { preHandler: [requireAuth] }, async (request, reply) => {
+    const userId = request.user!.id;
+
+    const schema = z.object({
+      status: z.enum(['SUBMITTED', 'ACCEPTED', 'REJECTED', 'ARCHIVED']).optional(),
+      limit: z.coerce.number().min(1).max(100).default(50),
+      offset: z.coerce.number().min(0).default(0),
+    });
+
+    const query = schema.parse(request.query);
+
+    const where: any = {
+      authorId: userId,
+    };
+
+    if (query.status) {
+      where.status = query.status;
+    }
+
+    const [pitches, total] = await Promise.all([
+      prisma.pitch.findMany({
+        where,
+        include: {
+          author: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              avatarUrl: true,
+            },
+          },
+          book: {
+            select: {
+              id: true,
+              title: true,
+              author: true,
+              imageUrl: true,
+            },
+          },
+          targetClub: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: query.limit,
+        skip: query.offset,
+      }),
+      prisma.pitch.count({ where }),
+    ]);
+
+    return reply.send({
+      success: true,
+      data: pitches,
+      total,
+    });
+  });
+
   // List pitches with filters
   app.get('/', async (request, reply) => {
     const schema = z.object({
