@@ -268,34 +268,58 @@ export default async function pollsRoutes(app: FastifyInstance) {
       // If poll was closed, create ClubBook entry for winning option with bookId
       if (body.status === 'CLOSED' && poll.status !== 'CLOSED') {
         try {
-          // Find winning option (most votes)
-          const winningOption = updatedPoll.options.reduce((max, opt) =>
-            opt.votes.length > max.votes.length ? opt : max
-          );
-
-          // If winning option has a bookId, create ClubBook entry
-          if (winningOption.bookId) {
-            await prisma.clubBook.upsert({
-              where: {
-                clubId_bookId: {
-                  clubId: poll.clubId,
-                  bookId: winningOption.bookId,
-                },
-              },
-              create: {
-                clubId: poll.clubId,
-                bookId: winningOption.bookId,
-                pollId: pollId,
-              },
-              update: {
-                pollId: pollId,
-              },
+          // Defensive: ensure we have options with votes
+          if (!updatedPoll.options || updatedPoll.options.length === 0) {
+            app.log.warn({ pollId }, 'Cannot create ClubBook: poll has no options');
+          } else {
+            // Find winning option (most votes)
+            const winningOption = updatedPoll.options.reduce((max, opt) => {
+              const maxVotes = max.votes?.length ?? 0;
+              const optVotes = opt.votes?.length ?? 0;
+              return optVotes > maxVotes ? opt : max;
             });
 
-            app.log.info(
-              { pollId, bookId: winningOption.bookId },
-              'Created ClubBook entry for winning poll option'
-            );
+            // If winning option has a bookId, verify it's from pitch library and create ClubBook
+            if (winningOption.bookId) {
+              // Verify book is from pitch library (has an associated pitch)
+              const book = await prisma.book.findFirst({
+                where: {
+                  id: winningOption.bookId,
+                  pitch: {
+                    some: {}, // Book must have at least one pitch
+                  },
+                },
+              });
+
+              if (!book) {
+                app.log.warn(
+                  { pollId, bookId: winningOption.bookId },
+                  'Cannot create ClubBook: book is not from pitch library'
+                );
+              } else {
+                await prisma.clubBook.upsert({
+                  where: {
+                    clubId_bookId: {
+                      clubId: poll.clubId,
+                      bookId: winningOption.bookId,
+                    },
+                  },
+                  create: {
+                    clubId: poll.clubId,
+                    bookId: winningOption.bookId,
+                    pollId: pollId,
+                  },
+                  update: {
+                    pollId: pollId,
+                  },
+                });
+
+                app.log.info(
+                  { pollId, bookId: winningOption.bookId },
+                  'Created ClubBook entry for winning poll option from pitch library'
+                );
+              }
+            }
           }
         } catch (error) {
           app.log.error(error, 'Failed to create ClubBook entry when closing poll');

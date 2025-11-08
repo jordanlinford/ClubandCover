@@ -59,20 +59,33 @@ export async function reviewRoutes(fastify: FastifyInstance) {
         } as ApiResponse;
       }
 
-      // Strict hostname validation
+      // Enforce HTTPS for security
+      const url = new URL(validated.reviewUrl);
+      if (url.protocol !== 'https:') {
+        reply.code(400);
+        return {
+          success: false,
+          error: 'Review URL must use HTTPS',
+        } as ApiResponse;
+      }
+
+      // Strict hostname validation with subdomain support
       if (validated.platform === 'goodreads') {
-        if (hostname !== 'goodreads.com' && hostname !== 'www.goodreads.com') {
+        const validGoodreadsDomains = [
+          'goodreads.com', 'www.goodreads.com', 'm.goodreads.com'
+        ];
+        if (!validGoodreadsDomains.includes(hostname)) {
           reply.code(400);
           return {
             success: false,
-            error: 'Review URL must be from goodreads.com or www.goodreads.com',
+            error: 'Review URL must be from goodreads.com or a valid Goodreads subdomain',
           } as ApiResponse;
         }
       }
 
       if (validated.platform === 'amazon') {
         const validAmazonDomains = [
-          'amazon.com', 'www.amazon.com',
+          'amazon.com', 'www.amazon.com', 'smile.amazon.com',
           'amazon.co.uk', 'www.amazon.co.uk',
           'amazon.ca', 'www.amazon.ca',
           'amazon.de', 'www.amazon.de',
@@ -176,10 +189,11 @@ export async function reviewRoutes(fastify: FastifyInstance) {
 
       const validated = schema.parse(request.body);
 
-      // Validate URL hostname matches platform (security: prevent phishing)
+      // Validate URL hostname and enforce HTTPS (security: prevent phishing)
       let hostname: string;
+      let url: URL;
       try {
-        const url = new URL(validated.reviewUrl);
+        url = new URL(validated.reviewUrl);
         hostname = url.hostname.toLowerCase();
       } catch {
         reply.code(400);
@@ -189,20 +203,32 @@ export async function reviewRoutes(fastify: FastifyInstance) {
         } as ApiResponse;
       }
 
-      // Strict hostname validation
+      // Enforce HTTPS for security
+      if (url.protocol !== 'https:') {
+        reply.code(400);
+        return {
+          success: false,
+          error: 'Review URL must use HTTPS',
+        } as ApiResponse;
+      }
+
+      // Strict hostname validation with subdomain support
       if (validated.platform === 'goodreads') {
-        if (hostname !== 'goodreads.com' && hostname !== 'www.goodreads.com') {
+        const validGoodreadsDomains = [
+          'goodreads.com', 'www.goodreads.com', 'm.goodreads.com'
+        ];
+        if (!validGoodreadsDomains.includes(hostname)) {
           reply.code(400);
           return {
             success: false,
-            error: 'Review URL must be from goodreads.com or www.goodreads.com',
+            error: 'Review URL must be from goodreads.com or a valid Goodreads subdomain',
           } as ApiResponse;
         }
       }
 
       if (validated.platform === 'amazon') {
         const validAmazonDomains = [
-          'amazon.com', 'www.amazon.com',
+          'amazon.com', 'www.amazon.com', 'smile.amazon.com',
           'amazon.co.uk', 'www.amazon.co.uk',
           'amazon.ca', 'www.amazon.ca',
           'amazon.de', 'www.amazon.de',
@@ -245,6 +271,13 @@ export async function reviewRoutes(fastify: FastifyInstance) {
           clubId: validated.clubId,
           bookId: validated.bookId,
         },
+        include: {
+          book: {
+            include: {
+              pitch: { take: 1 }, // Verify book is from pitch library
+            },
+          },
+        },
       });
 
       if (!clubBook) {
@@ -252,6 +285,15 @@ export async function reviewRoutes(fastify: FastifyInstance) {
         return {
           success: false,
           error: 'Book is not in this club\'s selected books list',
+        } as ApiResponse;
+      }
+
+      // Additional validation: ensure book is from pitch library
+      if (!clubBook.book.pitch || clubBook.book.pitch.length === 0) {
+        reply.code(400);
+        return {
+          success: false,
+          error: 'Book must be from the pitch library',
         } as ApiResponse;
       }
 

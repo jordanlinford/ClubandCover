@@ -49,11 +49,20 @@ The project utilizes a monorepo structure managed by pnpm workspaces, separating
 - **Author Analytics:** Dashboard metrics (pitches, acceptance rate, impressions, votes) and individual pitch analytics.
 - **Book Swaps:** Peer-to-peer swap requests with a state machine (REQUESTED → ACCEPTED → DELIVERED → VERIFIED), deliverable tracking, tier-based limits.
   - **AuthorSwap Detection:** Swaps between two users who both have the AUTHOR role are automatically flagged with `isAuthorSwap: true`. This enables FREE tier authors to do unlimited swaps with other authors for verified reviews.
-  - **External Review Integration:** Reviews now store external URLs (Goodreads/Amazon) with strict hostname validation instead of internal comments. Platform validation prevents phishing attacks.
+  - **External Review Integration:** Reviews store external URLs (Goodreads/Amazon) with strict HTTPS-enforced hostname validation. Supports legitimate subdomains (m.goodreads.com, smile.amazon.com) while preventing phishing attacks through allowlist validation.
+  - **Swap Review Badges:** Authors earn SWAP_VERIFIED badge (1st swap) and SWAP_MASTER badge (5th swap) for completing verified swaps with review proof. Swap reviews award badges, not points.
+- **Reader Review System:** Club members can review books their club has selected from the pitch library.
+  - **ClubBook Tracking:** Polls automatically create ClubBook entries when closed, recording which books each club has chosen to read.
+  - **Review Requirements:** Must be active club member, book must be in club's ClubBook list from pitch library, require external proof URL (Goodreads/Amazon with HTTPS).
+  - **Review Rewards:** Readers earn 50 points for each club book review, BOOK_REVIEWER badge (1st review), and CRITIC badge (10 reviews).
+  - **Pitch Library Validation:** Both poll closure and review submission verify books are from pitch library (have associated pitches), preventing arbitrary book reviews.
 - **Discovery & Search:** Unified full-text search (books, clubs, pitches) with PostgreSQL GIN indexes, AI-powered matching (if OpenAI configured), trending items.
 - **Referral System:** Unique codes, referrer/referee tracking, point rewards.
 - **Notifications:** Various types (POLL_CREATED, PITCH_ACCEPTED, SWAP_DELIVERED, etc.), unread counts, history.
-- **Points & Badges System:** Gamified points economy for engagement actions (e.g., account creation, voting, pitching), badge catalog (auto-awarded for milestones).
+- **Points & Badges System:** Gamified points economy for engagement actions (e.g., account creation, voting, pitching, reviewing club books), badge catalog (auto-awarded for milestones).
+  - **Author Badges:** AUTHOR_LAUNCH (1st pitch), FAN_FAVORITE (3 club selections), SWAP_VERIFIED (1st verified swap), SWAP_MASTER (5 verified swaps).
+  - **Reader Badges:** FIRST_VOTE, BOOKWORM (10 votes), BOOK_REVIEWER (1st club review), CRITIC (10 club reviews), LOYAL_MEMBER (3 clubs), SOCIABLE (20 messages).
+  - **Host Badges:** DECISIVE (3 closed polls), CLUB_LEGEND (host of top 10 club).
 - **Admin Dashboard (STAFF-only):** Comprehensive platform administration interface with tabs for Overview, Users, Clubs, Pitches, and Badges. Includes platform stats, user/tier/role management, poll closing, badge revocation, and content moderation. Features dual-layer authorization with backend `requireStaff` guards (early return pattern) and frontend role verification before rendering UI.
 
 **User Roles (Multiple Roles Supported):**
