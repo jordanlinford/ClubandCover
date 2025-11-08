@@ -13,7 +13,8 @@ export function AppHeader() {
     enabled: !!user,
   });
 
-  const userRole = (userData as any)?.role || user?.user_metadata?.role;
+  const currentUser = (userData as any)?.data;
+  const userRole = currentUser?.role || user?.user_metadata?.role;
   const isAuthor = userRole === 'AUTHOR';
 
   const handleLogout = async () => {

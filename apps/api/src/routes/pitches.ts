@@ -195,6 +195,11 @@ export default async function pitchesRoutes(app: FastifyInstance) {
               name: true,
             },
           },
+          _count: {
+            select: {
+              pollOptions: true,
+            },
+          },
         },
         orderBy: { createdAt: 'desc' },
         take: query.limit,
@@ -248,7 +253,15 @@ export default async function pitchesRoutes(app: FastifyInstance) {
               avatarUrl: true,
             },
           },
-          book: true,
+          book: {
+            select: {
+              id: true,
+              title: true,
+              author: true,
+              imageUrl: true,
+              genres: true,
+            },
+          },
           targetClub: {
             select: {
               id: true,

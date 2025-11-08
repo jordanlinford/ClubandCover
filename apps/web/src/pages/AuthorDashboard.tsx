@@ -58,12 +58,14 @@ export default function AuthorDashboard() {
     (s: any) => s.status !== 'DECLINED' && s.status !== 'VERIFIED'
   );
   
-  const currentTier = (userData as any)?.tier || 'FREE';
-  const creditBalance = (userData as any)?.creditBalance || 0;
+  // Access user data from API response
+  const currentUser = (userData as any)?.data;
+  const currentTier = currentUser?.tier || 'FREE';
+  const creditBalance = currentUser?.creditBalance || 0;
   const badges = badgesData?.data || [];
 
   // Redirect non-authors
-  const userRole = (userData as any)?.role || user?.user_metadata?.role;
+  const userRole = currentUser?.role || user?.user_metadata?.role;
   if (user && userData && userRole !== 'AUTHOR') {
     setLocation('/profile');
     return null;
@@ -236,7 +238,7 @@ export default function AuthorDashboard() {
                         {pitch.blurb}
                       </p>
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>{pitch._count?.votes || 0} votes</span>
+                        <span>{pitch._count?.pollOptions || 0} votes</span>
                         <span>{new Date(pitch.createdAt).toLocaleDateString()}</span>
                       </div>
                     </div>
