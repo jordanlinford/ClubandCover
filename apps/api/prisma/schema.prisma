@@ -146,7 +146,7 @@ model User {
   name                      String
   avatarUrl                 String?
   bio                       String?
-  role                      UserRole  @default(READER)
+  roles                     UserRole[]  @default([READER])
   tier                      Tier      @default(FREE)
   stripeCustomerId          String?
   stripeSubscriptionId      String?
@@ -196,7 +196,7 @@ model User {
   creditTransactions CreditTransaction[]
   sponsoredPitches   SponsoredPitch[]
 
-  @@index([role])
+  @@index([roles])
   @@index([tier])
   @@map("users")
 }
