@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma.js';
 import { CreateBookSchema, UpdateBookSchema } from '@repo/types';
 import type { ApiResponse } from '@repo/types';
 import { isAIEnabled, generateEmbedding, getEmbeddingText } from '../lib/ai.js';
+import { hasRole } from '../middleware/auth.js';
 
 export async function bookRoutes(fastify: FastifyInstance) {
   // List all available books (Authors only - AuthorSwap feature)
@@ -12,7 +13,7 @@ export async function bookRoutes(fastify: FastifyInstance) {
       return { success: false, error: 'Unauthorized' } as ApiResponse;
     }
 
-    if (request.user.role !== 'AUTHOR') {
+    if (!hasRole(request.user, 'AUTHOR')) {
       reply.code(403);
       return { success: false, error: 'Books feature is only available to authors' } as ApiResponse;
     }
@@ -40,7 +41,7 @@ export async function bookRoutes(fastify: FastifyInstance) {
       return { success: false, error: 'Unauthorized' } as ApiResponse;
     }
 
-    if (request.user.role !== 'AUTHOR') {
+    if (!hasRole(request.user, 'AUTHOR')) {
       reply.code(403);
       return { success: false, error: 'Books feature is only available to authors' } as ApiResponse;
     }
@@ -67,7 +68,7 @@ export async function bookRoutes(fastify: FastifyInstance) {
       return { success: false, error: 'Unauthorized' } as ApiResponse;
     }
 
-    if (request.user.role !== 'AUTHOR') {
+    if (!hasRole(request.user, 'AUTHOR')) {
       reply.code(403);
       return { success: false, error: 'Books feature is only available to authors' } as ApiResponse;
     }
@@ -101,7 +102,7 @@ export async function bookRoutes(fastify: FastifyInstance) {
       return { success: false, error: 'Unauthorized' } as ApiResponse;
     }
 
-    if (request.user.role !== 'AUTHOR') {
+    if (!hasRole(request.user, 'AUTHOR')) {
       reply.code(403);
       return { success: false, error: 'Books feature is only available to authors' } as ApiResponse;
     }
@@ -151,7 +152,7 @@ export async function bookRoutes(fastify: FastifyInstance) {
       return { success: false, error: 'Unauthorized' } as ApiResponse;
     }
 
-    if (request.user.role !== 'AUTHOR') {
+    if (!hasRole(request.user, 'AUTHOR')) {
       reply.code(403);
       return { success: false, error: 'Books feature is only available to authors' } as ApiResponse;
     }
@@ -193,7 +194,7 @@ export async function bookRoutes(fastify: FastifyInstance) {
       return { success: false, error: 'Unauthorized' } as ApiResponse;
     }
 
-    if (request.user.role !== 'AUTHOR') {
+    if (!hasRole(request.user, 'AUTHOR')) {
       reply.code(403);
       return { success: false, error: 'Books feature is only available to authors' } as ApiResponse;
     }

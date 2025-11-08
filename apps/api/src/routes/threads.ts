@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { prisma } from '../lib/prisma.js';
 import { createThreadSchema, ThreadListItem } from '@repo/types';
 import { z } from 'zod';
+import { hasRole } from '../middleware/auth.js';
 
 export default async function threadRoutes(fastify: FastifyInstance) {
   /**
@@ -248,7 +249,7 @@ export default async function threadRoutes(fastify: FastifyInstance) {
       },
     });
 
-    if (!membership && request.user.role !== 'STAFF') {
+    if (!membership && !hasRole(request.user, 'STAFF')) {
       return reply.code(403).send({ success: false, error: 'Access denied' });
     }
 

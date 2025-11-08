@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { prisma } from '../lib/prisma.js';
 import { reviewActionSchema, ModerationQueueItem } from '@repo/types';
+import { hasRole } from '../middleware/auth.js';
 
 export default async function moderationRoutes(fastify: FastifyInstance) {
   /**
@@ -12,7 +13,7 @@ export default async function moderationRoutes(fastify: FastifyInstance) {
     }
 
     // Only STAFF can access moderation queue
-    if (request.user.role !== 'STAFF') {
+    if (!hasRole(request.user, 'STAFF')) {
       return reply.code(403).send({ success: false, error: 'Access denied. STAFF only.' });
     }
 
@@ -84,7 +85,7 @@ export default async function moderationRoutes(fastify: FastifyInstance) {
     }
 
     // Only STAFF can review reports
-    if (request.user.role !== 'STAFF') {
+    if (!hasRole(request.user, 'STAFF')) {
       return reply.code(403).send({ success: false, error: 'Access denied. STAFF only.' });
     }
 

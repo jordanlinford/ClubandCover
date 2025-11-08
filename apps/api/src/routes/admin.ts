@@ -1,10 +1,10 @@
 import { FastifyInstance } from 'fastify';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, hasRole } from '../middleware/auth.js';
 import { prisma } from '../lib/prisma.js';
 import { z } from 'zod';
 
 function requireStaff(request: any, reply: any): boolean {
-  if (!request.user || request.user.role !== 'STAFF') {
+  if (!request.user || !hasRole(request.user, 'STAFF')) {
     reply.code(403).send({
       success: false,
       error: 'Access denied. STAFF only.',
@@ -60,7 +60,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
           id: true,
           email: true,
           name: true,
-          role: true,
+          roles: true,
           tier: true,
           points: true,
           emailVerified: true,
@@ -99,8 +99,8 @@ export async function adminRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Change user role
-  fastify.patch<{
+  // Add role to user
+  fastify.post<{
     Params: { userId: string };
   }>('/users/:userId/role', { onRequest: [requireAuth] }, async (request, reply) => {
     if (!requireStaff(request, reply)) return;
@@ -111,19 +111,83 @@ export async function adminRoutes(fastify: FastifyInstance) {
       });
       const { role } = schema.parse(request.body);
 
-      const user = await prisma.user.update({
+      const user = await prisma.user.findUnique({
         where: { id: request.params.userId },
-        data: { role },
+        select: { roles: true },
       });
+
+      if (!user) {
+        return reply.status(404).send({
+          success: false,
+          error: 'User not found',
+        });
+      }
+
+      // Add role if not already present
+      if (!user.roles.includes(role)) {
+        const updated = await prisma.user.update({
+          where: { id: request.params.userId },
+          data: { roles: { push: role } },
+        });
+
+        return reply.send({
+          success: true,
+          data: updated,
+        });
+      }
 
       return reply.send({
         success: true,
-        data: user,
+        message: 'User already has this role',
       });
     } catch (error: any) {
       return reply.status(500).send({
         success: false,
-        error: error.message || 'Failed to update role',
+        error: error.message || 'Failed to add role',
+      });
+    }
+  });
+
+  // Remove role from user
+  fastify.delete<{
+    Params: { userId: string };
+  }>('/users/:userId/role', { onRequest: [requireAuth] }, async (request, reply) => {
+    if (!requireStaff(request, reply)) return;
+
+    try {
+      const schema = z.object({
+        role: z.enum(['READER', 'AUTHOR', 'CLUB_ADMIN', 'STAFF']),
+      });
+      const { role } = schema.parse(request.body);
+
+      const user = await prisma.user.findUnique({
+        where: { id: request.params.userId },
+        select: { roles: true },
+      });
+
+      if (!user) {
+        return reply.status(404).send({
+          success: false,
+          error: 'User not found',
+        });
+      }
+
+      // Remove role if present
+      const newRoles = user.roles.filter(r => r !== role);
+      
+      const updated = await prisma.user.update({
+        where: { id: request.params.userId },
+        data: { roles: newRoles },
+      });
+
+      return reply.send({
+        success: true,
+        data: updated,
+      });
+    } catch (error: any) {
+      return reply.status(500).send({
+        success: false,
+        error: error.message || 'Failed to remove role',
       });
     }
   });

@@ -11,6 +11,7 @@ import {
   genreOverlapScore,
   getEmbeddingText,
 } from '../lib/ai.js';
+import { hasRole } from '../middleware/auth.js';
 
 // Schemas
 const generateBlurbSchema = z.object({
@@ -166,7 +167,7 @@ export async function aiRoutes(fastify: FastifyInstance) {
     }
 
     // Check if user is STAFF
-    if (request.user?.role !== 'STAFF') {
+    if (!request.user || !hasRole(request.user, 'STAFF')) {
       return reply.code(403).send({
         success: false,
         error: 'Only STAFF members can reindex all entities',

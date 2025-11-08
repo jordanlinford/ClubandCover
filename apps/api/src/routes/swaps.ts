@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma';
 import { CreateSwapSchema, UpdateSwapSchema } from '@repo/types';
 import type { ApiResponse } from '@repo/types';
 import { notify } from '../lib/mail';
+import { hasRole } from '../middleware/auth.js';
 
 export async function swapRoutes(fastify: FastifyInstance) {
   // Get user's swaps (sent and received)
@@ -131,6 +132,20 @@ export async function swapRoutes(fastify: FastifyInstance) {
         } as ApiResponse;
       }
 
+      // Detect if this is an AuthorSwap (both parties are authors)
+      const requesterRoles = await prisma.user.findUnique({
+        where: { id: request.user.id },
+        select: { roles: true },
+      });
+      const responderRoles = await prisma.user.findUnique({
+        where: { id: validated.responderId },
+        select: { roles: true },
+      });
+
+      const isAuthorSwap = 
+        requesterRoles?.roles.includes('AUTHOR') &&
+        responderRoles?.roles.includes('AUTHOR');
+
       const swap = await prisma.swap.create({
         data: {
           requesterId: request.user.id,
@@ -139,6 +154,7 @@ export async function swapRoutes(fastify: FastifyInstance) {
           bookRequestedId: validated.bookRequestedId,
           message: validated.message,
           status: 'REQUESTED',
+          isAuthorSwap,
         },
         include: {
           bookOffered: true,
@@ -203,12 +219,7 @@ export async function swapRoutes(fastify: FastifyInstance) {
       const isInvolved =
         swap.requesterId === request.user.id || swap.responderId === request.user.id;
 
-      const user = await prisma.user.findUnique({
-        where: { id: request.user.id },
-        select: { role: true },
-      });
-
-      const isStaff = user?.role === 'STAFF';
+      const isStaff = hasRole(request.user, 'STAFF');
 
       if (!isInvolved && !isStaff) {
         reply.code(403);

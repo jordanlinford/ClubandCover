@@ -4,6 +4,7 @@ import { createMessageSchema, createReportSchema, MessagePage } from '@repo/type
 import { sendRateLimit } from '../middleware/sendRateLimit.js';
 import { moderationFilter } from '../middleware/moderationFilter.js';
 import { notify } from '../lib/mail.js';
+import { hasRole } from '../middleware/auth.js';
 
 export default async function messageRoutes(fastify: FastifyInstance) {
   /**
@@ -124,7 +125,7 @@ export default async function messageRoutes(fastify: FastifyInstance) {
       },
     });
 
-    if (!membership && request.user.role !== 'STAFF') {
+    if (!membership && !hasRole(request.user, 'STAFF')) {
       return reply.code(403).send({ success: false, error: 'Access denied' });
     }
 
@@ -136,7 +137,7 @@ export default async function messageRoutes(fastify: FastifyInstance) {
     };
 
     // If STAFF, show flagged messages too
-    if (request.user.role === 'STAFF') {
+    if (hasRole(request.user, 'STAFF')) {
       delete where.flaggedAt;
     }
 
