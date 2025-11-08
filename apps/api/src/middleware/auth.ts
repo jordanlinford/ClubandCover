@@ -7,7 +7,7 @@ declare module 'fastify' {
     user?: {
       id: string;
       email?: string;
-      role?: string;
+      roles?: string[];
       tier?: string;
       emailVerified?: boolean;
     };
@@ -41,7 +41,7 @@ export async function supabaseAuth(request: FastifyRequest, reply: FastifyReply)
         request.user = {
           id: dbUser.id,
           email: dbUser.email,
-          role: dbUser.role,
+          roles: dbUser.roles,
           tier: dbUser.tier,
           emailVerified: dbUser.emailVerified,
         };
@@ -66,7 +66,7 @@ export async function supabaseAuth(request: FastifyRequest, reply: FastifyReply)
     request.user = {
       id: dbUser.id,
       email: dbUser.email,
-      role: dbUser.role,
+      roles: dbUser.roles,
       tier: dbUser.tier,
       emailVerified: dbUser.emailVerified,
     };
@@ -108,7 +108,7 @@ async function ensureUser(id: string, email: string, metadata?: Record<string, a
 
     if (!user) {
       // Extract role and name from metadata
-      const role = metadata?.role === 'AUTHOR' ? 'AUTHOR' : 'READER';
+      const initialRole = metadata?.role === 'AUTHOR' ? 'AUTHOR' : 'READER';
       const name = metadata?.name || email.split('@')[0];
       
       // Create new user with data from Supabase metadata
@@ -117,11 +117,11 @@ async function ensureUser(id: string, email: string, metadata?: Record<string, a
           id,
           email,
           name,
-          role,
+          roles: [initialRole],
           tier: 'FREE',
         },
       });
-      console.log(`[AUTH] Created new user: ${email} (${id}) as ${role}`);
+      console.log(`[AUTH] Created new user: ${email} (${id}) as ${initialRole}`);
       
       // Award ACCOUNT_CREATED points (async, non-blocking)
       import('./points.js').then(({ awardPoints }) => {
@@ -143,4 +143,54 @@ async function ensureUser(id: string, email: string, metadata?: Record<string, a
     console.error('[AUTH] Error ensuring user:', error);
     throw error;
   }
+}
+
+/**
+ * Check if user has a specific role
+ */
+export function hasRole(user: { roles?: string[] } | undefined, role: string): boolean {
+  return user?.roles?.includes(role) ?? false;
+}
+
+/**
+ * Check if user has ANY of the specified roles
+ */
+export function hasAnyRole(user: { roles?: string[] } | undefined, roles: string[]): boolean {
+  return roles.some(role => user?.roles?.includes(role)) ?? false;
+}
+
+/**
+ * Check if user has ALL of the specified roles
+ */
+export function hasAllRoles(user: { roles?: string[] } | undefined, roles: string[]): boolean {
+  return roles.every(role => user?.roles?.includes(role)) ?? false;
+}
+
+/**
+ * Add a role to a user
+ */
+export async function addUserRole(userId: string, role: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { roles: true },
+  });
+
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  if (user.roles.includes(role)) {
+    return; // Already has role
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      roles: {
+        push: role,
+      },
+    },
+  });
+
+  console.log(`[AUTH] Added role ${role} to user ${userId}`);
 }

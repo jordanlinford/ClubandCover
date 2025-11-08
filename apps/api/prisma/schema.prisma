@@ -328,6 +328,7 @@ model Swap {
   message         String?
   dueDate         DateTime?
   deliverable     String?
+  isAuthorSwap    Boolean    @default(false) // True if both parties are authors (AuthorSwap network)
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
@@ -354,7 +355,8 @@ model Review {
   swapId       String
   bookId       String
   rating       Int // 1-5
-  comment      String?
+  reviewUrl    String? // URL to Goodreads/Amazon review
+  platform     String? // "goodreads" or "amazon"
   verifiedSwap Boolean  @default(false)
   createdAt    DateTime @default(now())
 

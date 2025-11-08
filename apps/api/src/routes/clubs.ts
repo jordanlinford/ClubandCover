@@ -310,8 +310,11 @@ export async function clubRoutes(fastify: FastifyInstance) {
       });
       const validated = schema.parse(request.body);
       
-      // Create club and upgrade user role atomically in a transaction
-      const wasReader = request.user.role === 'READER';
+      // Get current user to check if they need CLUB_ADMIN role
+      const currentUser = await prisma.user.findUnique({
+        where: { id: request.user.id },
+        select: { roles: true },
+      });
       
       const club = await prisma.$transaction(async (tx) => {
         // Create the club
@@ -338,11 +341,15 @@ export async function clubRoutes(fastify: FastifyInstance) {
           include: { memberships: true },
         });
         
-        // If user is a READER, upgrade them to CLUB_ADMIN after successful club creation
-        if (wasReader) {
+        // Add CLUB_ADMIN role if user doesn't have it yet
+        if (currentUser && !currentUser.roles.includes('CLUB_ADMIN')) {
           await tx.user.update({
             where: { id: request.user!.id },
-            data: { role: 'CLUB_ADMIN' },
+            data: {
+              roles: {
+                push: 'CLUB_ADMIN',
+              },
+            },
           });
         }
         
