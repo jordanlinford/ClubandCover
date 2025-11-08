@@ -48,17 +48,22 @@ The project utilizes a monorepo structure managed by pnpm workspaces, separating
 - **Book Clubs:** Creation, discovery, customizable join rules, club rooms (Feed, Polls, Info), member management (approve, promote, remove).
 - **Author Analytics:** Dashboard metrics (pitches, acceptance rate, impressions, votes) and individual pitch analytics.
 - **Book Swaps:** Peer-to-peer swap requests with a state machine (REQUESTED → ACCEPTED → DELIVERED → VERIFIED), deliverable tracking, tier-based limits.
+  - **AuthorSwap Detection:** Swaps between two users who both have the AUTHOR role are automatically flagged with `isAuthorSwap: true`. This enables FREE tier authors to do unlimited swaps with other authors for verified reviews.
+  - **External Review Integration:** Reviews now store external URLs (Goodreads/Amazon) with strict hostname validation instead of internal comments. Platform validation prevents phishing attacks.
 - **Discovery & Search:** Unified full-text search (books, clubs, pitches) with PostgreSQL GIN indexes, AI-powered matching (if OpenAI configured), trending items.
 - **Referral System:** Unique codes, referrer/referee tracking, point rewards.
 - **Notifications:** Various types (POLL_CREATED, PITCH_ACCEPTED, SWAP_DELIVERED, etc.), unread counts, history.
 - **Points & Badges System:** Gamified points economy for engagement actions (e.g., account creation, voting, pitching), badge catalog (auto-awarded for milestones).
 - **Admin Dashboard (STAFF-only):** Comprehensive platform administration interface with tabs for Overview, Users, Clubs, Pitches, and Badges. Includes platform stats, user/tier/role management, poll closing, badge revocation, and content moderation. Features dual-layer authorization with backend `requireStaff` guards (early return pattern) and frontend role verification before rendering UI.
 
-**User Roles:**
+**User Roles (Multiple Roles Supported):**
+- Users can hold **multiple roles simultaneously** (e.g., both AUTHOR and CLUB_ADMIN)
+- Database schema uses `roles: UserRole[]` array instead of single `role` field
+- All backend route files use `hasRole(user, 'ROLE_NAME')` helper for role checking
 - **READER:** Browse, vote, join clubs, participate, earn points/badges. **Always free** - no subscription required.
 - **AUTHOR:** Create pitches, submit to clubs, access analytics, participate in AuthorSwap. Can subscribe to paid tiers for advanced features.
-- **CLUB_ADMIN:** Create/manage clubs, nominate pitches, create polls, manage members, earn host badges.
-- **STAFF:** Platform moderation, system administration.
+- **CLUB_ADMIN:** Create/manage clubs, nominate pitches, create polls, manage members, earn host badges. Creating a club **adds** CLUB_ADMIN role without removing existing roles.
+- **STAFF:** Platform moderation, system administration, role management (can add/remove roles from users).
 
 **Subscription Tiers & Business Model:**
 - **Readers:** Always completely free - no subscription ever required.

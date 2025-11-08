@@ -3,13 +3,15 @@ import { Link } from 'wouter';
 import { Card } from '@repo/ui';
 import { Button } from '@repo/ui';
 import { PageHeader } from '@repo/ui';
-import type { Book } from '@repo/types';
-import { useAuth } from '@/contexts/AuthContext';
+import type { Book, User } from '@repo/types';
 import { AlertCircle } from 'lucide-react';
+import { hasRole } from '@/lib/hasRole';
 
 export function BooksListPage() {
-  const { user } = useAuth();
-  const isAuthor = user?.role === 'AUTHOR';
+  const { data: user } = useQuery<User>({
+    queryKey: ['/api/auth/me'],
+  });
+  const isAuthor = hasRole(user, 'AUTHOR');
   
   const { data: books, isLoading } = useQuery<Book[]>({
     queryKey: ['/api/books'],

@@ -6,6 +6,7 @@ import { PageHeader } from '@repo/ui';
 import { Input } from '@repo/ui';
 import type { Swap } from '@repo/types';
 import { useAuth } from '../contexts/AuthContext';
+import { BookCopy } from 'lucide-react';
 
 export function SwapsPage() {
   const [activeTab, setActiveTab] = useState<'sent' | 'received'>('sent');
@@ -124,6 +125,12 @@ export function SwapsPage() {
                         <span className={`text-xs px-2 py-1 rounded ${getStatusColor(swap.status)}`} data-testid={`status-${swap.id}`}>
                           {swap.status}
                         </span>
+                        {swap.isAuthorSwap && (
+                          <span className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200" data-testid={`badge-authorswap-${swap.id}`}>
+                            <BookCopy className="h-3 w-3" />
+                            AuthorSwap
+                          </span>
+                        )}
                       </div>
                       {swap.message && (
                         <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">

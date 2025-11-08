@@ -46,21 +46,50 @@ export async function reviewRoutes(fastify: FastifyInstance) {
 
       const validated = schema.parse(request.body);
 
-      // Validate URL matches platform
-      if (validated.platform === 'goodreads' && !validated.reviewUrl.includes('goodreads.com')) {
+      // Validate URL hostname matches platform (security: prevent phishing with goodreads.com.attacker.site)
+      let hostname: string;
+      try {
+        const url = new URL(validated.reviewUrl);
+        hostname = url.hostname.toLowerCase();
+      } catch {
         reply.code(400);
         return {
           success: false,
-          error: 'Review URL must be from Goodreads',
+          error: 'Invalid review URL format',
         } as ApiResponse;
       }
 
-      if (validated.platform === 'amazon' && !validated.reviewUrl.includes('amazon.com')) {
-        reply.code(400);
-        return {
-          success: false,
-          error: 'Review URL must be from Amazon',
-        } as ApiResponse;
+      // Strict hostname validation
+      if (validated.platform === 'goodreads') {
+        if (hostname !== 'goodreads.com' && hostname !== 'www.goodreads.com') {
+          reply.code(400);
+          return {
+            success: false,
+            error: 'Review URL must be from goodreads.com or www.goodreads.com',
+          } as ApiResponse;
+        }
+      }
+
+      if (validated.platform === 'amazon') {
+        const validAmazonDomains = [
+          'amazon.com', 'www.amazon.com',
+          'amazon.co.uk', 'www.amazon.co.uk',
+          'amazon.ca', 'www.amazon.ca',
+          'amazon.de', 'www.amazon.de',
+          'amazon.fr', 'www.amazon.fr',
+          'amazon.es', 'www.amazon.es',
+          'amazon.it', 'www.amazon.it',
+          'amazon.co.jp', 'www.amazon.co.jp',
+          'amazon.in', 'www.amazon.in',
+          'amazon.com.au', 'www.amazon.com.au',
+        ];
+        if (!validAmazonDomains.includes(hostname)) {
+          reply.code(400);
+          return {
+            success: false,
+            error: 'Review URL must be from a valid Amazon domain',
+          } as ApiResponse;
+        }
       }
 
       // Verify the swap exists and user is part of it

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, Button } from '@repo/ui';
 import { Users, BookOpen, Award, Shield, TrendingUp, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { hasRole } from '@/lib/hasRole';
 
 interface AdminResponse<T> {
   success: boolean;
@@ -16,7 +17,7 @@ interface UserData {
     id: string;
     email: string;
     name: string;
-    role: string;
+    roles: string[];
     tier: string;
   };
 }
@@ -145,7 +146,7 @@ export default function AdminDashboard() {
   }
 
   // Check if user is STAFF
-  if (userData?.user?.role !== 'STAFF') {
+  if (!hasRole(userData?.user, 'STAFF')) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8" data-testid="page-admin-unauthorized">
         <Card className="p-8 text-center">
@@ -155,7 +156,7 @@ export default function AdminDashboard() {
             This area is restricted to STAFF members only.
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-500">
-            Your current role: {userData?.user?.role || 'Unknown'}
+            Your current roles: {userData?.user?.roles?.join(', ') || 'Unknown'}
           </p>
         </Card>
       </div>
@@ -301,8 +302,12 @@ export default function AdminDashboard() {
                 <div className="flex-1">
                   <p className="font-medium">{user.name || user.email}</p>
                   <p className="text-sm text-gray-600 dark:text-gray-400">{user.email}</p>
-                  <div className="flex gap-2 mt-2">
-                    <span className="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-xs rounded">{user.role}</span>
+                  <div className="flex gap-2 mt-2 flex-wrap">
+                    {user.roles?.map((role: string) => (
+                      <span key={role} className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs rounded">
+                        {role}
+                      </span>
+                    )) || <span className="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-xs rounded">No roles</span>}
                     <span className="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-xs rounded">{user.tier}</span>
                     <span className="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-xs rounded">{user.points || 0} points</span>
                   </div>
@@ -310,10 +315,16 @@ export default function AdminDashboard() {
                 <div className="flex gap-2">
                   <select
                     className="border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 rounded px-2 py-1 text-sm"
-                    value={user.role}
-                    onChange={(e) => changeRoleMutation.mutate({ userId: user.id, role: e.target.value })}
+                    value=""
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        changeRoleMutation.mutate({ userId: user.id, role: e.target.value });
+                        e.target.value = '';
+                      }
+                    }}
                     data-testid="select-role"
                   >
+                    <option value="">Add Role...</option>
                     <option value="READER">Reader</option>
                     <option value="AUTHOR">Author</option>
                     <option value="CLUB_ADMIN">Club Admin</option>

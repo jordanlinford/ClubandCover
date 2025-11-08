@@ -3,22 +3,23 @@ import { OnboardingWizard } from '@/components/OnboardingWizard';
 import { ChecklistCard } from '@/components/ChecklistCard';
 import { Rocket, BookOpen, Users, Pen } from 'lucide-react';
 import type { User } from '@repo/types';
+import { hasRole } from '@/lib/hasRole';
 
 export default function Onboarding() {
   const { data: user } = useQuery<User>({
     queryKey: ['/api/auth/me'],
   });
 
-  // If user hasn't completed initial onboarding (no role), show wizard
-  // Note: Role is set in the first step of onboarding, so if it exists, user has completed setup
-  if (!user || !user.role) {
+  // If user hasn't completed initial onboarding (no roles), show wizard
+  // Note: Roles are set in the first step of onboarding, so if they exist, user has completed setup
+  if (!user || !user.roles || user.roles.length === 0) {
     return <OnboardingWizard onComplete={() => window.location.reload()} />;
   }
 
   // Determine which checklists to show based on user role/status
   const showReaderChecklist = true; // All users are readers
-  const showAuthorChecklist = user?.role === 'AUTHOR';
-  const showHostChecklist = user?.role === 'CLUB_ADMIN' || user?.role === 'STAFF';
+  const showAuthorChecklist = hasRole(user, 'AUTHOR');
+  const showHostChecklist = hasRole(user, 'CLUB_ADMIN') || hasRole(user, 'STAFF');
 
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-8" data-testid="page-onboarding">

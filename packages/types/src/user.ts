@@ -7,7 +7,7 @@ export const UserSchema = z.object({
   name: z.string(),
   avatarUrl: z.string().url().nullable(),
   bio: z.string().nullable(),
-  role: UserRoleSchema,
+  roles: z.array(UserRoleSchema),
   tier: TierSchema,
   stripeCustomerId: z.string().nullable(),
   stripeSubscriptionId: z.string().nullable(),

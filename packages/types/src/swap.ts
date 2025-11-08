@@ -18,6 +18,7 @@ export const SwapSchema = z.object({
   message: z.string().nullable(),
   dueDate: z.date().nullable(),
   deliverable: z.string().nullable(),
+  isAuthorSwap: z.boolean(),
   createdAt: z.date(),
   updatedAt: z.date(),
 });
