@@ -124,7 +124,7 @@ export function ClubFormPage() {
                       data-testid={`checkbox-genre-${genre.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
                       aria-label={genre}
                     />
-                    <span className="text-sm">{genre}</span>
+                    <span className="text-sm text-foreground dark:text-gray-100">{genre}</span>
                   </label>
                 ))}
               </div>
