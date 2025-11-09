@@ -211,8 +211,8 @@ importers:
         version: 3.5.4(zod@3.25.76)
     devDependencies:
       '@replit/vite-plugin-cartographer':
-        specifier: ^0.4.1
-        version: 0.4.1
+        specifier: ^0.4.2
+        version: 0.4.2
       '@replit/vite-plugin-dev-banner':
         specifier: ^0.1.1
         version: 0.1.1
@@ -1741,8 +1741,8 @@ packages:
   '@radix-ui/rect@1.1.1':
     resolution: {integrity: sha512-HPwpGIzkl28mWyZqG52jiqDJ12waP11Pa1lGoiyUkIEuMLBP0oeK/C89esbXrxsky5we7dfd8U58nm0SgAWpVw==}
 
-  '@replit/vite-plugin-cartographer@0.4.1':
-    resolution: {integrity: sha512-7qcMKzCFntNKB9PITMFEGm4Mq9yZBsQi1Jb1h5PjgQIQCIQUcn6UMeiKSzKZtde/30SU4lGAqKJzlxnXqfS7nQ==}
+  '@replit/vite-plugin-cartographer@0.4.2':
+    resolution: {integrity: sha512-wQ286xmPXegS8zC0UJh2hxO8+nUemmlIIT3Ix55i0halfwW7dqPeD7qUpC3bjzu4x7c1Xvf99ZZCnBWZ+u97Sg==}
 
   '@replit/vite-plugin-dev-banner@0.1.1':
     resolution: {integrity: sha512-LnFraZhsZBbAwM/tm6SeWKa1/hboAZzXd2vtn8EdKrIXAYSeQbRWCr3WYnlFd6tnuq5tXkKQZ5m8WMpyOu3aCQ==}
@@ -5214,7 +5214,7 @@ snapshots:
 
   '@radix-ui/rect@1.1.1': {}
 
-  '@replit/vite-plugin-cartographer@0.4.1':
+  '@replit/vite-plugin-cartographer@0.4.2':
     dependencies:
       '@babel/parser': 7.28.5
       '@babel/traverse': 7.28.5
