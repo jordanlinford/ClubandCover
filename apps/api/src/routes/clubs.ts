@@ -12,6 +12,7 @@ export async function clubRoutes(fastify: FastifyInstance) {
         genres: z.array(z.string()).optional(),
         frequency: z.coerce.number().min(1).max(12).optional(),
         minPoints: z.coerce.number().min(0).optional(),
+        sortBy: z.enum(['newest', 'popular', 'active', 'members']).default('newest'),
         page: z.coerce.number().min(1).default(1),
         limit: z.coerce.number().min(1).max(50).default(20),
       });
@@ -46,19 +47,65 @@ export async function clubRoutes(fastify: FastifyInstance) {
         where.minPointsToJoin = { lte: query.minPoints };
       }
 
-      const [clubs, total] = await Promise.all([
+      // Determine sort order
+      let orderBy: any = { createdAt: 'desc' }; // newest
+      if (query.sortBy === 'members') {
+        orderBy = { memberships: { _count: 'desc' } };
+      } else if (query.sortBy === 'popular') {
+        // Popular = recent activity (use updatedAt as proxy for engagement)
+        orderBy = [
+          { updatedAt: 'desc' },
+          { memberships: { _count: 'desc' } }
+        ];
+      } else if (query.sortBy === 'active') {
+        // Active = most recently updated
+        orderBy = { updatedAt: 'desc' };
+      }
+
+      const [rawClubs, total] = await Promise.all([
         prisma.club.findMany({
           where,
           include: {
             createdBy: { select: { id: true, name: true, avatarUrl: true } },
-            _count: { select: { memberships: true } },
+            _count: { 
+              select: { 
+                memberships: true,
+                clubBooks: true,
+              } 
+            },
+            clubBooks: {
+              orderBy: { selectedAt: 'desc' },
+              take: 1,
+              include: {
+                book: {
+                  select: {
+                    id: true,
+                    title: true,
+                    coverUrl: true,
+                  }
+                }
+              }
+            }
           },
-          orderBy: { createdAt: 'desc' },
+          orderBy,
           skip,
           take: query.limit,
         }),
         prisma.club.count({ where }),
       ]);
+
+      // Transform response to include activity metrics
+      const clubs = rawClubs.map(club => ({
+        ...club,
+        totalMembers: club._count.memberships,
+        totalBooksRead: club._count.clubBooks,
+        lastSelection: club.clubBooks[0] ? {
+          bookId: club.clubBooks[0].book.id,
+          title: club.clubBooks[0].book.title,
+          coverUrl: club.clubBooks[0].book.coverUrl,
+          selectedAt: club.clubBooks[0].selectedAt,
+        } : null,
+      }));
 
       return {
         success: true,

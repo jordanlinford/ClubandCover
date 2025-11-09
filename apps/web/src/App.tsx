@@ -21,7 +21,7 @@ import { NewPitchPage } from './pages/pitches/New';
 import { PitchDetailPage } from './pages/pitches/Detail';
 import { SwapsPage } from './pages/Swaps';
 import { BillingPage } from './pages/Billing';
-import { HomePage } from './pages/Home';
+import { LandingPage } from './pages/Landing';
 import { NotFoundPage } from './pages/NotFound';
 import MessageList from './pages/messages/MessageList';
 import MessageThread from './pages/messages/MessageThread';
@@ -36,7 +36,7 @@ import AuthorDashboard from './pages/AuthorDashboard';
 export default function App() {
   return (
     <Switch>
-      <Route path="/" component={HomePage} />
+      <Route path="/" component={LandingPage} />
       <Route path="/author-dashboard" component={AuthorDashboard} />
       <Route path="/auth/role" component={RoleSelectionPage} />
       <Route path="/auth/sign-in" component={SignInPage} />
