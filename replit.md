@@ -1,7 +1,24 @@
 # Book Pitch — Project Documentation
 
 ## Overview
-Book Pitch is a social marketplace and discovery platform designed to connect authors, book clubs, and readers. It combines elements of social networking, crowdfunding, and gamification to create an engaging ecosystem. The platform allows authors to pitch their books directly to readers and clubs, while readers and clubs earn rewards for participation and content discovery. The core value proposition includes audience building and feedback for authors, diverse reading discovery and community engagement for book clubs, and personalized reading experiences with gamified rewards for readers. Key differentiators are community-driven discovery, extensive gamification, direct author-reader connections, an AuthorSwap network for verified reviews, and multiple monetization avenues for authors. The project aims to become the leading platform for community-driven book discovery and author-reader interaction.
+Book Pitch is a **B2C marketplace** connecting new/undiscovered authors with book clubs and readers through a pitch-based discovery system.
+
+**Business Model:**
+- **Authors (paying customers):** Pay to pitch books to clubs, gaining access to multiple readers simultaneously rather than one-at-a-time discovery. Even free-tier authors benefit from AuthorSwap network.
+- **Book Clubs (curators):** Discover fresh, new authors from the pitch library. Clubs vote via polls on which books to read together, then members review on Goodreads/Amazon (where reviews actually matter to authors).
+- **Readers (free users, always):** Join clubs, participate in book selection, earn points redeemable for prizes. No subscription ever required - this removes friction for authors to gain readership.
+
+**Core Value Exchange:**
+- Authors get **multiple reviews + word-of-mouth** from entire book clubs at once (vs. traditional 1:1 reader acquisition)
+- Clubs get **curated access to new authors** seeking discovery, with members rewarded for participation
+- Readers get **gamified community experience** with points, badges, and prizes for discovering new books
+
+**Key Strategic Decisions:**
+- Reviews require Goodreads/Amazon URLs because that's where reviews matter to authors (not creating a competing review platform)
+- Clubs limited to pitch library because that's the product - matching paying authors with discovery-focused clubs
+- AuthorSwap network (free author-to-author swaps) serves as free-tier hook to attract authors, then upsell to club discovery
+- Poll-based book selection mirrors real book club behavior (nominate → vote → read together)
+- Points (not money) keep readers engaged long-term with prize redemption system
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
