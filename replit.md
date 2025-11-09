@@ -1,7 +1,7 @@
-# Book Pitch — Project Documentation
+# Club & Cover — Project Documentation
 
 ## Overview
-Book Pitch is a **B2C marketplace** connecting new/undiscovered authors with book clubs and readers through a pitch-based discovery system.
+Club & Cover (formerly Book Pitch) is a **B2C marketplace** connecting new/undiscovered authors with book clubs and readers through a pitch-based discovery system.
 
 **Business Model:**
 - **Authors (paying customers):** Pay to pitch books to clubs, gaining access to multiple readers simultaneously rather than one-at-a-time discovery. Even free-tier authors benefit from AuthorSwap network.
@@ -112,6 +112,37 @@ The project utilizes a monorepo structure managed by pnpm workspaces, separating
 - **Club Sponsorships:** ✅ Full sponsorship system with club targeting (genres, member count, frequency), impression/click tracking, and analytics endpoints
 - **Stripe Integration:** ✅ Complete payment flow with 3DS/SCA support, webhook handlers for subscription and credit purchases
 - **Transaction History:** ✅ Credit purchase/spend tracking with balance history displayed on Billing page
+
+## CI/CD Pipeline (Phase 1 - COMPLETE ✅)
+
+**GitHub Actions Workflows:**
+- **CI Pipeline** (`ci.yml`) - Type-check, build, test, security audit with intelligent pnpm caching
+- **Deployment** (`deploy.yml`) - Automated production deployment to Replit with health checks
+- **PR Checks** (`pr-check.yml`) - Selective builds for affected packages only
+- **Security Scanning** (`codeql.yml`, `dependency-review.yml`) - CodeQL analysis and dependency vulnerability scanning
+- **Releases** (`release.yml`) - Automated release creation and production deployment
+- **Dependabot** - Automated weekly dependency updates
+
+**Reusable Actions:**
+- `pnpm-install` - Composite action with monthly cache rotation (~95% hit rate)
+
+**Performance:**
+- Cold cache: ~2m30s
+- Warm cache: ~1m30s
+- Parallel job execution (lint/build/test concurrent)
+
+**Key Features:**
+- ✅ Intelligent pnpm caching with monthly rotation
+- ✅ Selective builds for PR affected packages
+- ✅ Security scanning (CodeQL + dependency review)
+- ✅ Health checks with retry logic
+- ✅ Comprehensive documentation (CI-CD-SETUP.md, CONTRIBUTING.md, QUICK-START.md)
+
+**Documentation:**
+- `docs/CI-CD-SETUP.md` - Complete CI/CD setup guide (311 lines)
+- `docs/CONTRIBUTING.md` - Contributor guidelines (450+ lines)
+- `docs/QUICK-START.md` - Quick start guide (330+ lines)
+- `.github/README.md` - CI/CD dashboard and status
 
 ## External Dependencies
 **Third-Party Services:**

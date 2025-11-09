@@ -1,0 +1,103 @@
+name: Deploy to Replit
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm with caching
+        uses: ./.github/actions/pnpm-install
+
+      - name: Build all packages
+        run: |
+          pnpm --filter @repo/types build
+          pnpm --filter @repo/ui build
+          pnpm --filter @repo/config build
+          pnpm --filter @repo/api build
+          pnpm --filter @repo/web build
+
+      - name: Trigger Replit Deployment
+        env:
+          REPLIT_DEPLOY_KEY: ${{ secrets.REPLIT_DEPLOY_KEY }}
+          REPLIT_PROJECT_URL: ${{ secrets.REPLIT_PROJECT_URL }}
+        run: |
+          if [ -z "$REPLIT_DEPLOY_KEY" ]; then
+            echo "⚠️  REPLIT_DEPLOY_KEY not set - skipping actual deployment"
+            echo "Note: Replit will auto-deploy via Git integration if connected"
+            exit 0
+          fi
+          
+          echo "🚀 Triggering Replit deployment..."
+          
+          curl -X POST "$REPLIT_PROJECT_URL/api/deploy" \
+            -H "Authorization: Bearer $REPLIT_DEPLOY_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"branch": "main"}' \
+            --fail-with-body \
+            || (echo "❌ Deployment trigger failed" && exit 1)
+          
+          echo "✅ Deployment triggered successfully"
+
+      - name: Wait for deployment
+        run: |
+          echo "⏳ Waiting 45 seconds for deployment to complete..."
+          sleep 45
+
+      - name: Health check
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+        run: |
+          if [ -z "$APP_URL" ]; then
+            echo "⚠️  APP_URL not configured - skipping health check"
+            echo "Set APP_URL secret for automatic health verification"
+            exit 0
+          fi
+          
+          echo "🔍 Running health check on $APP_URL/api/health"
+          
+          MAX_RETRIES=5
+          RETRY_COUNT=0
+          
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if curl -f -s "$APP_URL/api/health" > /dev/null 2>&1; then
+              echo "✅ Health check passed!"
+              exit 0
+            fi
+            
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            echo "⏳ Health check attempt $RETRY_COUNT/$MAX_RETRIES failed, retrying in 10s..."
+            sleep 10
+          done
+          
+          echo "❌ Health check failed after $MAX_RETRIES attempts"
+          echo "Deployment did not complete successfully"
+          echo "Check Replit console for errors: $APP_URL"
+          exit 1
+
+  notify:
+    name: Notify Deployment
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: always()
+    
+    steps:
+      - name: Deployment Status
+        run: |
+          if [ "${{ needs.deploy.result }}" == "success" ]; then
+            echo "✅ Deployment successful!"
+          else
+            echo "❌ Deployment failed!"
+            exit 1
+          fi
