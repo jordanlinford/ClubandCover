@@ -3,6 +3,7 @@ import { Button } from '@repo/ui';
 import { useAuth } from '../contexts/AuthContext';
 import { BookOpen, LogOut, User, TrendingUp, Users, Lightbulb, MessageSquare, LayoutDashboard } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import { hasRole } from '../lib/hasRole';
 
 export function AppHeader() {
   const { user, signOut } = useAuth();
@@ -14,8 +15,7 @@ export function AppHeader() {
   });
 
   const currentUser = (userData as any)?.data;
-  const userRole = currentUser?.role || user?.user_metadata?.role;
-  const isAuthor = userRole === 'AUTHOR';
+  const isAuthor = hasRole(currentUser, 'AUTHOR');
 
   const handleLogout = async () => {
     await signOut();
