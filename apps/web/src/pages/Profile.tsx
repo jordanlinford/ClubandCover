@@ -1,18 +1,29 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card } from '@repo/ui';
 import { Button } from '@repo/ui';
 import { PageHeader } from '@repo/ui';
 import { DataTable } from '@repo/ui';
-import type { PointLedger } from '@repo/types';
+import type { PointLedger, User } from '@repo/types';
 import { useAuth } from '../contexts/AuthContext';
 import { PointsBadge } from '../components/PointsBadge';
 import { BadgesDisplay } from '../components/BadgesDisplay';
-import { Users, BookOpen, Star } from 'lucide-react';
+import { Users, BookOpen, Star, Check, Pen } from 'lucide-react';
 import { useLocation } from 'wouter';
+import { hasRole } from '../lib/hasRole';
+import { api } from '../lib/api';
+import { useState } from 'react';
 
 export function ProfilePage() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
+  const [successMessage, setSuccessMessage] = useState<string>('');
+  const [errorMessage, setErrorMessage] = useState<string>('');
+
+  const { data: userData } = useQuery<User>({
+    queryKey: ['/api/auth/me'],
+    enabled: !!user?.id,
+  });
 
   const { data: pointsResponse } = useQuery<any>({
     queryKey: ['/api/points/me'],
@@ -32,6 +43,21 @@ export function ProfilePage() {
   const { data: reviewedBooksResponse } = useQuery<any>({
     queryKey: ['/api/users/me/reviewed-books'],
     enabled: !!user?.id,
+  });
+
+  const addRoleMutation = useMutation({
+    mutationFn: (role: string) =>
+      api.post('/users/me/roles', { role }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
+      setErrorMessage('');
+      setSuccessMessage('Role added successfully!');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    },
+    onError: (error: Error) => {
+      setSuccessMessage('');
+      setErrorMessage(error.message || 'Failed to add role. Please try again.');
+    },
   });
 
   const pointsData = pointsResponse?.data;
@@ -110,6 +136,121 @@ export function ProfilePage() {
               <Button variant="outline" data-testid="button-change-password">
                 Change Password
               </Button>
+            </div>
+          </Card>
+
+          {/* Manage Roles Section */}
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-4">Manage Roles</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              Add roles to unlock new features and capabilities on the platform
+            </p>
+
+            {successMessage && (
+              <div
+                className="mb-4 p-4 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-md"
+                data-testid="text-success"
+              >
+                {successMessage}
+              </div>
+            )}
+
+            {errorMessage && (
+              <div
+                className="mb-4 p-4 bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 rounded-md"
+                data-testid="text-error"
+              >
+                {errorMessage}
+              </div>
+            )}
+            
+            <div className="space-y-4">
+              {/* Current Roles */}
+              {userData?.roles && userData.roles.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">Current Roles</label>
+                  <div className="flex flex-wrap gap-2">
+                    {userData.roles.map((role) => (
+                      <div
+                        key={role}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary rounded-md border border-primary/20"
+                        data-testid={`badge-role-${role.toLowerCase()}`}
+                      >
+                        <Check className="h-4 w-4" />
+                        <span className="text-sm font-medium">
+                          {role === 'CLUB_ADMIN' ? 'Club Host' : role.charAt(0) + role.slice(1).toLowerCase()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Add Roles */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Available Roles</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Author Role */}
+                  {!hasRole(userData, 'AUTHOR') && (
+                    <div className="p-4 border rounded-md">
+                      <div className="flex items-start gap-3 mb-3">
+                        <div className="p-2 rounded-md bg-purple-100 dark:bg-purple-900/20">
+                          <Pen className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-semibold">Author</h3>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Pitch your books to clubs and access the AuthorSwap network
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => addRoleMutation.mutate('AUTHOR')}
+                        disabled={addRoleMutation.isPending}
+                        data-testid="button-add-author-role"
+                      >
+                        {addRoleMutation.isPending ? 'Adding...' : 'Add Author Role'}
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Club Host Role */}
+                  {!hasRole(userData, 'CLUB_ADMIN') && (
+                    <div className="p-4 border rounded-md">
+                      <div className="flex items-start gap-3 mb-3">
+                        <div className="p-2 rounded-md bg-green-100 dark:bg-green-900/20">
+                          <Users className="h-5 w-5 text-green-600 dark:text-green-400" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-semibold">Club Host</h3>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Create and manage book clubs, run polls, and build community
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => addRoleMutation.mutate('CLUB_ADMIN')}
+                        disabled={addRoleMutation.isPending}
+                        data-testid="button-add-club-host-role"
+                      >
+                        {addRoleMutation.isPending ? 'Adding...' : 'Add Club Host Role'}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                {hasRole(userData, 'AUTHOR') && hasRole(userData, 'CLUB_ADMIN') && (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    You have all available roles!
+                  </p>
+                )}
+              </div>
             </div>
           </Card>
 

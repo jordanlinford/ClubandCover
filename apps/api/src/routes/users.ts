@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { prisma } from '../lib/prisma';
 import { CreateUserSchema, UpdateUserSchema } from '@repo/types';
 import type { ApiResponse } from '@repo/types';
+import { z } from 'zod';
 
 export async function userRoutes(fastify: FastifyInstance) {
   // Get current user's clubs
@@ -73,6 +74,61 @@ export async function userRoutes(fastify: FastifyInstance) {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to fetch reviewed books',
+      } as ApiResponse;
+    }
+  });
+
+  // Add role to current user (self-service)
+  fastify.post('/me/roles', async (request, reply) => {
+    if (!request.user) {
+      reply.code(401);
+      return { success: false, error: 'Unauthorized' } as ApiResponse;
+    }
+
+    try {
+      const schema = z.object({
+        role: z.enum(['AUTHOR', 'CLUB_ADMIN'], {
+          errorMap: () => ({ message: 'You can only add AUTHOR or CLUB_ADMIN roles' }),
+        }),
+      });
+      const { role } = schema.parse(request.body);
+
+      const user = await prisma.user.findUnique({
+        where: { id: request.user.id },
+        select: { roles: true },
+      });
+
+      if (!user) {
+        reply.code(404);
+        return { success: false, error: 'User not found' } as ApiResponse;
+      }
+
+      if (user.roles.includes(role)) {
+        return {
+          success: true,
+          message: 'You already have this role',
+          data: user,
+        } as ApiResponse;
+      }
+
+      const updated = await prisma.user.update({
+        where: { id: request.user.id },
+        data: { roles: { push: role } },
+      });
+
+      return { success: true, data: updated } as ApiResponse;
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        reply.code(400);
+        return {
+          success: false,
+          error: error.errors[0]?.message || 'Invalid role',
+        } as ApiResponse;
+      }
+      reply.code(500);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to add role',
       } as ApiResponse;
     }
   });
