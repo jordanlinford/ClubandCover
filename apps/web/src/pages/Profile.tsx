@@ -21,7 +21,7 @@ export function ProfilePage() {
   const [errorMessage, setErrorMessage] = useState<string>('');
 
   const { data: userData } = useQuery<User>({
-    queryKey: ['/api/auth/me'],
+    queryKey: ['/api/users/me'],
     enabled: !!user?.id,
   });
 
@@ -49,7 +49,7 @@ export function ProfilePage() {
     mutationFn: (role: string) =>
       api.post('/users/me/roles', { role }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/users/me'] });
       setErrorMessage('');
       setSuccessMessage('Role added successfully!');
       setTimeout(() => setSuccessMessage(''), 3000);

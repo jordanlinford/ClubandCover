@@ -5,11 +5,48 @@ import type { ApiResponse } from '@repo/types';
 import { z } from 'zod';
 
 export async function userRoutes(fastify: FastifyInstance) {
+  // Get current authenticated user
+  fastify.get('/me', async (request, reply) => {
+    if (!request.user) {
+      reply.code(401);
+      return { success: false, error: 'Please sign in to view your profile' } as ApiResponse;
+    }
+
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: request.user.id },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          roles: true,
+          tier: true,
+          avatarUrl: true,
+          emailVerified: true,
+          createdAt: true,
+        },
+      });
+
+      if (!user) {
+        reply.code(404);
+        return { success: false, error: 'User not found' } as ApiResponse;
+      }
+
+      return { success: true, data: user } as ApiResponse;
+    } catch (error) {
+      reply.code(500);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch user',
+      } as ApiResponse;
+    }
+  });
+
   // Get current user's clubs
   fastify.get('/me/clubs', async (request, reply) => {
     if (!request.user) {
       reply.code(401);
-      return { success: false, error: 'Unauthorized' } as ApiResponse;
+      return { success: false, error: 'Please sign in to view your clubs' } as ApiResponse;
     }
 
     try {
@@ -49,7 +86,7 @@ export async function userRoutes(fastify: FastifyInstance) {
   fastify.get('/me/reviewed-books', async (request, reply) => {
     if (!request.user) {
       reply.code(401);
-      return { success: false, error: 'Unauthorized' } as ApiResponse;
+      return { success: false, error: 'Please sign in to view your reviewed books' } as ApiResponse;
     }
 
     try {
@@ -82,7 +119,7 @@ export async function userRoutes(fastify: FastifyInstance) {
   fastify.post('/me/roles', async (request, reply) => {
     if (!request.user) {
       reply.code(401);
-      return { success: false, error: 'Unauthorized' } as ApiResponse;
+      return { success: false, error: 'Please sign in to manage your roles' } as ApiResponse;
     }
 
     try {
