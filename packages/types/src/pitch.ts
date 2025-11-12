@@ -12,7 +12,11 @@ export interface Pitch {
 export interface CreatePitch {
   title: string;
   blurb: string;
-  targetClubId: string;
+  targetClubId?: string;
+  genres?: string[];
+  theme?: string;
+  imageUrl?: string;
+  videoUrl?: string;
 }
 
 export interface UpdatePitch {

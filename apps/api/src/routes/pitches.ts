@@ -28,9 +28,26 @@ export default async function pitchesRoutes(app: FastifyInstance) {
         
         // Extract video ID from different YouTube URL formats
         if (hostname.includes('youtube.com')) {
-          videoId = urlObj.searchParams.get('v');
+          const pathname = urlObj.pathname;
+          
+          // Handle /watch?v=ID
+          if (pathname.includes('/watch')) {
+            videoId = urlObj.searchParams.get('v');
+          }
+          // Handle /embed/ID
+          else if (pathname.startsWith('/embed/')) {
+            videoId = pathname.split('/embed/')[1]?.split('?')[0];
+          }
+          // Handle /shorts/ID
+          else if (pathname.startsWith('/shorts/')) {
+            videoId = pathname.split('/shorts/')[1]?.split('?')[0];
+          }
+          // Handle /live/ID
+          else if (pathname.startsWith('/live/')) {
+            videoId = pathname.split('/live/')[1]?.split('?')[0];
+          }
         } else if (hostname === 'youtu.be') {
-          videoId = urlObj.pathname.slice(1);
+          videoId = urlObj.pathname.slice(1).split('?')[0];
         }
         
         if (!videoId || videoId.length !== 11) {
