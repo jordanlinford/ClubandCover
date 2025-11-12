@@ -1,0 +1,339 @@
+# Club & Cover — Full Functionality QA Checklist (Replit Test Plan)
+
+Use this as a master checklist for manual QA, smoke tests, and regression. Each test lists **ID**, **Pre-reqs**, **Steps**, and **Expected**. Check items as you verify.
+
+---
+
+## 0) Environments & Smoke
+
+* [ ] **ENV-01** Dev env builds without errors (`pnpm install && pnpm dev`) → App loads root route.
+* [ ] **ENV-02** API service starts (Fastify) and connects to Supabase; Prisma migrations run cleanly.
+* [ ] **ENV-03** `.env` variables present: SUPABASE_URL, SUPABASE_ANON_KEY, DATABASE_URL, STRIPE_KEYS, JWT_SECRET, EMAIL_PROVIDER_KEYS.
+* [ ] **ENV-04** Health endpoints respond 200 (e.g., `/health`, `/api/health`).
+* [ ] **ENV-05** Frontend → Backend CORS OK; no mixed content errors in console.
+
+### 0A) Repo-Specific Map & Smoke (as of `main`)
+
+**Top-level dirs/files found:** `.github/`, `apps/`, `packages/`, `server/`, `src/`, `docs/`, `replit.md`, `.replit`, `dev.sh`, `build.sh`, `.env.example`, `SMOKE_POINTS_BADGES.md`.
+
+**Quick smoke on Replit/Git:**
+
+* [ ] **RS-01** Install & workspace: `pnpm i --frozen-lockfile` then `pnpm -w build` (workspace build completes).
+* [ ] **RS-02** Type safety: `pnpm -w typecheck` (or CI equivalent) completes cleanly.
+* [ ] **RS-03** Local run script: `./dev.sh` (or `pnpm -w dev`) starts both web + API, logs show ready URLs.
+* [ ] **RS-04** DB connect: `DATABASE_URL` from `.env.example` populated; server logs show successful pool connect.
+* [ ] **RS-05** Migrations: `pnpm --filter server prisma migrate deploy` (or project script) runs without pending drift.
+* [ ] **RS-06** Storage keys: `SUPABASE_URL` + `SUPABASE_ANON_KEY` set; signed URL test passes.
+* [ ] **RS-07** Payments: test `STRIPE_*` keys present; hitting checkout in test mode returns a session URL.
+* [ ] **RS-08** Replit integration: `.replit` runs the same dev command; console shows both services healthy.
+* [ ] **RS-09** Actions CI green on push/PR; required secrets configured: `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `REPLIT_DEPLOY_KEY`.
+* [ ] **RS-10** Open these project docs and confirm alignment: `replit.md` (dev instructions), `DEPLOYMENT_FIX_SUMMARY.md`, `SMOKE_POINTS_BADGES.md`.
+
+---
+
+## 1) Authentication & Accounts
+
+* [ ] **AUTH-01** Email/password sign-up works; verification email delivered; link completes verification.
+* [ ] **AUTH-02** OAuth sign-in (Google) works; account created/linked.
+* [ ] **AUTH-03** Password reset email is sent and allows password change.
+* [ ] **AUTH-04** Session persists across refresh; secure logout clears session.
+* [ ] **AUTH-05** Role selection at first login (Reader / Club Host / Author) persists and controls access.
+* [ ] **AUTH-06** Account deletion removes PII and deactivates related content per policy.
+* [ ] **AUTH-07** Admin can elevate/downgrade roles; audit log recorded.
+
+---
+
+## 2) Onboarding Flows
+
+* [ ] **ONB-01 (Reader)** Prompt to **Find a Club** or **Start a Club** when joining; progress saved if abandoned.
+* [ ] **ONB-02 (Host)** Club creation wizard (name, description, logo, genres, schedule, cadence, size cap, privacy) saves draft and publishes.
+* [ ] **ONB-03 (Author)** Author profile setup (pen name, bio, links), KYC if required for payouts, portfolio import.
+
+---
+
+## 3) Profiles
+
+* [ ] **PROF-01** Reader profile: avatar, display name, favorite genres, reading pace, notifications.
+* [ ] **PROF-02** Host profile: host bio, clubs managed, badges, reputation/ratings.
+* [ ] **PROF-03** Author profile: works, formats offered (ebook, paperback, audio, ARC), swap history, ratings.
+* [ ] **PROF-04** Privacy toggles respected across UI and API.
+
+---
+
+## 4) Club Directory & Search
+
+* [ ] **CLUBSRCH-01** Keyword search returns relevant clubs; pagination works.
+* [ ] **CLUBSRCH-02** Filters: genre, cadence (books/month), meeting type (virtual/local), size, timezone, tags, language.
+* [ ] **CLUBSRCH-03** Sort: newest, most active, highest-rated, nearest (if location on).
+* [ ] **CLUBSRCH-04** Empty state handled; removing filters restores results.
+
+---
+
+## 5) Clubs: Create / Manage
+
+* [ ] **CLUB-01** Create club with required fields; unique slug/ID generated.
+* [ ] **CLUB-02** Invite flow: share link + email invites; pending requests visible to host/co-host.
+* [ ] **CLUB-03** Join rules: open join, request-to-join (approval), invite-only; enforcement tested.
+* [ ] **CLUB-04** Roles inside club: Host, Co-host, Member; permissions enforced.
+* [ ] **CLUB-05** Club page shows: About, Members, Schedule, Current Book, Past Books, Votes, Forum, Badges, Files/Links.
+* [ ] **CLUB-06** Club settings edit + save; logo/background upload; safe file types checked.
+* [ ] **CLUB-07** Leave club; re-join behavior OK; host transfer flow works.
+* [ ] **CLUB-08** Archive/Unpublish a club (soft delete) and restore; visibility updates in search.
+
+---
+
+## 6) Club Room (Messaging & Forum)
+
+* [ ] **ROOM-01** Real-time chat loads history, supports markdown, links, and basic media (images/attachments) with size limits.
+* [ ] **ROOM-02** Threaded discussions / forum boards: create topic, reply, edit (with history), delete (role-bound), pin, lock.
+* [ ] **ROOM-03** Mentions (@), reactions, and reporting abuse; moderation panel shows flagged posts.
+* [ ] **ROOM-04** Notifications: in-app + email for mentions, replies, upcoming meetings.
+
+---
+
+## 7) Book Pitch Catalog (Author submissions)
+
+* [ ] **PITCH-01** Author can submit a book pitch: title, logline, synopsis, cover, sample chapter, video link, formats (ebook, audio), swap eligibility.
+* [ ] **PITCH-02** Validation: required fields, file sizes/types, video URL validation.
+* [ ] **PITCH-03** Pitch review status: draft → submitted → approved/rejected (with reason); author sees status.
+* [ ] **PITCH-04** Pricing/placement options (free, promo slots, featured); Stripe payment flow works.
+* [ ] **PITCH-05** Pitch detail page shows stats: views, saves, club votes, conversions; share link works.
+
+---
+
+## 8) Voting & Polls (Club book selection)
+
+* [ ] **VOTE-01** Host creates poll: select candidate pitches (search/URL), custom options, deadline, anonymous/visible votes, tie-break rules.
+* [ ] **VOTE-02** Members cast single or ranked-choice votes (configurable); cannot vote twice; can change before deadline if allowed.
+* [ ] **VOTE-03** Poll auto-closes at deadline; winner selected per rule; audit of votes visible to host.
+* [ ] **VOTE-04** Results page shows counts/percentages; export CSV/PDF; share summary to forum.
+
+---
+
+## 9) Author Swap System
+
+* [ ] **SWAP-01** Author can search other authors by genre/word count/audience for swap.
+* [ ] **SWAP-02** Propose swap: agree to read/review within timeframe; automated reminders.
+* [ ] **SWAP-03** Completion flow: submit review link or in-app review; detection for abuse (duplicate/IP).
+* [ ] **SWAP-04** Reputation impact: credit only on verified completion; no-credit for no-shows with dispute process.
+
+---
+
+## 10) Points, Levels & Badges (Gamification)
+
+* [ ] **GAM-01** Points ledger records: joining club, posting, voting, hosting meeting, completing swap, inviting members, verifying email.
+* [ ] **GAM-02** Anti-abuse: throttles, per-day caps, unique-action checks.
+* [ ] **GAM-03** Levels/tiers update when thresholds crossed; UI updates in real time.
+* [ ] **GAM-04** Badges awarded on milestones (e.g., “First Poll”, “100 Votes”, “Top Host”, “Reliable Swapper”).
+* [ ] **GAM-05** Rewards (if enabled): coupons/credits unlock properly; redemption flow tracked.
+* [ ] **GAM-06** Admin can manually adjust points with reason; audit log present.
+
+---
+
+## 11) Scheduling & Events
+
+* [ ] **EVT-01** Create meeting (date/time, location/Zoom/Meet, agenda, book notes); timezone handling correct.
+* [ ] **EVT-02** Calendar exports (ICS) and “Add to Google/Apple” links work; reminders sent (24h, 1h).
+* [ ] **EVT-03** Attendance tracking (manual or join-link based) updates member stats.
+
+---
+
+## 12) Notifications & Email
+
+* [ ] **NOTIF-01** Notification settings per user (email, push if supported, in-app) honored.
+* [ ] **NOTIF-02** Templates render variables correctly (user name, club name, dates); links deep-link to correct route.
+* [ ] **NOTIF-03** Digest emails respect frequency; unsubscribe and legal footer correct.
+
+---
+
+## 13) Payments & Billing (Stripe)
+
+* [ ] **PAY-01** Create checkout session for author pitch boosts/featured placement and club upgrades (if any); success/fail flows handled.
+* [ ] **PAY-02** Webhooks verify signature and update entitlements/receipts; idempotency confirmed.
+* [ ] **PAY-03** Customer portal accessible for receipts, payment method updates, cancellations.
+* [ ] **PAY-04** Tax/VAT handled via Stripe settings; location-based pricing verified.
+
+---
+
+## 14) Data: Supabase / Prisma / Storage
+
+* [ ] **DATA-01** Schema: users, profiles, roles, clubs, memberships, pitches, polls, votes, messages, badges, points_ledger, swaps, events, notifications, payments, audit_log.
+* [ ] **DATA-02** RLS/Policies: users can only read/write own PII; club members can read club content; hosts manage; admins override.
+* [ ] **DATA-03** File storage (covers, logos, attachments) uses signed URLs; revocation works.
+* [ ] **DATA-04** Soft-deletes represented via `deleted_at`; filtered from user views.
+* [ ] **DATA-05** Migrations forward/backward compatible; seed script loads sample data.
+
+---
+
+## 15) Admin Console
+
+* [ ] **ADMIN-01** Dashboard: KPIs (DAU/WAU/MAU, active clubs, new pitches, polls, revenue, abuse flags).
+* [ ] **ADMIN-02** User management: search, role change, deactivate/reactivate, impersonate (if allowed) with full audit.
+* [ ] **ADMIN-03** Content moderation queue (reports, spam, NSFW); approve/reject; evidence retention.
+* [ ] **ADMIN-04** Catalog curation: feature pitches/clubs; homepage modules; announcements.
+* [ ] **ADMIN-05** System settings: points rules, badge definitions, quotas/limits and toggles.
+
+---
+
+## 16) Analytics & Logging
+
+* [ ] **AN-01** Frontend events: page views, search, join clicks, vote cast, poll created, checkout started/completed.
+* [ ] **AN-02** Backend logs: request IDs, latency, error rates; PII redacted.
+* [ ] **AN-03** Conversion funnels visible (visitor → signup → join club → vote → meeting attended).
+
+---
+
+## 17) Security & Compliance
+
+* [ ] **SEC-01** JWT tokens scoped; refresh rotation; logout invalidates.
+* [ ] **SEC-02** Rate limits on auth, search, messaging; WAF blocks malicious payloads.
+* [ ] **SEC-03** Input validation + sanitization (XSS, file uploads, markdown); CSP headers set.
+* [ ] **SEC-04** Access control tested for all roles/objects (direct URL/API access denied when unauthorized).
+* [ ] **SEC-05** Privacy: delete/export my data (DSR); cookie banner if needed; email compliance (CAN-SPAM / unsubscribe).
+
+---
+
+## 18) Performance & Reliability
+
+* [ ] **PERF-01** First meaningful paint under target on 4G/Laptop; code-splitting applied.
+* [ ] **PERF-02** API p95 latency within target; N+1 queries eliminated on key pages.
+* [ ] **PERF-03** Real-time features (chat, votes) remain responsive with 200 concurrent users.
+* [ ] **PERF-04** Graceful degradation offline/slow network; retry/backoff; user messaging.
+
+---
+
+## 19) UX, Accessibility, Internationalization
+
+* [ ] **UX-01** Mobile, tablet, desktop layouts validated; critical paths usable on mobile.
+* [ ] **UX-02** A11y: keyboard navigation, focus states, alt text, ARIA landmarks, contrast ≥ WCAG AA.
+* [ ] **UX-03** Error/empty/loading states designed and actionable.
+* [ ] **UX-04** Timezones, date formats, and locale strings render consistently.
+
+---
+
+## 20) Content & CMS (if present)
+
+* [ ] **CMS-01** Home/landing content editable; hero modules link to correct filters/search.
+* [ ] **CMS-02** FAQ/Help articles searchable; report a bug/feature links create tickets or emails.
+
+---
+
+## 21) Exports & Integrations
+
+* [ ] **XPORT-01** Export: club members CSV; poll results CSV/PDF; pitch stats CSV.
+* [ ] **XPORT-02** ICS calendar export validated in Google/Apple/Outlook.
+* [ ] **XPORT-03** Social share (OG tags, images) render correctly on X/FB/LinkedIn.
+
+---
+
+## 22) Edge Cases & Error Handling
+
+* [ ] **EDGE-01** Duplicate joins/invites handled gracefully.
+* [ ] **EDGE-02** Poll tie-breakers; winner withdrawal; late vote after close rejected.
+* [ ] **EDGE-03** Deleted/archived pitch referenced by active poll → warning + substitution flow.
+* [ ] **EDGE-04** Payment fails, cancels, retries → entitlements consistent.
+* [ ] **EDGE-05** Swap partner no-show → dispute flow; partial credit rules enforce.
+
+---
+
+## 23) Regression Packs (Quick)
+
+* [ ] **REG-01** Auth, search, join club, cast vote, create poll, submit pitch, checkout → pass.
+* [ ] **REG-02** Post in forum, receive notification, attend event, earn points, badge assigned → pass.
+
+---
+
+## 24) API Contract Tests (Examples)
+
+* [ ] **API-01** `POST /api/auth/signup` → 201 + user id; invalid email → 400.
+* [ ] **API-02** `GET /api/clubs?query=...&filters=...` → 200 list; pagination cursors.
+* [ ] **API-03** `POST /api/clubs` (host) → 201; member → 403.
+* [ ] **API-04** `POST /api/pitches` (author) → 201; file upload URLs signed; missing fields → 422.
+* [ ] **API-05** `POST /api/polls` & `POST /api/votes` enforce membership & uniqueness.
+* [ ] **API-06** `POST /api/checkout` returns Stripe URL; webhook `invoice.paid` updates entitlements.
+* [ ] **API-07** `GET /api/me/points` returns ledger; tamper attempts blocked.
+
+---
+
+## 25) Database Integrity Checks
+
+* [ ] **DB-01** Orphans prevented via FKs; cascading soft-deletes; unique constraints (slugs, emails).
+* [ ] **DB-02** Points ledger totals = sum of transactions; badge issuance references valid rule id.
+* [ ] **DB-03** Votes reference poll & member; poll winner derivable deterministically.
+
+---
+
+## 26) Release Readiness
+
+* [ ] **REL-01** Versioned build; CHANGELOG; migrations tagged.
+* [ ] **REL-02** Feature flags documented; defaults set for prod.
+* [ ] **REL-03** Runbooks for incidents (auth outage, webhook backlog, storage failure).
+* [ ] **REL-04** Backups and restore procedure verified.
+
+---
+
+## 27) Acceptance Criteria (MVP Pass/Fail)
+
+* [ ] New user can sign up, pick role, join a club, participate in chat, vote in a poll.
+* [ ] Host can create/manage a club, run a poll, schedule a meeting, moderate posts.
+* [ ] Author can submit a pitch, get approved, see it appear in club search/polls.
+* [ ] Points & badges accrue for core actions; visible in profiles.
+* [ ] Stripe checkout & webhook update an author placement; receipt viewable.
+* [ ] Admin can moderate, feature content, view KPIs.
+
+---
+
+## 28) Business-Case Validation Suite (Monetization, Growth, Ops)
+
+### A) Monetization & Pricing
+
+* [ ] **BIZ-MON-01** Author paid placements (featured/boost) show correct pricing by tier; taxes/VAT applied; promo codes honored; final receipts accurate.
+* [ ] **BIZ-MON-02** Entitlements provisioned immediately post-webhook; expirations/renewals handled; grace period rules enforced.
+* [ ] **BIZ-MON-03** Refunds/chargebacks update entitlements and analytics; audit log includes reason and amounts.
+* [ ] **BIZ-MON-04** Free trials or credits (if enabled) convert or expire correctly; abuse prevention (one per user/account).
+
+### B) Growth Loops & Acquisition
+
+* [ ] **BIZ-GRO-01** Referral links for clubs/authors attribute new signups; limits and fraud checks (IP/device) apply.
+* [ ] **BIZ-GRO-02** Social sharecards (OG/Twitter/LinkedIn) render pitch/club metadata with image, title, description.
+* [ ] **BIZ-GRO-03** “Bring your existing club” flow imports members via invite link/CSV; attribution to the host maintained.
+* [ ] **BIZ-GRO-04** Email capture/CTA on public pitch and club pages funnels to signup with deep-link back.
+
+### C) Activation, Engagement & Retention
+
+* [ ] **BIZ-ACT-01** Onboarding activation: Reader completes 3 key actions (follow a club, vote, post) within first session; tracked as an activation checkpoint.
+* [ ] **BIZ-ACT-02** Club health metrics calculated (active members, posts/week, polls/month, meeting attendance); alerts for “stalled clubs.”
+* [ ] **BIZ-ACT-03** Author success metrics (impressions → saves → poll-inclusions → wins → reviews); cohort report exists.
+* [ ] **BIZ-ACT-04** Re-engagement: dormant users receive nudge emails per preferences; suppression list honored.
+
+### D) Marketplace Integrity (Swaps & Reviews)
+
+* [ ] **BIZ-MKT-01** Swap completion requires verifiable artifact (review URL/in-app review); duplicate/IP/device checks; dispute workflow.
+* [ ] **BIZ-MKT-02** Reputation system updates for reliable swappers; penalties for no-shows; appeal path documented.
+* [ ] **BIZ-MKT-03** Review guidelines and anti-gaming checks (rate limits, pattern detection) trigger moderation when tripped.
+
+### E) Analytics, KPIs & Experimentation
+
+* [ ] **BIZ-ANL-01** North-star & guardrail metrics defined and instrumented: signups, activation rate, club creation rate, pitch-to-poll rate, poll-to-read rate, paid conversion, churn.
+* [ ] **BIZ-ANL-02** LTV:CAC dashboards wired; channel attribution (UTM) persists through signup and first purchase.
+* [ ] **BIZ-ANL-03** A/B testing or feature flags available for pricing pages, referral prompts, and pitch detail layout.
+* [ ] **BIZ-ANL-04** Weekly product health report auto-generated with trend deltas and top regressions.
+
+### F) Finance & Compliance
+
+* [ ] **BIZ-FIN-01** Revenue recognition events align with policy; Stripe product/price IDs mapped in config; currency conversions consistent.
+* [ ] **BIZ-FIN-02** Invoices/receipts include legal company info, refund policy, and tax breakdown.
+* [ ] **BIZ-FIN-03** Data privacy requests (export/delete) cover purchase history and messaging; logs retained per policy.
+* [ ] **BIZ-FIN-04** Terms of Service, Acceptable Use, and Content Policy accessible; users must accept on first paywall usage.
+
+### G) Support & Operations
+
+* [ ] **BIZ-OPS-01** In-app “Report an issue” and “Contact support” create tickets with context (user, route, last 20 events).
+* [ ] **BIZ-OPS-02** Incident runbooks for: auth outage, webhook backlog, file storage failure, message spam attack; status page update process.
+* [ ] **BIZ-OPS-03** Admin tools for manual entitlement fixes, points adjustments, and club ownership transfers; all audited.
+
+---
+
+## 29) Sign-off
+
+* [ ] Product, Engineering, Marketing, and Support leads have reviewed and signed off on sections 0–28.
