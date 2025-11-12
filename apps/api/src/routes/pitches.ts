@@ -13,6 +13,37 @@ export default async function pitchesRoutes(app: FastifyInstance) {
   app.post('/', { preHandler: [requireAuth] }, async (request, reply) => {
     const userId = request.user!.id;
 
+    // Helper function to validate and normalize YouTube URLs
+    const validateYouTubeUrl = (url: string): string | null => {
+      try {
+        const urlObj = new URL(url);
+        const hostname = urlObj.hostname.toLowerCase();
+        
+        // Accept youtube.com and youtu.be
+        if (!['www.youtube.com', 'youtube.com', 'youtu.be', 'm.youtube.com'].includes(hostname)) {
+          return null;
+        }
+        
+        let videoId: string | null = null;
+        
+        // Extract video ID from different YouTube URL formats
+        if (hostname.includes('youtube.com')) {
+          videoId = urlObj.searchParams.get('v');
+        } else if (hostname === 'youtu.be') {
+          videoId = urlObj.pathname.slice(1);
+        }
+        
+        if (!videoId || videoId.length !== 11) {
+          return null;
+        }
+        
+        // Return canonical embed URL
+        return `https://www.youtube.com/embed/${videoId}`;
+      } catch {
+        return null;
+      }
+    };
+
     // Validate request body
     const schema = z.object({
       bookId: z.string().uuid(),
@@ -20,9 +51,25 @@ export default async function pitchesRoutes(app: FastifyInstance) {
       title: z.string().min(1).max(200),
       synopsis: z.string().optional(),
       sampleUrl: z.string().url().optional(),
+      genres: z.array(z.string()).max(3, 'Maximum 3 genres allowed').optional(),
+      theme: z.string().max(500, 'Theme must be 500 characters or less').optional(),
+      imageUrl: z.string().url('Must be a valid URL').optional(),
+      videoUrl: z.string().optional(),
     });
 
     const body = schema.parse(request.body);
+    
+    // Validate and normalize YouTube URL if provided
+    let normalizedVideoUrl: string | null = null;
+    if (body.videoUrl) {
+      normalizedVideoUrl = validateYouTubeUrl(body.videoUrl);
+      if (!normalizedVideoUrl) {
+        return reply.code(400).send({
+          success: false,
+          error: 'Invalid YouTube URL. Please provide a valid youtube.com or youtu.be URL',
+        });
+      }
+    }
 
     // Verify the book exists and belongs to the user
     const book = await prisma.book.findUnique({
@@ -108,6 +155,10 @@ export default async function pitchesRoutes(app: FastifyInstance) {
         title: body.title,
         synopsis: body.synopsis || null,
         sampleUrl: body.sampleUrl || null,
+        genres: body.genres || [],
+        theme: body.theme || null,
+        imageUrl: body.imageUrl || null,
+        videoUrl: normalizedVideoUrl,
         status: 'SUBMITTED',
         authorTier: user.tier, // Set author tier for visibility boost sorting
       },

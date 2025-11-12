@@ -527,6 +527,11 @@ model Pitch {
   title         String
   synopsis      String?      @db.Text
   sampleUrl     String?
+  // New pitch enhancement fields
+  genres        String[]     @default([]) // Up to 3 genres
+  theme         String?      @db.Text // Book theme/topic
+  imageUrl      String?      // Pitch cover image
+  videoUrl      String?      // YouTube video URL
   status        PitchStatus  @default(SUBMITTED)
   impressions   Int          @default(0)
   // Visibility boost fields
