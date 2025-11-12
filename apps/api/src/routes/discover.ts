@@ -20,7 +20,7 @@ export async function discoverRoutes(fastify: FastifyInstance) {
       limit?: string;
       offset?: string;
     };
-  }>('/api/discover/books', { onRequest: [requireAuth] }, async (request, reply) => {
+  }>('/discover/books', { onRequest: [requireAuth] }, async (request, reply) => {
     try {
       const query = request.query.q || '';
       const genres = request.query.genres ? request.query.genres.split(',') : undefined;
@@ -61,7 +61,7 @@ export async function discoverRoutes(fastify: FastifyInstance) {
       limit?: string;
       offset?: string;
     };
-  }>('/api/discover/clubs', { onRequest: [requireAuth] }, async (request, reply) => {
+  }>('/discover/clubs', { onRequest: [requireAuth] }, async (request, reply) => {
     try {
       const query = request.query.q || '';
       const genres = request.query.genres ? request.query.genres.split(',') : undefined;
@@ -98,7 +98,7 @@ export async function discoverRoutes(fastify: FastifyInstance) {
       limit?: string;
       offset?: string;
     };
-  }>('/api/discover/pitches', { onRequest: [requireAuth] }, async (request, reply) => {
+  }>('/discover/pitches', { onRequest: [requireAuth] }, async (request, reply) => {
     try {
       const query = request.query.q || '';
       const status = request.query.status;
@@ -131,7 +131,7 @@ export async function discoverRoutes(fastify: FastifyInstance) {
   // Get trending items (combined endpoint for frontend)
   fastify.post<{
     Body: { type?: 'book' | 'club' | 'pitch'; limit?: number };
-  }>('/api/discover/trending', { onRequest: [requireAuth] }, async (request, reply) => {
+  }>('/discover/trending', { onRequest: [requireAuth] }, async (request, reply) => {
     try {
       const { type, limit = 10 } = request.body || {};
 
@@ -167,7 +167,7 @@ export async function discoverRoutes(fastify: FastifyInstance) {
   // Get trending books
   fastify.get<{
     Querystring: { limit?: string };
-  }>('/api/discover/trending/books', { onRequest: [requireAuth] }, async (request, reply) => {
+  }>('/discover/trending/books', { onRequest: [requireAuth] }, async (request, reply) => {
     try {
       const limit = request.query.limit ? parseInt(request.query.limit, 10) : 10;
       const books = await getTrendingBooks(limit);
@@ -187,7 +187,7 @@ export async function discoverRoutes(fastify: FastifyInstance) {
   // Get trending clubs
   fastify.get<{
     Querystring: { limit?: string };
-  }>('/api/discover/trending/clubs', { onRequest: [requireAuth] }, async (request, reply) => {
+  }>('/discover/trending/clubs', { onRequest: [requireAuth] }, async (request, reply) => {
     try {
       const limit = request.query.limit ? parseInt(request.query.limit, 10) : 10;
       const clubs = await getTrendingClubs(limit);
@@ -207,7 +207,7 @@ export async function discoverRoutes(fastify: FastifyInstance) {
   // Get trending pitches
   fastify.get<{
     Querystring: { limit?: string };
-  }>('/api/discover/trending/pitches', { onRequest: [requireAuth] }, async (request, reply) => {
+  }>('/discover/trending/pitches', { onRequest: [requireAuth] }, async (request, reply) => {
     try {
       const limit = request.query.limit ? parseInt(request.query.limit, 10) : 10;
       const pitches = await getTrendingPitches(limit);
@@ -227,7 +227,7 @@ export async function discoverRoutes(fastify: FastifyInstance) {
   // Track pitch impression
   fastify.post<{
     Params: { id: string };
-  }>('/api/discover/pitches/:id/impression', { onRequest: [requireAuth] }, async (request, reply) => {
+  }>('/discover/pitches/:id/impression', { onRequest: [requireAuth] }, async (request, reply) => {
     try {
       const pitchId = request.params.id;
       await incrementPitchImpressions(pitchId);
