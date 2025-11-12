@@ -15,7 +15,7 @@ declare module 'fastify' {
 }
 
 export async function supabaseAuth(request: FastifyRequest, reply: FastifyReply) {
-  const publicRoutes = ['/api/health', '/api/webhooks/stripe', '/api/test/'];
+  const publicRoutes = ['/api/health', '/api/webhooks/stripe', '/api/test/', '/api/auth/dev-login'];
   
   if (publicRoutes.some(route => request.url.startsWith(route))) {
     return;
@@ -35,8 +35,8 @@ export async function supabaseAuth(request: FastifyRequest, reply: FastifyReply)
   
   const token = authHeader.substring(7);
   
-  // Handle test tokens (only in test environment or when test routes enabled)
-  if ((process.env.NODE_ENV === 'test' || process.env.ENABLE_TEST_ROUTES === '1') && token.startsWith('test-token-')) {
+  // Handle test tokens (expanded to support dev mode)
+  if ((process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test' || process.env.ENABLE_TEST_ROUTES === '1') && token.startsWith('test-token-')) {
     const userId = token.replace('test-token-', '');
     try {
       const dbUser = await prisma.user.findUnique({
@@ -51,6 +51,7 @@ export async function supabaseAuth(request: FastifyRequest, reply: FastifyReply)
           tier: dbUser.tier,
           emailVerified: dbUser.emailVerified,
         };
+        request.log.info({ userId: dbUser.id, email: dbUser.email }, '[AUTH] Dev token accepted');
         return;
       }
     } catch (error) {

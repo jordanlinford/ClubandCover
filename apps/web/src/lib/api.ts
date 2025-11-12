@@ -85,6 +85,16 @@ class ApiClient {
   }
 
   private async getAuthToken(): Promise<string | null> {
+    // In development, check for dev token first
+    if (import.meta.env.MODE === 'development') {
+      const devToken = localStorage.getItem('dev_token');
+      if (devToken) {
+        console.log('[API] Using dev token');
+        return devToken;
+      }
+    }
+
+    // Try Supabase session
     if (!supabase) {
       console.warn('[API] Supabase client not initialized');
       return null;

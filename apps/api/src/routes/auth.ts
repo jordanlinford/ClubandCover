@@ -15,6 +15,66 @@ export async function authRoutes(server: FastifyInstance) {
     : 'http://localhost:5000';
 
   /**
+   * GET /api/auth/dev-login
+   * Development-only endpoint that returns a test token for bypassing Supabase auth
+   * Only works when NODE_ENV=development
+   */
+  server.get('/dev-login', async (request, reply) => {
+    // Strict environment check - only works in development
+    if (process.env.NODE_ENV !== 'development') {
+      return reply.status(403).send({
+        success: false,
+        error: 'Dev login is only available in development environment',
+      });
+    }
+
+    try {
+      // Find or create dev user
+      let devUser = await prisma.user.findFirst({
+        where: { email: 'dividedhousepublishing@gmail.com' }
+      });
+
+      if (!devUser) {
+        const { randomUUID } = await import('crypto');
+        devUser = await prisma.user.create({
+          data: {
+            id: randomUUID(),
+            email: 'dividedhousepublishing@gmail.com',
+            name: 'Dev Author',
+            roles: ['AUTHOR'],
+            tier: 'FREE',
+            emailVerified: true,
+          }
+        });
+        server.log.info({ userId: devUser.id }, '[DEV-LOGIN] Created dev user');
+      }
+
+      // Return test token that the auth middleware already supports
+      const token = `test-token-${devUser.id}`;
+      
+      return reply.send({
+        success: true,
+        data: {
+          token,
+          user: {
+            id: devUser.id,
+            email: devUser.email,
+            name: devUser.name,
+            roles: devUser.roles,
+            tier: devUser.tier,
+          }
+        }
+      });
+    } catch (error) {
+      server.log.error({ error }, '[DEV-LOGIN] Failed to create dev login');
+      return reply.status(500).send({
+        success: false,
+        error: 'Failed to create dev login',
+      });
+    }
+  });
+
+  /**
    * POST /api/auth/send-verification
    * Send verification email to a user
    */
