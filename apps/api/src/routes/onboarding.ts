@@ -17,7 +17,7 @@ const updateProfileSchema = z.object({
 export default async function onboardingRoutes(app: FastifyInstance) {
   // Set user role (creates profile if missing, adds role to roles array)
   app.post(
-    '/api/onboarding/role',
+    '/onboarding/role',
     { preHandler: [ensureUser] },
     async (request, reply) => {
       try {
@@ -89,7 +89,7 @@ export default async function onboardingRoutes(app: FastifyInstance) {
 
   // Update user profile preferences
   app.patch(
-    '/api/onboarding/profile',
+    '/onboarding/profile',
     { preHandler: [ensureUser] },
     async (request, reply) => {
       try {
