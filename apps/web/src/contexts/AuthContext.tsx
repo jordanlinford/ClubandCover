@@ -18,11 +18,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     async function initializeAuth() {
-      const isDev = import.meta.env.MODE === 'development';
+      const enableDevLogin = import.meta.env.VITE_ENABLE_DEV_LOGIN === 'true';
       
       if (!supabase) {
         // In development, try dev-login if Supabase is not configured
-        if (isDev) {
+        if (enableDevLogin) {
           try {
             console.log('[AUTH] Supabase not configured, using dev-login');
             const response = await fetch('/api/auth/dev-login');
@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         console.warn('[AUTH] Supabase session check failed:', error);
         // Supabase error - fallback to dev-login in development
-        if (isDev) {
+        if (enableDevLogin) {
           try {
             console.log('[AUTH] Falling back to dev-login due to Supabase error');
             const response = await fetch('/api/auth/dev-login');
@@ -66,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       // If no Supabase session in development, try dev-login
-      if (!session && isDev) {
+      if (!session && enableDevLogin) {
         try {
           console.log('[AUTH] No Supabase session, using dev-login');
           const response = await fetch('/api/auth/dev-login');
@@ -102,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const handleSignOut = async () => {
     // Clear dev token if it exists
-    if (import.meta.env.MODE === 'development') {
+    if (import.meta.env.VITE_ENABLE_DEV_LOGIN === 'true') {
       localStorage.removeItem('dev_token');
     }
     

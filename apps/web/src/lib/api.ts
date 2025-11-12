@@ -86,7 +86,7 @@ class ApiClient {
 
   private async getAuthToken(): Promise<string | null> {
     // In development, check for dev token first
-    if (import.meta.env.MODE === 'development') {
+    if (import.meta.env.VITE_ENABLE_DEV_LOGIN === 'true') {
       const devToken = localStorage.getItem('dev_token');
       if (devToken) {
         console.log('[API] Using dev token');
