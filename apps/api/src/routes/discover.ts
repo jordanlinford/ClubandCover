@@ -128,6 +128,42 @@ export async function discoverRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // Get trending items (combined endpoint for frontend)
+  fastify.post<{
+    Body: { type?: 'book' | 'club' | 'pitch'; limit?: number };
+  }>('/api/discover/trending', { onRequest: [requireAuth] }, async (request, reply) => {
+    try {
+      const { type, limit = 10 } = request.body || {};
+
+      let result;
+      if (type === 'book') {
+        result = await getTrendingBooks(limit);
+      } else if (type === 'club') {
+        result = await getTrendingClubs(limit);
+      } else if (type === 'pitch') {
+        result = await getTrendingPitches(limit);
+      } else {
+        // Return all trending items if no type specified
+        const [books, clubs, pitches] = await Promise.all([
+          getTrendingBooks(limit),
+          getTrendingClubs(limit),
+          getTrendingPitches(limit),
+        ]);
+        result = [...books, ...clubs, ...pitches];
+      }
+
+      return reply.send({
+        success: true,
+        data: result,
+      });
+    } catch (error: any) {
+      return reply.status(500).send({
+        success: false,
+        error: error.message || 'Failed to get trending items',
+      });
+    }
+  });
+
   // Get trending books
   fastify.get<{
     Querystring: { limit?: string };

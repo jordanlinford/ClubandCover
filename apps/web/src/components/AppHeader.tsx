@@ -80,7 +80,7 @@ export function AppHeader() {
               const isActive = location === item.href || location.startsWith(item.href + '/');
               return (
                 <Link key={item.href} href={item.href}>
-                  <a
+                  <div
                     className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer hover-elevate active-elevate-2 ${
                       isActive
                         ? 'bg-primary text-primary-foreground'
@@ -90,7 +90,7 @@ export function AppHeader() {
                   >
                     <Icon className="h-4 w-4" />
                     {item.label}
-                  </a>
+                  </div>
                 </Link>
               );
             })}
@@ -173,26 +173,26 @@ export function AppHeader() {
               {/* Quick Actions Mobile */}
               {isAuthor && (
                 <Link href="/pitches/new">
-                  <a
+                  <div
                     className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
                     onClick={() => setMobileMenuOpen(false)}
                     data-testid="nav-mobile-create-pitch"
                   >
                     <Plus className="h-5 w-5" />
                     Create Pitch
-                  </a>
+                  </div>
                 </Link>
               )}
               {isClubAdmin && (
                 <Link href="/clubs/new">
-                  <a
+                  <div
                     className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
                     onClick={() => setMobileMenuOpen(false)}
                     data-testid="nav-mobile-create-club"
                   >
                     <UserPlus className="h-5 w-5" />
                     Create Club
-                  </a>
+                  </div>
                 </Link>
               )}
 
@@ -202,7 +202,7 @@ export function AppHeader() {
                 const isActive = location === item.href || location.startsWith(item.href + '/');
                 return (
                   <Link key={item.href} href={item.href}>
-                    <a
+                    <div
                       className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium cursor-pointer ${
                         isActive
                           ? 'bg-primary text-primary-foreground'
@@ -213,7 +213,7 @@ export function AppHeader() {
                     >
                       <Icon className="h-5 w-5" />
                       {item.label}
-                    </a>
+                    </div>
                   </Link>
                 );
               })}
