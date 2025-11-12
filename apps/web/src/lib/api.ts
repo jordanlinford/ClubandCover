@@ -40,6 +40,13 @@ class ApiClient {
     // Get token from Supabase session
     const token = await this.getAuthToken();
     
+    console.log('[API] Making request:', {
+      method,
+      endpoint,
+      hasToken: !!token,
+      tokenLength: token?.length
+    });
+    
     const response = await fetch(url, {
       method,
       headers: {
@@ -82,11 +89,17 @@ class ApiClient {
       console.warn('[API] Supabase client not initialized');
       return null;
     }
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session }, error } = await supabase.auth.getSession();
+    console.log('[API] Get session result:', {
+      hasSession: !!session,
+      hasUser: !!session?.user,
+      hasAccessToken: !!session?.access_token,
+      tokenLength: session?.access_token?.length,
+      error: error?.message,
+      userEmail: session?.user?.email
+    });
     if (!session) {
-      console.warn('[API] No Supabase session found');
-    } else {
-      console.log('[API] Token retrieved successfully');
+      console.warn('[API] No Supabase session found - user needs to sign in');
     }
     return session?.access_token ?? null;
   }

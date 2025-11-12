@@ -22,8 +22,14 @@ export async function supabaseAuth(request: FastifyRequest, reply: FastifyReply)
   }
   
   const authHeader = request.headers.authorization;
+  request.log.info({ 
+    url: request.url, 
+    hasAuthHeader: !!authHeader,
+    headerStart: authHeader?.substring(0, 20)
+  }, '[AUTH] Processing request');
   
   if (!authHeader?.startsWith('Bearer ')) {
+    request.log.warn({ url: request.url }, '[AUTH] No Bearer token found');
     return; // Optional auth
   }
   
@@ -54,11 +60,20 @@ export async function supabaseAuth(request: FastifyRequest, reply: FastifyReply)
   
   try {
     const supabase = getSupabase();
+    request.log.info({ tokenLength: token.length }, '[AUTH] Attempting to verify token');
     const { data: { user }, error } = await supabase.auth.getUser(token);
     
-    if (error || !user) {
+    if (error) {
+      request.log.warn({ error: error.message }, '[AUTH] Token verification error');
       return; // Invalid token, but auth is optional
     }
+    
+    if (!user) {
+      request.log.warn('[AUTH] No user returned from Supabase');
+      return;
+    }
+    
+    request.log.info({ userId: user.id, email: user.email }, '[AUTH] User verified from token');
     
     // Ensure user exists in our database (sync from Supabase)
     const dbUser = await ensureUser(user.id, user.email || '', user.user_metadata);
@@ -70,6 +85,8 @@ export async function supabaseAuth(request: FastifyRequest, reply: FastifyReply)
       tier: dbUser.tier,
       emailVerified: dbUser.emailVerified,
     };
+    
+    request.log.info({ userId: dbUser.id, roles: dbUser.roles }, '[AUTH] User authenticated successfully');
   } catch (error) {
     // If Supabase is not configured, skip auth
     if (error instanceof Error && error.message.includes('SUPABASE_URL')) {
@@ -78,7 +95,7 @@ export async function supabaseAuth(request: FastifyRequest, reply: FastifyReply)
     }
     
     // Silently fail for optional auth
-    request.log.warn({ error }, 'Auth token verification failed');
+    request.log.warn({ error: error instanceof Error ? error.message : error }, '[AUTH] Auth token verification failed');
   }
 }
 

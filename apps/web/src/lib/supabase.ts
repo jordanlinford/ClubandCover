@@ -3,6 +3,13 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+console.log('[SUPABASE] Checking config:', {
+  hasUrl: !!supabaseUrl,
+  urlValue: supabaseUrl,
+  hasKey: !!supabaseAnonKey,
+  keyLength: supabaseAnonKey?.length
+});
+
 // Check if credentials are properly configured and are valid URLs
 const isValidUrl = (url: any): boolean => {
   if (!url || typeof url !== 'string' || url.trim() === '') return false;
@@ -20,8 +27,12 @@ const isConfigured =
   typeof supabaseAnonKey === 'string' && 
   supabaseAnonKey.trim() !== '';
 
+console.log('[SUPABASE] Is configured:', isConfigured);
+
 if (!isConfigured) {
   console.warn('Supabase credentials not configured. Authentication features will be disabled.');
+  console.warn('[SUPABASE] URL valid:', isValidUrl(supabaseUrl));
+  console.warn('[SUPABASE] Key valid:', !!(supabaseAnonKey && typeof supabaseAnonKey === 'string' && supabaseAnonKey.trim() !== ''));
 }
 
 export const supabase = isConfigured 
