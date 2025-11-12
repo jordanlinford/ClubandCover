@@ -55,6 +55,12 @@ The project utilizes a monorepo structure managed by pnpm workspaces, separating
 - **Flow:** Frontend handles Supabase Auth, stores JWT; backend middleware verifies JWT.
 - **Authorization:** Resource-level ownership checks, STAFF role-based access control for admin features.
 - **Admin Security:** Dual-layer protection with backend `requireStaff` middleware (returns boolean, forces early exit on failure) and frontend role verification (fetches user data, renders access denied for non-STAFF).
+- **Development Bypass (Dev-Login):** Optional authentication bypass for local development/testing when Supabase auth is unavailable or difficult to configure.
+  - **Backend Endpoint:** `GET /api/auth/dev-login` creates/finds user `dividedhousepublishing@gmail.com` with AUTHOR role, returns test token `test-token-{userId}`. Strictly guarded by `NODE_ENV === 'development'`.
+  - **Backend Middleware:** Accepts test tokens in development/test environments via `process.env.ENABLE_TEST_ROUTES` check.
+  - **Frontend Integration:** When `VITE_ENABLE_DEV_LOGIN=true`, frontend auto-calls `/api/auth/dev-login` if no Supabase session exists, stores token in localStorage.
+  - **Configuration:** Add `VITE_ENABLE_DEV_LOGIN=true` to Replit secrets (environment variables) to enable. Never enable in production - production builds ignore this flag unless explicitly misconfigured.
+  - **Security:** Backend guards prevent test tokens in production. Frontend requires explicit opt-in via environment variable. Production builds never activate dev-login unless VITE_ENABLE_DEV_LOGIN is mistakenly set.
 
 **Single-Port Deployment:**
 - Both React SPA and Fastify API are served from a single port (5000) in production/Replit environments, with Fastify serving static files and handling SPA routing fallback.
