@@ -124,7 +124,7 @@ async function ensureUser(id: string, email: string, metadata?: Record<string, a
       console.log(`[AUTH] Created new user: ${email} (${id}) as ${initialRole}`);
       
       // Award ACCOUNT_CREATED points (async, non-blocking)
-      import('./points.js').then(({ awardPoints }) => {
+      import('../lib/points.js').then(({ awardPoints }) => {
         awardPoints(id, 'ACCOUNT_CREATED').catch(err => {
           console.error('[POINTS] Failed to award ACCOUNT_CREATED points:', err);
         });

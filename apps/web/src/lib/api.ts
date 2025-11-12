@@ -78,8 +78,16 @@ class ApiClient {
   }
 
   private async getAuthToken(): Promise<string | null> {
-    if (!supabase) return null;
+    if (!supabase) {
+      console.warn('[API] Supabase client not initialized');
+      return null;
+    }
     const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      console.warn('[API] No Supabase session found');
+    } else {
+      console.log('[API] Token retrieved successfully');
+    }
     return session?.access_token ?? null;
   }
 
