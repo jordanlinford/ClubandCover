@@ -162,7 +162,7 @@ export async function analyticsRoutes(fastify: FastifyInstance) {
           poll: {
             select: {
               id: true,
-              title: true,
+              type: true,
               status: true,
               createdAt: true,
               club: {
@@ -173,16 +173,26 @@ export async function analyticsRoutes(fastify: FastifyInstance) {
               },
             },
           },
-          _count: {
-            select: {
-              votes: true,
-            },
-          },
         },
       });
 
       // Calculate total votes across all polls
-      const totalVotes = pollOptions.reduce((sum, opt) => sum + opt._count.votes, 0);
+      const totalVotes = await prisma.vote.count({
+        where: {
+          option: {
+            pitchId,
+          },
+        },
+      });
+
+      // Get vote counts per poll option
+      const voteCountsMap = new Map<string, number>();
+      for (const option of pollOptions) {
+        const count = await prisma.vote.count({
+          where: { optionId: option.id },
+        });
+        voteCountsMap.set(option.id, count);
+      }
 
       return reply.send({
         success: true,
@@ -194,10 +204,10 @@ export async function analyticsRoutes(fastify: FastifyInstance) {
             totalVotes,
             pollHistory: pollOptions.map((opt) => ({
               pollId: opt.poll.id,
-              pollTitle: opt.poll.title,
+              pollTitle: `${opt.poll.type} – ${new Date(opt.poll.createdAt).toLocaleDateString()}`,
               pollStatus: opt.poll.status,
               clubName: opt.poll.club.name,
-              votesReceived: opt._count.votes,
+              votesReceived: voteCountsMap.get(opt.id) || 0,
               createdAt: opt.poll.createdAt,
             })),
           },
@@ -275,15 +285,13 @@ export async function analyticsRoutes(fastify: FastifyInstance) {
         recentPolls.map(async (poll) => {
           const voteCount = await prisma.vote.count({
             where: {
-              poll: {
-                id: poll.id,
-              },
+              pollId: poll.id,
             },
           });
 
           return {
             pollId: poll.id,
-            title: poll.title,
+            title: `${poll.type} – ${new Date(poll.createdAt).toLocaleDateString()}`,
             status: poll.status,
             optionsCount: poll._count.options,
             votesCount: voteCount,

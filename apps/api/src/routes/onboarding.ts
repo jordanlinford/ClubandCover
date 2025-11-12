@@ -15,7 +15,7 @@ const updateProfileSchema = z.object({
 });
 
 export default async function onboardingRoutes(app: FastifyInstance) {
-  // Set user role (creates profile if missing)
+  // Set user role (creates profile if missing, adds role to roles array)
   app.post(
     '/api/onboarding/role',
     { preHandler: [ensureUser] },
@@ -24,10 +24,28 @@ export default async function onboardingRoutes(app: FastifyInstance) {
         const { role } = setRoleSchema.parse(request.body);
         const userId = (request as any).user.id;
 
-        // Update user role
+        // Get current user to check existing roles
+        const currentUser = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { roles: true },
+        });
+
+        if (!currentUser) {
+          return reply.status(404).send({
+            success: false,
+            error: 'User not found',
+          });
+        }
+
+        // Add role to roles array if not already present
+        const updatedRoles = currentUser.roles.includes(role)
+          ? currentUser.roles
+          : [...currentUser.roles, role];
+
+        // Update user roles
         const updatedUser = await prisma.user.update({
           where: { id: userId },
-          data: { role },
+          data: { roles: updatedRoles },
         });
 
         // Create profile if missing
@@ -47,7 +65,8 @@ export default async function onboardingRoutes(app: FastifyInstance) {
           success: true,
           data: {
             userId: updatedUser.id,
-            role: updatedUser.role,
+            role, // Keep backwards compatibility with frontend
+            roles: updatedUser.roles, // Also include full roles array
             profileCreated,
           },
         });
