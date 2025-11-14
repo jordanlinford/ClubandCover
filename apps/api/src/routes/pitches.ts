@@ -234,13 +234,14 @@ export default async function pitchesRoutes(app: FastifyInstance) {
     });
 
     // Notify all followers of this author
-    const followers = await prisma.authorFollow.findMany({
+    const { prisma: sharedPrisma } = await import('../lib/prisma.js');
+    const followers = await sharedPrisma.authorFollow.findMany({
       where: { authorId: userId },
       select: { followerId: true },
     });
 
     if (followers.length > 0) {
-      await prisma.notification.createMany({
+      await sharedPrisma.notification.createMany({
         data: followers.map(follow => ({
           userId: follow.followerId,
           type: 'AUTHOR_NEW_PITCH',

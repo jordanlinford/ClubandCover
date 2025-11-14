@@ -5,6 +5,7 @@ import { Card, Button } from '@repo/ui';
 import { AppHeader } from '@/components/AppHeader';
 import { Link } from 'wouter';
 import { api } from '@/lib/api';
+import { FollowButton } from '@/components/FollowButton';
 
 interface AuthorProfile {
   id: string;
@@ -169,6 +170,12 @@ export default function AuthorDirectory() {
                 </div>
 
                 <div className="flex gap-2">
+                  <FollowButton 
+                    authorId={author.id}
+                    variant="ghost"
+                    size="sm"
+                    showText={false}
+                  />
                   <Link href={`/swaps?new=true&recipient=${author.id}&recipientName=${encodeURIComponent(author.name)}`} className="flex-1">
                     <div className="w-full">
                       <Button 
