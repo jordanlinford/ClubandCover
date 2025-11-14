@@ -124,6 +124,22 @@ export default function AdminDashboard() {
     },
   });
 
+  const suspendUserMutation = useMutation({
+    mutationFn: async ({ userId, suspend, reason }: { userId: string; suspend: boolean; reason?: string }) => {
+      const res = await fetch(`/api/admin/users/${userId}/suspend`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ suspend, reason: reason || (suspend ? 'Suspended by admin' : 'Unsuspended by admin') }),
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+    },
+  });
+
   // Show loading state while checking auth
   if (authLoading || userDataLoading) {
     return (
@@ -341,6 +357,9 @@ export default function AdminDashboard() {
                     )) || <span className="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-xs rounded">No roles</span>}
                     <span className="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-xs rounded">{user.tier}</span>
                     <span className="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-xs rounded">{user.points || 0} points</span>
+                    <span className={`px-2 py-1 text-xs rounded ${user.accountStatus === 'SUSPENDED' ? 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200' : 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'}`}>
+                      {user.accountStatus || 'ACTIVE'}
+                    </span>
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -372,6 +391,24 @@ export default function AdminDashboard() {
                     <option value="PRO_CLUB">Pro Club</option>
                     <option value="PUBLISHER">Publisher</option>
                   </select>
+                  <Button
+                    size="sm"
+                    variant={user.accountStatus === 'SUSPENDED' ? 'default' : 'destructive'}
+                    onClick={() => {
+                      const shouldSuspend = user.accountStatus !== 'SUSPENDED';
+                      const reason = shouldSuspend 
+                        ? prompt('Reason for suspension (required):')
+                        : prompt('Reason for unsuspension (optional):');
+                      if (shouldSuspend && !reason) {
+                        alert('Suspension reason is required');
+                        return;
+                      }
+                      suspendUserMutation.mutate({ userId: user.id, suspend: shouldSuspend, reason: reason || undefined });
+                    }}
+                    data-testid={`button-suspend-${user.id}`}
+                  >
+                    {user.accountStatus === 'SUSPENDED' ? 'Unsuspend' : 'Suspend'}
+                  </Button>
                 </div>
               </div>
             ))}
