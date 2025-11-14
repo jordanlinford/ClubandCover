@@ -257,3 +257,80 @@ export async function addUserRole(userId: string, role: string) {
 
   console.log(`[AUTH] Added role ${role} to user ${userId}`);
 }
+
+/**
+ * Middleware that requires verified author status
+ * Returns 403 if user doesn't have a verified author profile
+ */
+export async function requireVerifiedAuthor(request: FastifyRequest, reply: FastifyReply) {
+  if (!request.user) {
+    return reply.code(401).send({
+      success: false,
+      error: 'Authentication required',
+    });
+  }
+
+  // Check if user has AUTHOR role
+  if (!hasRole(request.user, 'AUTHOR')) {
+    return reply.code(403).send({
+      success: false,
+      error: 'Author role required',
+    });
+  }
+
+  try {
+    // Check for verified author profile
+    const authorProfile = await prisma.authorProfile.findUnique({
+      where: { userId: request.user.id },
+      select: { verificationStatus: true },
+    });
+
+    if (!authorProfile) {
+      return reply.code(403).send({
+        success: false,
+        error: 'Please create an author profile first',
+        code: 'AUTHOR_PROFILE_REQUIRED',
+      });
+    }
+
+    if (authorProfile.verificationStatus === 'UNVERIFIED') {
+      return reply.code(403).send({
+        success: false,
+        error: 'Please submit your author profile for verification',
+        code: 'VERIFICATION_NOT_SUBMITTED',
+      });
+    }
+
+    if (authorProfile.verificationStatus === 'PENDING') {
+      return reply.code(403).send({
+        success: false,
+        error: 'Your author verification is pending review',
+        code: 'VERIFICATION_PENDING',
+      });
+    }
+
+    if (authorProfile.verificationStatus === 'REJECTED') {
+      return reply.code(403).send({
+        success: false,
+        error: 'Your author verification was rejected. Please submit new proof.',
+        code: 'VERIFICATION_REJECTED',
+      });
+    }
+
+    if (authorProfile.verificationStatus !== 'VERIFIED') {
+      return reply.code(403).send({
+        success: false,
+        error: 'Verified author status required',
+        code: 'NOT_VERIFIED',
+      });
+    }
+
+    // If we get here, user is a verified author
+  } catch (error) {
+    request.log.error(error, 'Failed to check author verification status');
+    return reply.code(500).send({
+      success: false,
+      error: 'Failed to check verification status',
+    });
+  }
+}

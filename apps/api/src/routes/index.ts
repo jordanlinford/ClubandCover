@@ -31,6 +31,8 @@ import { userRoutes } from './users.js';
 import { rewardRoutes } from './rewards.js';
 import { adminRewardRoutes } from './adminRewards.js';
 import { authorFollowRoutes } from './author-follows.js';
+import { authorProfileRoutes } from './author-profiles.js';
+import { adminAuthorVerificationRoutes } from './admin-author-verifications.js';
 
 export async function routes(fastify: FastifyInstance) {
   fastify.get('/health', async () => {
@@ -100,6 +102,10 @@ export async function routes(fastify: FastifyInstance) {
   
   // Author follows (subscription to authors)
   await fastify.register(authorFollowRoutes);
+  
+  // Author profiles and verification
+  await fastify.register(authorProfileRoutes, { prefix: '/author-profiles' });
+  await fastify.register(adminAuthorVerificationRoutes, { prefix: '/admin/author-verifications' });
   
   // Test support routes (only enabled in test environment)
   await fastify.register(testSupportRoutes, { prefix: '/test' });

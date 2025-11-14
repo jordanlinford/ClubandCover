@@ -6,6 +6,56 @@ import { notify } from '../lib/mail';
 import { hasRole } from '../middleware/auth.js';
 import { z } from 'zod';
 
+// Helper to check author verification status
+async function checkAuthorVerification(userId: string): Promise<{ verified: boolean; error?: string; code?: string }> {
+  const authorProfile = await prisma.authorProfile.findUnique({
+    where: { userId },
+    select: { verificationStatus: true },
+  });
+
+  if (!authorProfile) {
+    return {
+      verified: false,
+      error: 'Please create an author profile first',
+      code: 'AUTHOR_PROFILE_REQUIRED',
+    };
+  }
+
+  if (authorProfile.verificationStatus === 'UNVERIFIED') {
+    return {
+      verified: false,
+      error: 'Please submit your author profile for verification',
+      code: 'VERIFICATION_NOT_SUBMITTED',
+    };
+  }
+
+  if (authorProfile.verificationStatus === 'PENDING') {
+    return {
+      verified: false,
+      error: 'Your author verification is pending review',
+      code: 'VERIFICATION_PENDING',
+    };
+  }
+
+  if (authorProfile.verificationStatus === 'REJECTED') {
+    return {
+      verified: false,
+      error: 'Your author verification was rejected. Please submit new proof.',
+      code: 'VERIFICATION_REJECTED',
+    };
+  }
+
+  if (authorProfile.verificationStatus !== 'VERIFIED') {
+    return {
+      verified: false,
+      error: 'Verified author status required',
+      code: 'NOT_VERIFIED',
+    };
+  }
+
+  return { verified: true };
+}
+
 export async function swapRoutes(fastify: FastifyInstance) {
   // Get user's swaps (sent and received)
   fastify.get('/', async (request, reply) => {
@@ -46,6 +96,19 @@ export async function swapRoutes(fastify: FastifyInstance) {
     if (!request.user) {
       reply.code(401);
       return { success: false, error: 'Unauthorized' } as ApiResponse;
+    }
+
+    // Check if user is an author - if so, they must be verified
+    if (hasRole(request.user, 'AUTHOR')) {
+      const verificationStatus = await checkAuthorVerification(request.user.id);
+      if (!verificationStatus.verified) {
+        reply.code(403);
+        return {
+          success: false,
+          error: verificationStatus.error,
+          code: verificationStatus.code,
+        } as any;
+      }
     }
 
     try {
@@ -195,6 +258,19 @@ export async function swapRoutes(fastify: FastifyInstance) {
     if (!request.user) {
       reply.code(401);
       return { success: false, error: 'Unauthorized' } as ApiResponse;
+    }
+
+    // Check if user is an author - if so, they must be verified
+    if (hasRole(request.user, 'AUTHOR')) {
+      const verificationStatus = await checkAuthorVerification(request.user.id);
+      if (!verificationStatus.verified) {
+        reply.code(403);
+        return {
+          success: false,
+          error: verificationStatus.error,
+          code: verificationStatus.code,
+        } as any;
+      }
     }
 
     try {
