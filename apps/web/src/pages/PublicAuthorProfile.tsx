@@ -43,14 +43,14 @@ export function PublicAuthorProfilePage() {
   const { toast } = useToast();
 
   const { data: profile, isLoading } = useQuery<PublicAuthorProfileData>({
-    queryKey: [`/authors/${userId}`],
+    queryKey: [`/api/authors/${userId}`],
     enabled: !!userId,
   });
 
   const followMutation = useMutation({
     mutationFn: () => api.followAuthor(userId!),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/authors/${userId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/authors/${userId}`] });
       toast({
         title: 'Following author',
         description: `You are now following ${profile?.penName || profile?.name}`,
@@ -68,7 +68,7 @@ export function PublicAuthorProfilePage() {
   const unfollowMutation = useMutation({
     mutationFn: () => api.unfollowAuthor(userId!),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/authors/${userId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/authors/${userId}`] });
       toast({
         title: 'Unfollowed author',
         description: `You are no longer following ${profile?.penName || profile?.name}`,

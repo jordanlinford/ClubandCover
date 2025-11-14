@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { useParams } from 'wouter';
-import { Card } from '@repo/ui';
+import { useParams, Link } from 'wouter';
+import { Card, Button } from '@repo/ui';
 import { PageHeader } from '@repo/ui';
-import { Calendar, Users, Award, BookOpen } from 'lucide-react';
+import { Calendar, Users, Award, BookOpen, Feather } from 'lucide-react';
 import { BADGE_ICONS, BADGE_COLORS } from '../lib/badges';
 import { useLocation } from 'wouter';
 
@@ -12,6 +12,7 @@ interface PublicProfileData {
   avatarUrl: string | null;
   bio: string | null;
   createdAt: string;
+  isAuthor?: boolean;
   clubs?: Array<{
     id: string;
     name: string;
@@ -88,6 +89,16 @@ export function PublicProfilePage() {
                 <p className="text-muted-foreground mt-4 whitespace-pre-wrap" data-testid="text-user-bio">
                   {profile.bio}
                 </p>
+              )}
+              {profile.isAuthor && (
+                <Link href={`/authors/${profile.id}`}>
+                  <div className="mt-4">
+                    <Button variant="outline" data-testid="link-author-profile">
+                      <Feather className="h-4 w-4 mr-2" />
+                      View Author Profile
+                    </Button>
+                  </div>
+                </Link>
               )}
             </div>
           </div>

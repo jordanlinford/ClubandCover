@@ -58,6 +58,7 @@ export async function authorPublicRoutes(fastify: FastifyInstance) {
       const publishedPitchesCount = await prisma.pitch.count({
         where: {
           authorId: userId,
+          status: 'PUBLISHED',
         },
       });
 
@@ -65,8 +66,15 @@ export async function authorPublicRoutes(fastify: FastifyInstance) {
       const publishedPitches = await prisma.pitch.findMany({
         where: {
           authorId: userId,
+          status: 'PUBLISHED',
         },
-        include: {
+        select: {
+          id: true,
+          title: true,
+          synopsis: true,
+          imageUrl: true,
+          genres: true,
+          createdAt: true,
           _count: {
             select: {
               nominations: true,
@@ -137,7 +145,7 @@ export async function authorPublicRoutes(fastify: FastifyInstance) {
           imageUrl: pitch.imageUrl,
           genres: pitch.genres,
           publishedAt: pitch.createdAt,
-          nominationCount: pitch._count.nominations,
+          nominationCount: pitch._count?.nominations ?? 0,
         })),
         
         // Current user's relationship

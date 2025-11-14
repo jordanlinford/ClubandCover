@@ -718,6 +718,7 @@ export async function userRoutes(fastify: FastifyInstance) {
           name: true,
           avatarUrl: true,
           bio: true,
+          roles: true,
           accountStatus: true,
           createdAt: true,
           profile: {
@@ -748,6 +749,7 @@ export async function userRoutes(fastify: FastifyInstance) {
         avatarUrl: user.avatarUrl,
         bio: user.profile?.bio || user.bio || null,
         createdAt: user.createdAt,
+        isAuthor: user.roles.includes('AUTHOR'),
       };
 
       if (user.profile?.showClubs) {
