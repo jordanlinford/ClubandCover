@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { PrismaClient, PitchStatus } from '@prisma/client';
-import { requireAuth, requireActiveAccount, requireVerifiedAuthor } from '../middleware/auth.js';
+import { requireAuth, requireActiveAccount, requireVerifiedAuthor, requireNotSuspended } from '../middleware/auth.js';
 
 const prisma = new PrismaClient();
 
@@ -12,6 +12,9 @@ export default async function pitchesRoutes(app: FastifyInstance) {
   // Create a new pitch (verified authors only)
   app.post('/', { preHandler: [requireAuth, requireActiveAccount, requireVerifiedAuthor] }, async (request, reply) => {
     const userId = request.user!.id;
+    
+    // Check if user is suspended
+    if (!requireNotSuspended(request, reply)) return;
 
     // Helper function to validate and normalize YouTube URLs
     const validateYouTubeUrl = (url: string): string | null => {
@@ -491,6 +494,9 @@ export default async function pitchesRoutes(app: FastifyInstance) {
   // Update pitch status (club hosts only for ACCEPTED/REJECTED)
   app.patch('/:id', { preHandler: [requireAuth, requireActiveAccount, requireVerifiedAuthor] }, async (request, reply) => {
     const userId = request.user!.id;
+
+    // Check if user is suspended
+    if (!requireNotSuspended(request, reply)) return;
 
     const paramsSchema = z.object({
       id: z.string().uuid(),

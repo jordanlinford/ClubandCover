@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { isAIEnabled, generateEmbedding, getEmbeddingText } from '../lib/ai.js';
 import { randomBytes } from 'crypto';
+import { requireNotSuspended } from '../middleware/auth.js';
 
 // Generate cryptographically secure base58 invite code (10 chars)
 function generateInviteCode(): string {
@@ -354,6 +355,9 @@ export async function clubRoutes(fastify: FastifyInstance) {
       reply.code(401);
       return { success: false, error: 'Unauthorized' };
     }
+
+    // Check if user is suspended
+    if (!requireNotSuspended(request, reply)) return;
 
     try {
       const schema = z.object({
@@ -804,6 +808,9 @@ export async function clubRoutes(fastify: FastifyInstance) {
       reply.code(401);
       return { success: false, error: 'Unauthorized' };
     }
+
+    // Check if user is suspended
+    if (!requireNotSuspended(request, reply)) return;
 
     try {
       const { code } = request.params as { code: string };

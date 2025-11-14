@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { prisma } from '../lib/prisma';
 import { CreateSwapSchema, UpdateSwapSchema } from '@repo/types';
 import type { ApiResponse } from '@repo/types';
-import { hasRole } from '../middleware/auth.js';
+import { hasRole, requireNotSuspended } from '../middleware/auth.js';
 import { z } from 'zod';
 import { dispatchNotification } from '../lib/notifications.js';
 
@@ -97,6 +97,9 @@ export async function swapRoutes(fastify: FastifyInstance) {
       reply.code(401);
       return { success: false, error: 'Unauthorized' } as ApiResponse;
     }
+
+    // Check if user is suspended
+    if (!requireNotSuspended(request, reply)) return;
 
     // Check if user is an author - if so, they must be verified
     if (hasRole(request.user, 'AUTHOR')) {
