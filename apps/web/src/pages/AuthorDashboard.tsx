@@ -15,6 +15,9 @@ import {
   ExternalLink,
   Zap,
   Target,
+  RefreshCcw,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -52,11 +55,20 @@ export default function AuthorDashboard() {
   const myPitches = pitchesData?.data || [];
   
   // Swaps endpoint already filters by user (requester or responder)
-  // Just filter out declined and verified statuses
   const allSwaps = swapsData?.data || [];
+  
+  // Active swaps (filter out declined and verified statuses)
   const mySwaps = allSwaps.filter(
     (s: any) => s.status !== 'DECLINED' && s.status !== 'VERIFIED'
   );
+  
+  // Swap history statistics
+  const swapsRequested = allSwaps.filter((s: any) => s.requesterId === user?.id).length;
+  const swapsCompleted = allSwaps.filter((s: any) => s.status === 'VERIFIED').length;
+  const swapsAbandoned = allSwaps.filter((s: any) => s.status === 'DECLINED' || s.status === 'EXPIRED').length;
+  // Success rate: only count completed swaps where user was the requester
+  const swapsRequestedAndCompleted = allSwaps.filter((s: any) => s.requesterId === user?.id && s.status === 'VERIFIED').length;
+  const swapSuccessRate = swapsRequested > 0 ? Math.round((swapsRequestedAndCompleted / swapsRequested) * 100) : 0;
   
   // Access user data from API response
   const currentUser = (userData as any)?.data;
@@ -267,6 +279,67 @@ export default function AuthorDashboard() {
               )}
             </Card>
 
+            {/* Swap History Statistics */}
+            <Card className="p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <RefreshCcw className="h-5 w-5 text-primary" />
+                <h2 className="text-xl font-semibold">Swap History</h2>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="p-4 bg-muted rounded-md">
+                  <div className="flex items-center gap-2 mb-1">
+                    <BookOpen className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <p className="text-sm text-muted-foreground">Requested</p>
+                  </div>
+                  <p className="text-2xl font-bold" data-testid="stat-swaps-requested">
+                    {swapsLoading ? '...' : swapsRequested}
+                  </p>
+                </div>
+
+                <div className="p-4 bg-muted rounded-md">
+                  <div className="flex items-center gap-2 mb-1">
+                    <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    <p className="text-sm text-muted-foreground">Completed</p>
+                  </div>
+                  <p className="text-2xl font-bold" data-testid="stat-swaps-completed">
+                    {swapsLoading ? '...' : swapsCompleted}
+                  </p>
+                </div>
+
+                <div className="p-4 bg-muted rounded-md">
+                  <div className="flex items-center gap-2 mb-1">
+                    <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                    <p className="text-sm text-muted-foreground">Abandoned</p>
+                  </div>
+                  <p className="text-2xl font-bold" data-testid="stat-swaps-abandoned">
+                    {swapsLoading ? '...' : swapsAbandoned}
+                  </p>
+                </div>
+
+                <div className="p-4 bg-muted rounded-md">
+                  <div className="flex items-center gap-2 mb-1">
+                    <TrendingUp className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                    <p className="text-sm text-muted-foreground">Success Rate</p>
+                  </div>
+                  <p className="text-2xl font-bold" data-testid="stat-swap-success-rate">
+                    {swapsLoading ? '...' : `${swapSuccessRate}%`}
+                  </p>
+                </div>
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => setLocation('/swaps')}
+                data-testid="button-view-all-swaps"
+              >
+                View All Swaps
+                <ArrowRight className="h-4 w-4 ml-1" />
+              </Button>
+            </Card>
+
             {/* Active Swaps */}
             <Card className="p-6">
               <div className="flex items-center justify-between mb-4">
@@ -278,7 +351,7 @@ export default function AuthorDashboard() {
                   variant="outline"
                   size="sm"
                   onClick={() => setLocation('/swaps')}
-                  data-testid="button-view-swaps"
+                  data-testid="button-view-active-swaps"
                 >
                   View All
                 </Button>
