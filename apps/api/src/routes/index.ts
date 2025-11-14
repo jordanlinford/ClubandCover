@@ -32,6 +32,7 @@ import { rewardRoutes } from './rewards.js';
 import { adminRewardRoutes } from './adminRewards.js';
 import { authorFollowRoutes } from './author-follows.js';
 import { authorProfileRoutes } from './author-profiles.js';
+import { authorPublicRoutes } from './authors.js';
 import { adminAuthorVerificationRoutes } from './admin-author-verifications.js';
 
 export async function routes(fastify: FastifyInstance) {
@@ -105,6 +106,7 @@ export async function routes(fastify: FastifyInstance) {
   
   // Author profiles and verification
   await fastify.register(authorProfileRoutes, { prefix: '/author-profiles' });
+  await fastify.register(authorPublicRoutes, { prefix: '/authors' });
   await fastify.register(adminAuthorVerificationRoutes, { prefix: '/admin/author-verifications' });
   
   // Test support routes (only enabled in test environment)

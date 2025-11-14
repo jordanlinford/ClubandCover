@@ -503,6 +503,19 @@ class ApiClient {
   }> {
     return this.patch(`/memberships/${membershipId}`, data);
   }
+
+  // Public Author Profiles API
+  async getPublicAuthorProfile(userId: string): Promise<any> {
+    return this.get(`/authors/${userId}`);
+  }
+
+  async followAuthor(userId: string): Promise<any> {
+    return this.post(`/authors/${userId}/follow`, {});
+  }
+
+  async unfollowAuthor(userId: string): Promise<any> {
+    return this.delete(`/authors/${userId}/follow`);
+  }
 }
 
 export const api = new ApiClient();

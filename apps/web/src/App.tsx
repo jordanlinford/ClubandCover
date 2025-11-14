@@ -42,6 +42,7 @@ import AuthorVerification from './pages/AuthorVerification';
 import AdminAuthorVerifications from './pages/admin/AuthorVerifications';
 import { AchievementsPage } from './pages/Achievements';
 import { PublicProfilePage } from './pages/PublicProfile';
+import { PublicAuthorProfilePage } from './pages/PublicAuthorProfile';
 
 export default function App() {
   return (
@@ -58,6 +59,7 @@ export default function App() {
       <Route path="/reset-password" component={ResetPassword} />
       <Route path="/profile" component={ProfilePage} />
       <Route path="/users/:userId/profile" component={PublicProfilePage} />
+      <Route path="/authors/:userId" component={PublicAuthorProfilePage} />
       <Route path="/settings" component={SettingsPage} />
       <Route path="/books" component={BooksListPage} />
       <Route path="/books/new" component={BookFormPage} />
