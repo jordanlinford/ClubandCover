@@ -445,6 +445,22 @@ export async function adminRewardRoutes(fastify: FastifyInstance) {
             throw new Error('Failed to refund points');
           }
 
+          // Create audit log entry
+          await tx.redemptionAuditLog.create({
+            data: {
+              redemptionId: id,
+              actionType: 'STATUS_CHANGE',
+              oldStatus: freshRedemption.status,
+              newStatus: validated.status,
+              changedBy: request.user!.id,
+              reason: validated.rejectionReason || validated.notes || `Status changed to ${validated.status}`,
+              metadata: {
+                pointsRefunded: freshRedemption.pointsSpent,
+                inventoryReleased: freshRedemption.rewardItem.copiesAvailable !== null,
+              },
+            },
+          });
+
           // Fetch and return the updated redemption
           const updated = await tx.redemptionRequest.findUnique({
             where: { id },
@@ -494,6 +510,21 @@ export async function adminRewardRoutes(fastify: FastifyInstance) {
         if (statusUpdate.count === 0) {
           throw new Error('Redemption has already been processed');
         }
+
+        // Create audit log entry
+        await tx.redemptionAuditLog.create({
+          data: {
+            redemptionId: id,
+            actionType: 'STATUS_CHANGE',
+            oldStatus: freshRedemption.status,
+            newStatus: validated.status,
+            changedBy: request.user!.id,
+            reason: validated.notes || `Status changed to ${validated.status}`,
+            metadata: {
+              reviewedAt: new Date().toISOString(),
+            },
+          },
+        });
 
         // Fetch and return the updated redemption
         const updated = await tx.redemptionRequest.findUnique({
@@ -572,7 +603,7 @@ export async function adminRewardRoutes(fastify: FastifyInstance) {
             
             // Grant badge if badgeCode is specified
             if (metadata.badgeCode) {
-              await prisma.userBadge.upsert({
+              const badgeResult = await prisma.userBadge.upsert({
                 where: {
                   userId_code: {
                     userId: redemption.userId,
@@ -585,6 +616,21 @@ export async function adminRewardRoutes(fastify: FastifyInstance) {
                 },
                 update: {}, // Badge already exists, no-op
               });
+              
+              // Log badge grant in audit trail
+              await prisma.redemptionAuditLog.create({
+                data: {
+                  redemptionId: redemption.id,
+                  actionType: 'BADGE_GRANT',
+                  changedBy: request.user!.id,
+                  reason: `Badge ${metadata.badgeCode} granted via reward approval`,
+                  metadata: {
+                    badgeCode: metadata.badgeCode,
+                    userId: redemption.userId,
+                  },
+                },
+              });
+              
               request.log.info(`Granted badge ${metadata.badgeCode} to user ${redemption.userId}`);
             }
             
