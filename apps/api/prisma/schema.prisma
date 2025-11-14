@@ -15,6 +15,12 @@ enum UserRole {
   STAFF
 }
 
+enum AccountStatus {
+  ACTIVE
+  DISABLED
+  DELETED
+}
+
 enum Tier {
   FREE
   PRO_AUTHOR
@@ -172,27 +178,30 @@ enum BookFormat {
 
 // Models
 model User {
-  id                       String     @id
-  email                    String     @unique
+  id                       String        @id
+  email                    String        @unique
   name                     String
   avatarUrl                String?
   bio                      String?
-  roles                    UserRole[] @default([READER])
-  tier                     Tier       @default(FREE)
+  roles                    UserRole[]    @default([READER])
+  tier                     Tier          @default(FREE)
+  accountStatus            AccountStatus @default(ACTIVE)
+  disabledAt               DateTime?
+  deletedAt                DateTime?
   stripeCustomerId         String?
   stripeSubscriptionId     String?
-  creditBalance            Int        @default(0) // Promotion credits for visibility boosts
-  aiCallsToday             Int        @default(0)
-  aiCallsResetAt           DateTime   @default(now())
-  points                   Int        @default(0)
-  reputation               Int        @default(0)
-  emailVerified            Boolean    @default(false)
+  creditBalance            Int           @default(0) // Promotion credits for visibility boosts
+  aiCallsToday             Int           @default(0)
+  aiCallsResetAt           DateTime      @default(now())
+  points                   Int           @default(0)
+  reputation               Int           @default(0)
+  emailVerified            Boolean       @default(false)
   emailVerificationToken   String?
   emailVerificationExpires DateTime?
   passwordResetToken       String?
   passwordResetExpires     DateTime?
-  createdAt                DateTime   @default(now())
-  updatedAt                DateTime   @updatedAt
+  createdAt                DateTime      @default(now())
+  updatedAt                DateTime      @updatedAt
 
   // Relations
   profile             UserProfile?
