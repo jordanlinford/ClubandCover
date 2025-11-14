@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import { Card } from '@repo/ui';
@@ -173,6 +173,13 @@ export function SettingsPage() {
   const showBadges = profileData?.showBadges ?? true;
   const showGenres = profileData?.showGenres ?? true;
   const currentUserName = currentUserResponse?.data?.name || 'User';
+
+  // Prefill display name field when data loads
+  useEffect(() => {
+    if (currentUserResponse?.data?.name && !displayName) {
+      setDisplayName(currentUserResponse.data.name);
+    }
+  }, [currentUserResponse?.data?.name]);
 
   if (!user) {
     setLocation('/auth/sign-in');
