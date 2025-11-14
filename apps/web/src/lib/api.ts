@@ -423,6 +423,40 @@ class ApiClient {
     return this.post(`/clubs/${clubId}/messages`, data);
   }
 
+  // Author Verification API
+  async getAuthorProfile(): Promise<any> {
+    return this.get('/author-profiles');
+  }
+
+  async saveAuthorProfile(data: {
+    penName?: string;
+    bio: string;
+    genres: string[];
+    website?: string;
+  }): Promise<any> {
+    return this.post('/author-profiles', data);
+  }
+
+  async submitAuthorVerification(data: {
+    type: 'AMAZON_LINK' | 'GOODREADS_LINK' | 'PUBLISHER_PAGE' | 'ISBN' | 'OTHER';
+    value: string;
+    notes?: string;
+  }): Promise<any> {
+    return this.post('/author-profiles/submit-verification', data);
+  }
+
+  async getPendingAuthorVerifications(): Promise<any[]> {
+    return this.get('/admin/author-verifications/pending');
+  }
+
+  async approveAuthorVerification(profileId: string): Promise<any> {
+    return this.post('/admin/author-verifications/approve', { profileId });
+  }
+
+  async rejectAuthorVerification(profileId: string, reason?: string): Promise<any> {
+    return this.post('/admin/author-verifications/reject', { profileId, reason });
+  }
+
   // Sprint-6: Member Management API
   async getMyMembership(clubId: string): Promise<{
     id: string;

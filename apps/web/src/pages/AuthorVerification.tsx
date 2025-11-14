@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button, Card, Input } from '@repo/ui';
+import { api } from '../lib/api';
 import { Loader2, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
 import { BOOK_GENRES } from '@repo/types';
 
@@ -29,12 +30,11 @@ export default function AuthorVerification() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const { data: profileResponse, isLoading: profileLoading } = useQuery<{ success: boolean; data: any }>({
+  const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ['/api/author-profiles'],
+    queryFn: () => api.getAuthorProfile(),
     retry: false,
   });
-
-  const profile = profileResponse?.data;
 
   const {
     register: registerProfile,
@@ -78,18 +78,7 @@ export default function AuthorVerification() {
   const selectedGenres = watchProfile('genres') || [];
 
   const saveProfileMutation = useMutation({
-    mutationFn: async (data: ProfileFormData) => {
-      const response = await fetch('/api/author-profiles', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to save profile');
-      }
-      return response.json();
-    },
+    mutationFn: (data: ProfileFormData) => api.saveAuthorProfile(data),
     onSuccess: () => {
       setSuccess('Profile saved successfully');
       setError('');
@@ -105,18 +94,7 @@ export default function AuthorVerification() {
   });
 
   const submitVerificationMutation = useMutation({
-    mutationFn: async (data: VerificationFormData) => {
-      const response = await fetch('/api/author-profiles/submit-verification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to submit verification');
-      }
-      return response.json();
-    },
+    mutationFn: (data: VerificationFormData) => api.submitAuthorVerification(data),
     onSuccess: () => {
       setSuccess('Verification submitted for review');
       setError('');

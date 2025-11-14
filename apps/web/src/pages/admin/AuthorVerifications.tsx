@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button, Card } from '@repo/ui';
+import { api } from '../../lib/api';
 import { Loader2, CheckCircle, XCircle, ExternalLink } from 'lucide-react';
 
 interface AuthorProfile {
@@ -37,23 +38,13 @@ export default function AdminAuthorVerifications() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const { data: pendingResponse, isLoading } = useQuery<{ success: boolean; data: AuthorProfile[] }>({
+  const { data: profiles = [], isLoading } = useQuery({
     queryKey: ['/api/admin/author-verifications/pending'],
+    queryFn: () => api.getPendingAuthorVerifications(),
   });
 
   const approveMutation = useMutation({
-    mutationFn: async (profileId: string) => {
-      const response = await fetch('/api/admin/author-verifications/approve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profileId }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to approve verification');
-      }
-      return response.json();
-    },
+    mutationFn: (profileId: string) => api.approveAuthorVerification(profileId),
     onSuccess: () => {
       setSuccess('Author verification approved successfully');
       setError('');
@@ -68,18 +59,8 @@ export default function AdminAuthorVerifications() {
   });
 
   const rejectMutation = useMutation({
-    mutationFn: async ({ profileId, reason }: { profileId: string; reason?: string }) => {
-      const response = await fetch('/api/admin/author-verifications/reject', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profileId, reason }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to reject verification');
-      }
-      return response.json();
-    },
+    mutationFn: ({ profileId, reason }: { profileId: string; reason?: string }) => 
+      api.rejectAuthorVerification(profileId, reason),
     onSuccess: () => {
       setSuccess('Author verification rejected');
       setError('');
@@ -101,8 +82,6 @@ export default function AdminAuthorVerifications() {
       </div>
     );
   }
-
-  const profiles = pendingResponse?.data || [];
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">

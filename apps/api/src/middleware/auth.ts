@@ -164,9 +164,24 @@ export async function requireActiveAccount(request: FastifyRequest, reply: Fasti
  */
 async function ensureUser(id: string, email: string, metadata?: Record<string, any>) {
   try {
-    // Try to find existing user
+    // Try to find existing user with all fields explicitly selected
     let user = await prisma.user.findUnique({
       where: { id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        roles: true,
+        tier: true,
+        emailVerified: true,
+        accountStatus: true,
+        disabledAt: true,
+        deletedAt: true,
+        creditBalance: true,
+        createdAt: true,
+        updatedAt: true,
+        avatarUrl: true,
+      },
     });
 
     if (!user) {
@@ -183,8 +198,23 @@ async function ensureUser(id: string, email: string, metadata?: Record<string, a
           roles: [initialRole],
           tier: 'FREE',
         },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          roles: true,
+          tier: true,
+          emailVerified: true,
+          accountStatus: true,
+          disabledAt: true,
+          deletedAt: true,
+          creditBalance: true,
+          createdAt: true,
+          updatedAt: true,
+          avatarUrl: true,
+        },
       });
-      console.log(`[AUTH] Created new user: ${email} (${id}) as ${initialRole}`);
+      console.log(`[AUTH] Created new user: ${email} (${id}) as ${initialRole} with roles:`, user.roles);
       
       // Award ACCOUNT_CREATED points (async, non-blocking)
       import('../lib/points.js').then(({ awardPoints }) => {
@@ -197,8 +227,25 @@ async function ensureUser(id: string, email: string, metadata?: Record<string, a
       user = await prisma.user.update({
         where: { id },
         data: { email },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          roles: true,
+          tier: true,
+          emailVerified: true,
+          accountStatus: true,
+          disabledAt: true,
+          deletedAt: true,
+          creditBalance: true,
+          createdAt: true,
+          updatedAt: true,
+          avatarUrl: true,
+        },
       });
-      console.log(`[AUTH] Updated user email: ${email} (${id})`);
+      console.log(`[AUTH] Updated user email: ${email} (${id}) with roles:`, user.roles);
+    } else {
+      console.log(`[AUTH] Found existing user: ${email} (${id}) with roles:`, user.roles);
     }
 
     return user;
