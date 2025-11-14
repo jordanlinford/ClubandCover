@@ -10,6 +10,9 @@ declare module 'fastify' {
       roles?: string[];
       tier?: string;
       emailVerified?: boolean;
+      accountStatus?: string;
+      disabledAt?: Date | null;
+      deletedAt?: Date | null;
     };
   }
 }
@@ -50,6 +53,9 @@ export async function supabaseAuth(request: FastifyRequest, reply: FastifyReply)
           roles: dbUser.roles,
           tier: dbUser.tier,
           emailVerified: dbUser.emailVerified,
+          accountStatus: dbUser.accountStatus,
+          disabledAt: dbUser.disabledAt,
+          deletedAt: dbUser.deletedAt,
         };
         request.log.info({ userId: dbUser.id, email: dbUser.email }, '[AUTH] Dev token accepted');
         return;
@@ -85,9 +91,12 @@ export async function supabaseAuth(request: FastifyRequest, reply: FastifyReply)
       roles: dbUser.roles,
       tier: dbUser.tier,
       emailVerified: dbUser.emailVerified,
+      accountStatus: dbUser.accountStatus,
+      disabledAt: dbUser.disabledAt,
+      deletedAt: dbUser.deletedAt,
     };
     
-    request.log.info({ userId: dbUser.id, roles: dbUser.roles }, '[AUTH] User authenticated successfully');
+    request.log.info({ userId: dbUser.id, roles: dbUser.roles, accountStatus: dbUser.accountStatus }, '[AUTH] User authenticated successfully');
   } catch (error) {
     // If Supabase is not configured, skip auth
     if (error instanceof Error && error.message.includes('SUPABASE_URL')) {
@@ -109,6 +118,42 @@ export async function requireAuth(request: FastifyRequest, reply: FastifyReply) 
     return reply.code(401).send({
       success: false,
       error: 'Authentication required',
+    });
+  }
+}
+
+/**
+ * Middleware that requires active account
+ * Blocks disabled and deleted users except for specific reactivation routes
+ */
+export async function requireActiveAccount(request: FastifyRequest, reply: FastifyReply) {
+  if (!request.user) {
+    return; // Let requireAuth handle this
+  }
+
+  const allowedRoutes = [
+    '/api/user/me/enable',    // Allow reactivation
+    '/api/user/me/delete',    // Allow deletion confirmation
+  ];
+
+  // Allow these routes even for disabled/deleted users
+  if (allowedRoutes.some(route => request.url === route)) {
+    return;
+  }
+
+  if (request.user.accountStatus === 'DELETED') {
+    return reply.code(403).send({
+      success: false,
+      error: 'This account has been deleted',
+      code: 'ACCOUNT_DELETED',
+    });
+  }
+
+  if (request.user.accountStatus === 'DISABLED') {
+    return reply.code(403).send({
+      success: false,
+      error: 'This account has been disabled. Please reactivate it to continue.',
+      code: 'ACCOUNT_DISABLED',
     });
   }
 }

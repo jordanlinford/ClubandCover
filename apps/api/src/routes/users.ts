@@ -411,6 +411,250 @@ export async function userRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // Disable account (soft delete - reversible)
+  fastify.post('/me/disable', async (request, reply) => {
+    if (!request.user) {
+      reply.code(401);
+      return { success: false, error: 'Authentication required' } as ApiResponse;
+    }
+
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: request.user.id },
+        select: { 
+          accountStatus: true,
+          stripeSubscriptionId: true,
+        },
+      });
+
+      if (!user) {
+        reply.code(404);
+        return { success: false, error: 'User not found' } as ApiResponse;
+      }
+
+      if (user.accountStatus === 'DISABLED') {
+        return { success: true, message: 'Account is already disabled' } as ApiResponse;
+      }
+
+      if (user.accountStatus === 'DELETED') {
+        reply.code(400);
+        return { success: false, error: 'Cannot disable a deleted account' } as ApiResponse;
+      }
+
+      // Pause Stripe subscription if exists (don't cancel - can be resumed)
+      if (user.stripeSubscriptionId) {
+        try {
+          const { stripe } = await import('../lib/stripe.js');
+          await stripe.subscriptions.update(user.stripeSubscriptionId, {
+            pause_collection: { behavior: 'mark_uncollectible' },
+          });
+          request.log.info({ userId: request.user.id, subscriptionId: user.stripeSubscriptionId }, 'Paused Stripe subscription on account disable');
+        } catch (stripeError) {
+          request.log.error({ error: stripeError }, 'Failed to pause Stripe subscription');
+          // Continue with disable even if Stripe fails
+        }
+      }
+
+      await prisma.user.update({
+        where: { id: request.user.id },
+        data: {
+          accountStatus: 'DISABLED',
+          disabledAt: new Date(),
+        },
+      });
+
+      return {
+        success: true,
+        message: 'Account has been disabled. You can reactivate it anytime by signing in again.',
+      } as ApiResponse;
+    } catch (error) {
+      reply.code(500);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to disable account',
+      } as ApiResponse;
+    }
+  });
+
+  // Enable account (reactivate)
+  fastify.post('/me/enable', async (request, reply) => {
+    if (!request.user) {
+      reply.code(401);
+      return { success: false, error: 'Authentication required' } as ApiResponse;
+    }
+
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: request.user.id },
+        select: { 
+          accountStatus: true,
+          stripeSubscriptionId: true,
+        },
+      });
+
+      if (!user) {
+        reply.code(404);
+        return { success: false, error: 'User not found' } as ApiResponse;
+      }
+
+      if (user.accountStatus === 'ACTIVE') {
+        return { success: true, message: 'Account is already active' } as ApiResponse;
+      }
+
+      if (user.accountStatus === 'DELETED') {
+        reply.code(400);
+        return { success: false, error: 'Cannot reactivate a deleted account. Please contact support.' } as ApiResponse;
+      }
+
+      // Resume Stripe subscription if exists
+      if (user.stripeSubscriptionId) {
+        try {
+          const { stripe } = await import('../lib/stripe.js');
+          await stripe.subscriptions.update(user.stripeSubscriptionId, {
+            pause_collection: null,
+          });
+          request.log.info({ userId: request.user.id, subscriptionId: user.stripeSubscriptionId }, 'Resumed Stripe subscription on account reactivation');
+        } catch (stripeError) {
+          request.log.warn({ error: stripeError }, 'Failed to resume Stripe subscription');
+          // Continue with reactivation even if Stripe fails
+        }
+      }
+
+      await prisma.user.update({
+        where: { id: request.user.id },
+        data: {
+          accountStatus: 'ACTIVE',
+          disabledAt: null,
+        },
+      });
+
+      return {
+        success: true,
+        message: 'Account has been reactivated successfully.',
+      } as ApiResponse;
+    } catch (error) {
+      reply.code(500);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to enable account',
+      } as ApiResponse;
+    }
+  });
+
+  // Delete account permanently (anonymize user data)
+  fastify.post('/me/delete', async (request, reply) => {
+    if (!request.user) {
+      reply.code(401);
+      return { success: false, error: 'Authentication required' } as ApiResponse;
+    }
+
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: request.user.id },
+        select: { 
+          accountStatus: true, 
+          email: true,
+          stripeCustomerId: true,
+          stripeSubscriptionId: true,
+        },
+      });
+
+      if (!user) {
+        reply.code(404);
+        return { success: false, error: 'User not found' } as ApiResponse;
+      }
+
+      if (user.accountStatus === 'DELETED') {
+        return { success: true, message: 'Account is already deleted' } as ApiResponse;
+      }
+
+      // Cancel Stripe subscription if exists
+      if (user.stripeSubscriptionId) {
+        try {
+          const { stripe } = await import('../lib/stripe.js');
+          await stripe.subscriptions.cancel(user.stripeSubscriptionId);
+          request.log.info({ userId: request.user.id, subscriptionId: user.stripeSubscriptionId }, 'Cancelled Stripe subscription on account deletion');
+        } catch (stripeError) {
+          request.log.error({ error: stripeError }, 'Failed to cancel Stripe subscription on deletion');
+          // Continue with deletion even if Stripe fails
+        }
+      }
+
+      // Anonymize user data while preserving relationships
+      const anonymizedEmail = `deleted_${request.user.id}@deleted.local`;
+      
+      // Use transaction to ensure atomicity
+      await prisma.$transaction(async (tx) => {
+        // Anonymize main user record
+        await tx.user.update({
+          where: { id: request.user.id },
+          data: {
+            accountStatus: 'DELETED',
+            deletedAt: new Date(),
+            email: anonymizedEmail,
+            name: 'Deleted User',
+            bio: null,
+            avatarUrl: null,
+            emailVerified: false,
+            emailVerificationToken: null,
+            emailVerificationExpires: null,
+            passwordResetToken: null,
+            passwordResetExpires: null,
+            stripeCustomerId: null,
+            stripeSubscriptionId: null,
+          },
+        });
+
+        // Anonymize profile if it exists
+        await tx.userProfile.updateMany({
+          where: { userId: request.user.id },
+          data: {
+            bio: null,
+            avatarUrl: null,
+            genres: [],
+          },
+        });
+
+        // Clear user settings
+        await tx.userSetting.updateMany({
+          where: { userId: request.user.id },
+          data: {
+            emailOptIn: false,
+            emailPollReminders: false,
+            emailSwapUpdates: false,
+            emailPointsUpdates: false,
+          },
+        });
+      });
+
+      // Try to delete from Supabase Auth (non-blocking)
+      try {
+        const { getSupabase } = await import('../lib/supabase.js');
+        const supabase = getSupabase();
+        const { error } = await supabase.auth.admin.deleteUser(request.user.id);
+        if (error) {
+          request.log.warn({ error }, 'Failed to delete user from Supabase Auth');
+        } else {
+          request.log.info({ userId: request.user.id }, 'Deleted user from Supabase Auth');
+        }
+      } catch (supabaseError) {
+        request.log.warn({ error: supabaseError }, 'Error deleting from Supabase Auth');
+        // Continue - user is anonymized in our DB
+      }
+
+      return {
+        success: true,
+        message: 'Your account has been permanently deleted. All personal information has been removed.',
+      } as ApiResponse;
+    } catch (error) {
+      reply.code(500);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to delete account',
+      } as ApiResponse;
+    }
+  });
+
   fastify.get('/', async (request, reply) => {
     try {
       const users = await prisma.user.findMany();
