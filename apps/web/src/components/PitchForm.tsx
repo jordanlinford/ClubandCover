@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Input } from '@repo/ui';
 import { Button } from '@repo/ui';
-import { BOOK_GENRES, type CreatePitch } from '@repo/types';
-import { ImageIcon, Video, Tag, Check } from 'lucide-react';
+import { BOOK_GENRES, BookFormat, type CreatePitch } from '@repo/types';
+import { ImageIcon, Video, Tag, Check, BookOpen, Gift, AlertCircle } from 'lucide-react';
 
 interface PitchFormData {
   title: string;
@@ -12,6 +12,8 @@ interface PitchFormData {
   theme: string;
   imageUrl: string;
   videoUrl: string;
+  availableFormats: string[];
+  offerFreeIfChosen: boolean;
 }
 
 interface PitchFormProps {
@@ -29,9 +31,12 @@ export function PitchForm({ onSubmit, isPending, clubs }: PitchFormProps) {
     theme: '',
     imageUrl: '',
     videoUrl: '',
+    availableFormats: [],
+    offerFreeIfChosen: false,
   });
 
   const [genreError, setGenreError] = useState('');
+  const [formatError, setFormatError] = useState('');
 
   const handleGenreToggle = (genre: string) => {
     setGenreError('');
@@ -56,12 +61,37 @@ export function PitchForm({ onSubmit, isPending, clubs }: PitchFormProps) {
     }
   };
 
+  const handleFormatToggle = (format: string) => {
+    setFormatError('');
+    const currentFormats = formData.availableFormats;
+    
+    if (currentFormats.includes(format)) {
+      // Remove format
+      setFormData({
+        ...formData,
+        availableFormats: currentFormats.filter(f => f !== format),
+      });
+    } else {
+      // Add format
+      setFormData({
+        ...formData,
+        availableFormats: [...currentFormats, format],
+      });
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validate genres
     if (formData.genres.length === 0) {
       setGenreError('Please select at least one genre');
+      return;
+    }
+    
+    // Validate formats
+    if (formData.availableFormats.length === 0) {
+      setFormatError('Please select at least one format');
       return;
     }
     
@@ -74,6 +104,8 @@ export function PitchForm({ onSubmit, isPending, clubs }: PitchFormProps) {
       theme: formData.theme.trim() || undefined,
       imageUrl: formData.imageUrl.trim() || undefined,
       videoUrl: formData.videoUrl.trim() || undefined,
+      availableFormats: formData.availableFormats.length > 0 ? formData.availableFormats : undefined,
+      offerFreeIfChosen: formData.offerFreeIfChosen,
     };
     
     onSubmit(submitData);
@@ -233,6 +265,79 @@ export function PitchForm({ onSubmit, isPending, clubs }: PitchFormProps) {
         <p className="text-xs text-muted-foreground mt-1">
           Optional: Target a specific club or leave open for all clubs
         </p>
+      </div>
+
+      {/* Available Formats */}
+      <div>
+        <label className="block text-sm font-medium mb-3 flex items-center gap-2">
+          <BookOpen className="w-4 h-4" />
+          Available Formats * (Select all that apply)
+        </label>
+        <div className="grid grid-cols-2 gap-2">
+          {Object.values(BookFormat).map((format) => {
+            const isSelected = formData.availableFormats.includes(format);
+            return (
+              <button
+                key={format}
+                type="button"
+                onClick={() => handleFormatToggle(format)}
+                data-testid={`button-format-${format}`}
+                className={`
+                  flex items-center justify-between gap-2 px-3 py-2 rounded-md border text-sm
+                  hover-elevate active-elevate-2 transition-colors
+                  ${isSelected 
+                    ? 'bg-primary text-primary-foreground border-primary' 
+                    : 'bg-background border-border'}
+                `}
+              >
+                <span>{format.replace('_', ' ')}</span>
+                {isSelected && <Check className="w-4 h-4" />}
+              </button>
+            );
+          })}
+        </div>
+        {formatError && (
+          <p className="text-sm text-destructive mt-2" data-testid="text-format-error">
+            {formatError}
+          </p>
+        )}
+        {formData.availableFormats.length > 0 && (
+          <p className="text-sm text-muted-foreground mt-2">
+            Selected: {formData.availableFormats.join(', ')}
+          </p>
+        )}
+      </div>
+
+      {/* Offer Free If Chosen */}
+      <div className="border border-border rounded-md p-4 space-y-3">
+        <div className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            id="offerFreeIfChosen"
+            checked={formData.offerFreeIfChosen}
+            onChange={(e) => setFormData({ ...formData, offerFreeIfChosen: e.target.checked })}
+            data-testid="checkbox-offer-free"
+            className="mt-1 h-4 w-4 rounded border-border"
+          />
+          <div className="flex-1">
+            <label htmlFor="offerFreeIfChosen" className="text-sm font-medium flex items-center gap-2 cursor-pointer">
+              <Gift className="w-4 h-4" />
+              Offer book for free if chosen
+            </label>
+            <p className="text-xs text-muted-foreground mt-1">
+              Commit to providing this book at no cost to the club if selected
+            </p>
+          </div>
+        </div>
+        
+        {formData.offerFreeIfChosen && formData.availableFormats.some(f => f === 'PAPERBACK' || f === 'HARDCOVER') && (
+          <div className="flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-md">
+            <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-500 mt-0.5 flex-shrink-0" />
+            <p className="text-xs text-amber-900 dark:text-amber-200">
+              Physical format selected: You'll be responsible for shipping costs if your book is chosen
+            </p>
+          </div>
+        )}
       </div>
 
       <Button

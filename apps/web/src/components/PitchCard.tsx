@@ -1,7 +1,7 @@
 import { Card } from '@repo/ui';
 import type { Pitch } from '@repo/types';
 import { Link } from 'wouter';
-import { Zap, Target } from 'lucide-react';
+import { Zap, Target, BookOpen, Gift } from 'lucide-react';
 
 interface PitchCardProps {
   pitch: Pitch;
@@ -60,6 +60,27 @@ export function PitchCard({ pitch }: PitchCardProps) {
         >
           {pitch.blurb}
         </p>
+
+        {/* Available Formats and Free Offer */}
+        <div className="flex items-center gap-2 flex-wrap mb-3">
+          {pitch.availableFormats && pitch.availableFormats.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <BookOpen className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">
+                {pitch.availableFormats.map(f => f.replace('_', ' ')).join(', ')}
+              </span>
+            </div>
+          )}
+          {pitch.offerFreeIfChosen && (
+            <span 
+              className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800"
+              data-testid={`badge-free-offer-${pitch.id}`}
+            >
+              <Gift className="h-3 w-3" />
+              Free if chosen
+            </span>
+          )}
+        </div>
 
         <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
           <span data-testid={`text-created-${pitch.id}`}>
