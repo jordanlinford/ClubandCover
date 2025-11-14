@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRoute } from 'wouter';
 import { Card } from '@repo/ui';
 import { Button } from '@repo/ui';
@@ -68,7 +68,6 @@ export function ClubRoomPage() {
   const [activeTab, setActiveTab] = useState<'feed' | 'polls' | 'info' | 'members'>('feed');
   const [messageBody, setMessageBody] = useState('');
   const [error, setError] = useState('');
-  const [messagePage, setMessagePage] = useState(1);
   const [attachment, setAttachment] = useState<{
     dataUrl: string;
     type: string;
@@ -83,11 +82,24 @@ export function ClubRoomPage() {
     enabled: !!clubId,
   });
 
-  const { data: messagesData } = useQuery({
-    queryKey: ['/api/clubs', clubId, 'messages', messagePage],
-    queryFn: () => api.getClubMessages(clubId, { page: messagePage, limit: 20 }),
+  const { 
+    data: messagesData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: ['/api/clubs', clubId, 'messages'],
+    queryFn: ({ pageParam = 1 }) => api.getClubMessages(clubId, { page: pageParam, limit: 20 }),
+    getNextPageParam: (lastPage) => {
+      const { page, totalPages } = lastPage.pagination;
+      return page < totalPages ? page + 1 : undefined;
+    },
     enabled: !!clubId && activeTab === 'feed',
+    initialPageParam: 1,
   });
+
+  // Flatten all pages of messages
+  const allMessages = messagesData?.pages.flatMap(page => page.messages) ?? [];
 
   // Get current user's membership to check role
   const { data: userMembership } = useQuery({
@@ -126,11 +138,11 @@ export function ClubRoomPage() {
       attachmentName?: string;
     }) => api.postClubMessage(clubId, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/clubs', clubId, 'messages'] });
+      // Reset the infinite query to refetch from page 1
+      queryClient.resetQueries({ queryKey: ['/api/clubs', clubId, 'messages'] });
       setMessageBody('');
       setAttachment(null);
       setError('');
-      setMessagePage(1); // Reset to first page after posting
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -143,7 +155,8 @@ export function ClubRoomPage() {
   const deleteMessageMutation = useMutation({
     mutationFn: (messageId: string) => api.deleteClubMessage(clubId, messageId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/clubs', clubId, 'messages'] });
+      // Reset the infinite query to refetch all pages
+      queryClient.resetQueries({ queryKey: ['/api/clubs', clubId, 'messages'] });
     },
   });
 
@@ -439,7 +452,7 @@ export function ClubRoomPage() {
 
             {/* Messages */}
             <div className="space-y-4">
-              {messagesData?.messages.map((message) => {
+              {allMessages.map((message) => {
                 const canDelete = user && (
                   message.userId === user.id || 
                   isHost
@@ -524,7 +537,7 @@ export function ClubRoomPage() {
                   </Card>
                 );
               })}
-              {messagesData?.messages.length === 0 && (
+              {allMessages.length === 0 && (
                 <Card className="p-8 text-center">
                   <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-400" />
                   <p className="text-gray-600 dark:text-gray-400">
@@ -534,14 +547,15 @@ export function ClubRoomPage() {
               )}
 
               {/* Load More Button */}
-              {messagesData && messagesData.pagination.page < messagesData.pagination.totalPages && (
+              {hasNextPage && (
                 <div className="flex justify-center mt-6">
                   <Button
                     variant="outline"
-                    onClick={() => setMessagePage(prev => prev + 1)}
+                    onClick={() => fetchNextPage()}
+                    disabled={isFetchingNextPage}
                     data-testid="button-load-more-messages"
                   >
-                    Load More Messages
+                    {isFetchingNextPage ? 'Loading...' : 'Load More Messages'}
                   </Button>
                 </div>
               )}
