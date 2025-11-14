@@ -242,7 +242,7 @@ export async function addUserRole(userId: string, role: string) {
     throw new Error('User not found');
   }
 
-  if (user.roles.includes(role)) {
+  if (user.roles.includes(role as any)) {
     return; // Already has role
   }
 
@@ -250,7 +250,7 @@ export async function addUserRole(userId: string, role: string) {
     where: { id: userId },
     data: {
       roles: {
-        push: role,
+        push: role as any,
       },
     },
   });
