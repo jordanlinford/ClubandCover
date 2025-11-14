@@ -18,7 +18,7 @@ const SubmitVerificationSchema = z.object({
 });
 
 export async function authorProfileRoutes(fastify: FastifyInstance) {
-  // Get current user's author profile
+  // Get current user's author profile (returns null if not created yet)
   fastify.get('/', async (request, reply) => {
     if (!request.user) {
       reply.code(401);
@@ -35,11 +35,7 @@ export async function authorProfileRoutes(fastify: FastifyInstance) {
         },
       });
 
-      if (!profile) {
-        reply.code(404);
-        return { success: false, error: 'Author profile not found' } as ApiResponse;
-      }
-
+      // Return success with null data if profile doesn't exist yet
       return { success: true, data: profile } as ApiResponse;
     } catch (error) {
       request.log.error(error, 'Failed to fetch author profile');
