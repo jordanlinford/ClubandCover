@@ -54,6 +54,19 @@ The project is a monorepo using pnpm workspaces for frontend, backend, and share
 ## Recent Changes
 **November 2025:**
 -   **Streamlined Poll Creation:** Added genre filtering, search, and sort options to PitchBrowser. Implemented "Create Poll from Top Nominations" feature that auto-populates polls with the most nominated pitches, dramatically reducing manual work for club hosts.
+-   **Comprehensive Audit Logging System:** Implemented full audit trail for rewards redemption with two new database tables:
+    -   `RedemptionAuditLog`: Tracks all redemption status changes, badge grants, and admin actions with timestamps, reviewer info, reasons, and metadata
+    -   `PointsAdjustmentLog`: Tracks all manual points adjustments by admins with amounts, reasons, timestamps, and optional metadata
+    -   All redemption status changes (PENDING→APPROVED→FULFILLED, DECLINED, CANCELLED) automatically create audit entries
+    -   Badge grants via reward approvals are logged with badgeCode and userId for compliance
+-   **Admin Override Endpoints (STAFF-only):** Three new manual administration endpoints with full audit trail support:
+    -   `POST /api/admin/rewards/badges/grant`: Manually grant badges to users with optional reason tracking
+    -   `PATCH /api/admin/users/:id/points`: Adjust user points (positive or negative) with required reason, creates both PointsAdjustmentLog and PointLedger entries
+    -   `POST /api/admin/rewards/grant`: Directly grant rewards to users bypassing the redemption flow, creates fulfilled redemption with zero points cost
+-   **Audit Log Retrieval:** Two new query endpoints for compliance and review:
+    -   `GET /api/admin/redemptions/:id/audit`: Retrieve complete audit history for a specific redemption
+    -   `GET /api/admin/users/:id/points/history`: Retrieve points adjustment history for a user (last 100 entries)
+-   **Enhanced PointType Enum:** Added `EARNED` and `SPENT` types for generic admin-initiated point transactions
 
 ## Future Features / Backlog
 **Planned for Later Sprints:**
