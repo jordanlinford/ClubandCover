@@ -132,8 +132,8 @@ export async function requireActiveAccount(request: FastifyRequest, reply: Fasti
   }
 
   const allowedRoutes = [
-    '/api/user/me/enable',    // Allow reactivation
-    '/api/user/me/delete',    // Allow deletion confirmation
+    '/api/users/me/enable',    // Allow reactivation
+    '/api/users/me/delete',    // Allow deletion confirmation
   ];
 
   // Allow these routes even for disabled/deleted users
