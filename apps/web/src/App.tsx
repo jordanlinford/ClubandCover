@@ -34,6 +34,8 @@ import OnboardingPage from './pages/Onboarding';
 import AuthorAnalyticsPage from './pages/analytics/AuthorAnalytics';
 import AuthorDashboard from './pages/AuthorDashboard';
 import AuthorDirectory from './pages/AuthorDirectory';
+import { RewardsPage } from './pages/Rewards';
+import { AdminRewardsPage } from './pages/admin/AdminRewards';
 
 export default function App() {
   return (
@@ -68,8 +70,10 @@ export default function App() {
       <Route path="/billing" component={BillingPage} />
       <Route path="/messages" component={MessageList} />
       <Route path="/messages/:id" component={MessageThread} />
+      <Route path="/rewards" component={RewardsPage} />
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/admin/moderation" component={ModerationQueue} />
+      <Route path="/admin/rewards" component={AdminRewardsPage} />
       <Route path="/referrals" component={ReferralDashboard} />
       <Route path="/discover" component={DiscoverPage} />
       <Route path="/authors" component={AuthorDirectory} />
