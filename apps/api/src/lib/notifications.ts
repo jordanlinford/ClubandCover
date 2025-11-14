@@ -27,7 +27,11 @@ export type NotificationPayload =
   | { type: 'REFERRAL_ACTIVATED'; points: number; referralCode: string }
   | { type: 'POINTS_AWARDED'; points: number; reason: string }
   | { type: 'MEMBERSHIP_APPROVED'; clubId: string; clubName: string }
-  | { type: 'NEW_MESSAGE'; threadId: string; senderName: string; senderId: string; messagePreview: string };
+  | { type: 'NEW_MESSAGE'; threadId: string; senderName: string; senderId: string; messagePreview: string }
+  | { type: 'REDEMPTION_APPROVED'; redemptionId: string; rewardName: string; pointsSpent: number; status: string; note?: string }
+  | { type: 'REDEMPTION_DECLINED'; redemptionId: string; rewardName: string; pointsSpent: number; status: string; note?: string }
+  | { type: 'REDEMPTION_FULFILLED'; redemptionId: string; rewardName: string; pointsSpent: number; status: string; note?: string }
+  | { type: 'REDEMPTION_CANCELLED'; redemptionId: string; rewardName: string; pointsSpent: number; status: string; note?: string };
 
 /**
  * Unified notification dispatch service
@@ -89,6 +93,10 @@ function getEmailType(type: NotificationType): string | null {
     POINTS_AWARDED: 'points_update',
     MEMBERSHIP_APPROVED: null,
     NEW_MESSAGE: null,
+    REDEMPTION_APPROVED: 'reward_update',
+    REDEMPTION_DECLINED: 'reward_update',
+    REDEMPTION_FULFILLED: 'reward_update',
+    REDEMPTION_CANCELLED: 'reward_update',
   };
   return mapping[type];
 }

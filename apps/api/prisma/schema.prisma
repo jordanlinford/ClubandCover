@@ -182,6 +182,10 @@ enum NotificationType {
   NEW_CLUB_INVITE
   CLUB_MENTION
   AUTHOR_NEW_PITCH
+  REDEMPTION_APPROVED
+  REDEMPTION_DECLINED
+  REDEMPTION_FULFILLED
+  REDEMPTION_CANCELLED
 }
 
 enum CreditTransactionType {
@@ -876,6 +880,7 @@ model UserSetting {
   emailClubInvites    Boolean  @default(true)
   emailReviewUpdates  Boolean  @default(true)
   emailClubMentions   Boolean  @default(true)
+  emailRewardUpdates  Boolean  @default(true)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -1006,6 +1011,7 @@ model RewardItem {
   imageUrl        String?
   isActive        Boolean    @default(true)
   sortOrder       Int        @default(0)
+  metadata        Json? // Reward-specific configuration (e.g., {badgeCode, boostDays, featureDays})
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 

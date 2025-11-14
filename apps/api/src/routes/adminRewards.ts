@@ -2,6 +2,24 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { refundPoints } from '../lib/points.js';
+import { dispatchNotification } from '../lib/notifications.js';
+
+// Metadata validators by reward type
+const FeatureMetadataSchema = z.object({
+  boostDays: z.number().int().positive().optional(),
+  badgeCode: z.string().optional(),
+}).strict();
+
+const AuthorContributedMetadataSchema = z.object({
+  deliveryInfo: z.string().optional(),
+  contactEmail: z.string().email().optional(),
+}).strict();
+
+const RewardMetadataSchema = z.union([
+  FeatureMetadataSchema,
+  AuthorContributedMetadataSchema,
+  z.object({}).strict(), // Empty metadata is valid
+]);
 
 export async function adminRewardRoutes(fastify: FastifyInstance) {
   // Middleware: Check STAFF role for all routes
@@ -69,8 +87,38 @@ export async function adminRewardRoutes(fastify: FastifyInstance) {
         imageUrl: z.string().url().optional(),
         isActive: z.boolean().default(true),
         sortOrder: z.number().int().default(0),
+        metadata: z.any().optional(), // Will be validated below
       });
       const validated = schema.parse(request.body);
+
+      // Validate metadata if provided - must match reward type
+      if (validated.metadata) {
+        if (validated.rewardType === 'FEATURE') {
+          const validation = FeatureMetadataSchema.safeParse(validated.metadata);
+          if (!validation.success) {
+            reply.code(400);
+            return {
+              success: false,
+              error: 'Invalid FEATURE metadata: ' + validation.error.message,
+            };
+          }
+        } else if (validated.rewardType === 'AUTHOR_CONTRIBUTED') {
+          const validation = AuthorContributedMetadataSchema.safeParse(validated.metadata);
+          if (!validation.success) {
+            reply.code(400);
+            return {
+              success: false,
+              error: 'Invalid AUTHOR_CONTRIBUTED metadata: ' + validation.error.message,
+            };
+          }
+        } else if (Object.keys(validated.metadata).length > 0) {
+          reply.code(400);
+          return {
+            success: false,
+            error: `Reward type ${validated.rewardType} does not support metadata`,
+          };
+        }
+      }
 
       const reward = await prisma.rewardItem.create({
         data: validated,
@@ -110,8 +158,49 @@ export async function adminRewardRoutes(fastify: FastifyInstance) {
         imageUrl: z.string().url().nullable().optional(),
         isActive: z.boolean().optional(),
         sortOrder: z.number().int().optional(),
+        metadata: z.any().optional(),
       });
       const validated = schema.parse(request.body);
+
+      // Get current reward to validate metadata against type
+      const currentReward = await prisma.rewardItem.findUnique({
+        where: { id },
+      });
+
+      if (!currentReward) {
+        reply.code(404);
+        return { success: false, error: 'Reward not found' };
+      }
+
+      // Validate metadata if provided - must match reward type
+      if (validated.metadata !== undefined) {
+        const rewardType = validated.rewardType || currentReward.rewardType;
+        if (rewardType === 'FEATURE') {
+          const validation = FeatureMetadataSchema.safeParse(validated.metadata);
+          if (!validation.success) {
+            reply.code(400);
+            return {
+              success: false,
+              error: 'Invalid FEATURE metadata: ' + validation.error.message,
+            };
+          }
+        } else if (rewardType === 'AUTHOR_CONTRIBUTED') {
+          const validation = AuthorContributedMetadataSchema.safeParse(validated.metadata);
+          if (!validation.success) {
+            reply.code(400);
+            return {
+              success: false,
+              error: 'Invalid AUTHOR_CONTRIBUTED metadata: ' + validation.error.message,
+            };
+          }
+        } else if (validated.metadata !== null && Object.keys(validated.metadata).length > 0) {
+          reply.code(400);
+          return {
+            success: false,
+            error: `Reward type ${rewardType} does not support metadata`,
+          };
+        }
+      }
 
       // Filter out undefined values to avoid Prisma errors
       const updateData: any = {};
@@ -124,6 +213,7 @@ export async function adminRewardRoutes(fastify: FastifyInstance) {
       if (validated.imageUrl !== undefined) updateData.imageUrl = validated.imageUrl;
       if (validated.isActive !== undefined) updateData.isActive = validated.isActive;
       if (validated.sortOrder !== undefined) updateData.sortOrder = validated.sortOrder;
+      if (validated.metadata !== undefined) updateData.metadata = validated.metadata;
 
       const reward = await prisma.rewardItem.update({
         where: { id },
@@ -392,6 +482,85 @@ export async function adminRewardRoutes(fastify: FastifyInstance) {
 
         return updated;
       });
+
+      // Send notification for status change
+      const notificationPayload = (() => {
+        const baseData = {
+          redemptionId: redemption.id,
+          rewardName: redemption.rewardItem.name,
+          pointsSpent: redemption.pointsSpent,
+          status: validated.status,
+          note: validated.notes || validated.rejectionReason,
+        };
+        
+        switch (validated.status) {
+          case 'APPROVED':
+            return { type: 'REDEMPTION_APPROVED' as const, ...baseData };
+          case 'DECLINED':
+            return { type: 'REDEMPTION_DECLINED' as const, ...baseData };
+          case 'FULFILLED':
+            return { type: 'REDEMPTION_FULFILLED' as const, ...baseData };
+          case 'CANCELLED':
+            return { type: 'REDEMPTION_CANCELLED' as const, ...baseData };
+          default:
+            return null;
+        }
+      })();
+
+      if (notificationPayload) {
+        void dispatchNotification(
+          redemption.userId,
+          notificationPayload,
+          request.log
+        ).catch((err) => request.log.error(err, 'Failed to dispatch redemption notification'));
+      }
+
+      // Trigger platform behavior on APPROVED status
+      if (validated.status === 'APPROVED' && redemption.rewardItem.rewardType === 'FEATURE') {
+        try {
+          // Validate and parse metadata with runtime guards
+          const metadataValidation = FeatureMetadataSchema.safeParse(redemption.rewardItem.metadata);
+          
+          if (!metadataValidation.success) {
+            request.log.warn(
+              { rewardId: redemption.rewardItemId, error: metadataValidation.error },
+              'Reward metadata validation failed - skipping platform behavior'
+            );
+          } else {
+            const metadata = metadataValidation.data;
+            
+            // Grant badge if badgeCode is specified
+            if (metadata.badgeCode) {
+              await prisma.userBadge.upsert({
+                where: {
+                  userId_code: {
+                    userId: redemption.userId,
+                    code: metadata.badgeCode,
+                  },
+                },
+                create: {
+                  userId: redemption.userId,
+                  code: metadata.badgeCode,
+                },
+                update: {}, // Badge already exists, no-op
+              });
+              request.log.info(`Granted badge ${metadata.badgeCode} to user ${redemption.userId}`);
+            }
+            
+            // Boost pitch if boostDays is specified (requires pitch selection by user)
+            // TODO: Add RedemptionRequest.pitchId field to track which pitch to boost
+            // For now, this is logged and would require manual follow-up
+            if (metadata.boostDays) {
+              request.log.info(
+                { userId: redemption.userId, boostDays: metadata.boostDays, redemptionId: redemption.id },
+                'Pitch boost redemption approved - awaiting pitch selection implementation'
+              );
+            }
+          }
+        } catch (error) {
+          request.log.error(error, 'Failed to apply reward platform behavior');
+        }
+      }
 
       return { success: true, data: redemption };
     } catch (error) {
