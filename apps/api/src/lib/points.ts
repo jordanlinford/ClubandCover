@@ -5,8 +5,9 @@ const prisma = new PrismaClient();
 
 /**
  * Point values for different actions
+ * Note: REWARD_REDEEMED and REWARD_REFUNDED use dynamic values based on the reward cost
  */
-export const POINT_VALUES: Record<PointType, number> = {
+export const POINT_VALUES: Partial<Record<PointType, number>> = {
   // Existing
   SWAP_VERIFIED: 50,
   ON_TIME_DELIVERY: 25,
@@ -24,6 +25,9 @@ export const POINT_VALUES: Record<PointType, number> = {
   MESSAGE_POSTED: 1,
   PITCH_CREATED: 10,
   SWAP_COMPLETED: 25,
+  
+  // Rewards use dynamic amounts
+  // REWARD_REDEEMED and REWARD_REFUNDED are handled via spendPoints/refundPoints
 } as const;
 
 /**
@@ -242,4 +246,120 @@ export async function updateUserReputation(userId: string): Promise<void> {
     where: { id: userId },
     data: { reputation },
   });
+}
+
+/**
+ * Spend points from a user's balance with ledger tracking
+ * 
+ * @param userId - User to deduct points from
+ * @param amount - Number of points to spend (positive number)
+ * @param type - Type of point spending (e.g., REWARD_REDEEMED)
+ * @param refType - Optional reference type (e.g., "REWARD")
+ * @param refId - Optional reference ID
+ * @param tx - Optional Prisma transaction client
+ * @returns Result object with status
+ */
+export async function spendPoints(
+  userId: string,
+  amount: number,
+  type: PointType,
+  refType?: string,
+  refId?: string,
+  tx?: any
+): Promise<{ ok: boolean; reason?: string }> {
+  const client = tx || prisma;
+
+  if (amount <= 0) {
+    return { ok: false, reason: 'INVALID_AMOUNT' };
+  }
+
+  // Atomically decrement points only if user has enough balance
+  // This prevents race conditions where concurrent redemptions could overdraw
+  const updateResult = await client.user.updateMany({
+    where: {
+      id: userId,
+      points: { gte: amount }, // Only update if balance is sufficient
+    },
+    data: {
+      points: {
+        decrement: amount,
+      },
+    },
+  });
+
+  // If no rows were updated, user doesn't have enough points
+  if (updateResult.count === 0) {
+    // Check if user exists to provide better error message
+    const user = await client.user.findUnique({
+      where: { id: userId },
+      select: { points: true },
+    });
+
+    if (!user) {
+      return { ok: false, reason: 'USER_NOT_FOUND' };
+    }
+
+    return { ok: false, reason: 'INSUFFICIENT_POINTS' };
+  }
+
+  // Create ledger entry after successful deduction
+  await client.pointLedger.create({
+    data: {
+      userId,
+      type,
+      amount: -amount, // Negative for spending
+      refType: refType || null,
+      refId: refId || null,
+    },
+  });
+
+  return { ok: true };
+}
+
+/**
+ * Refund points to a user's balance with ledger tracking
+ * 
+ * @param userId - User to refund points to
+ * @param amount - Number of points to refund (positive number)
+ * @param type - Type of point refund (e.g., REWARD_REFUNDED)
+ * @param refType - Optional reference type (e.g., "REWARD")
+ * @param refId - Optional reference ID
+ * @param tx - Optional Prisma transaction client
+ * @returns Result object with status
+ */
+export async function refundPoints(
+  userId: string,
+  amount: number,
+  type: PointType,
+  refType?: string,
+  refId?: string,
+  tx?: any
+): Promise<{ ok: boolean; reason?: string }> {
+  const client = tx || prisma;
+
+  if (amount <= 0) {
+    return { ok: false, reason: 'INVALID_AMOUNT' };
+  }
+
+  // Add points and create ledger entry
+  await client.pointLedger.create({
+    data: {
+      userId,
+      type,
+      amount: amount, // Positive for refund
+      refType: refType || null,
+      refId: refId || null,
+    },
+  });
+
+  await client.user.update({
+    where: { id: userId },
+    data: {
+      points: {
+        increment: amount,
+      },
+    },
+  });
+
+  return { ok: true };
 }

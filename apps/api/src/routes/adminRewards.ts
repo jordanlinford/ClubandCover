@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
+import { refundPoints } from '../lib/points.js';
 
 export async function adminRewardRoutes(fastify: FastifyInstance) {
   // Middleware: Check STAFF role for all routes
@@ -244,49 +245,114 @@ export async function adminRewardRoutes(fastify: FastifyInstance) {
         return { success: false, error: 'Cannot modify this redemption' };
       }
 
-      // Handle status changes in a transaction
+      // Handle status changes in an atomic transaction
       const redemption = await prisma.$transaction(async (tx) => {
-        // If declining, refund points
-        if (validated.status === 'DECLINED' && currentRedemption.status === 'PENDING') {
-          await tx.user.update({
-            where: { id: currentRedemption.userId },
+        // For declines/cancellations, atomically transition status and handle refunds
+        if (validated.status === 'DECLINED' || validated.status === 'CANCELLED') {
+          // Atomically update status from PENDING or APPROVED to prevent concurrent double-refunds
+          const statusUpdate = await tx.redemptionRequest.updateMany({
+            where: {
+              id,
+              status: { in: ['PENDING', 'APPROVED'] }, // Only transition from these states
+            },
             data: {
-              points: { increment: currentRedemption.pointsSpent },
+              status: validated.status,
+              reviewedBy: request.user!.id,
+              reviewedAt: new Date(),
+              rejectionReason: validated.rejectionReason,
+              notes: validated.notes,
             },
           });
 
-          // Create refund ledger entry
-          await tx.pointLedger.create({
-            data: {
-              userId: currentRedemption.userId,
-              type: 'REWARD_REFUNDED',
-              amount: currentRedemption.pointsSpent,
-              refType: 'REDEMPTION',
-              refId: currentRedemption.id,
+          // If no rows were updated, the redemption was already processed
+          if (statusUpdate.count === 0) {
+            throw new Error('Redemption has already been processed');
+          }
+
+          // Release inventory (decrement copiesRedeemed since it was incremented at creation)
+          if (currentRedemption.rewardItem.copiesAvailable !== null) {
+            const releaseResult = await tx.rewardItem.updateMany({
+              where: {
+                id: currentRedemption.rewardItemId,
+                copiesRedeemed: { gt: 0 }, // Ensure we don't go negative
+              },
+              data: {
+                copiesRedeemed: { decrement: 1 },
+              },
+            });
+
+            if (releaseResult.count === 0) {
+              throw new Error('Failed to release inventory - may already be released');
+            }
+          }
+
+          // Refund points using the shared points service
+          const refundResult = await refundPoints(
+            currentRedemption.userId,
+            currentRedemption.pointsSpent,
+            'REWARD_REFUNDED',
+            'REDEMPTION',
+            currentRedemption.id,
+            tx
+          );
+
+          if (!refundResult.ok) {
+            throw new Error('Failed to refund points');
+          }
+
+          // Fetch and return the updated redemption
+          const updated = await tx.redemptionRequest.findUnique({
+            where: { id },
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  points: true,
+                },
+              },
+              rewardItem: true,
+              reviewer: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
             },
           });
+
+          if (!updated) {
+            throw new Error('Redemption not found after update');
+          }
+
+          return updated;
         }
 
-        // If approving or fulfilling, increment copiesRedeemed
-        if ((validated.status === 'APPROVED' || validated.status === 'FULFILLED') && 
-            currentRedemption.status === 'PENDING') {
-          await tx.rewardItem.update({
-            where: { id: currentRedemption.rewardItemId },
-            data: { copiesRedeemed: { increment: 1 } },
-          });
-        }
-
-        // Update redemption
-        return await tx.redemptionRequest.update({
-          where: { id },
+        // For approvals/fulfillments, atomically transition status
+        // Note: Inventory was already reserved at creation, points already deducted
+        const statusUpdate = await tx.redemptionRequest.updateMany({
+          where: {
+            id,
+            status: { in: ['PENDING', 'APPROVED'] }, // Only transition from these states
+          },
           data: {
             status: validated.status,
             reviewedBy: request.user!.id,
             reviewedAt: new Date(),
-            rejectionReason: validated.rejectionReason,
             notes: validated.notes,
             fulfilledAt: validated.status === 'FULFILLED' ? new Date() : undefined,
           },
+        });
+
+        // If no rows were updated, the redemption was already processed
+        if (statusUpdate.count === 0) {
+          throw new Error('Redemption has already been processed');
+        }
+
+        // Fetch and return the updated redemption
+        const updated = await tx.redemptionRequest.findUnique({
+          where: { id },
           include: {
             user: {
               select: {
@@ -305,6 +371,12 @@ export async function adminRewardRoutes(fastify: FastifyInstance) {
             },
           },
         });
+
+        if (!updated) {
+          throw new Error('Redemption not found after update');
+        }
+
+        return updated;
       });
 
       return { success: true, data: redemption };

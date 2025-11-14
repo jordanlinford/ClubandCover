@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
+import { spendPoints } from '../lib/points.js';
 
 export async function rewardRoutes(fastify: FastifyInstance) {
   // GET /api/rewards - List active rewards (public)
@@ -81,43 +82,43 @@ export async function rewardRoutes(fastify: FastifyInstance) {
         return { success: false, error: 'This reward is no longer available' };
       }
 
-      // Check if reward is in stock
-      if (reward.copiesAvailable && reward.copiesRedeemed >= reward.copiesAvailable) {
-        reply.code(400);
-        return { success: false, error: 'This reward is out of stock' };
-      }
-
-      // Get user's current points
-      const user = await prisma.user.findUnique({
-        where: { id: request.user.id },
-        select: { points: true },
-      });
-
-      if (!user || user.points < reward.pointsCost) {
-        reply.code(400);
-        return { success: false, error: 'Insufficient points' };
-      }
-
-      // Create redemption request and deduct points in a transaction
+      // Atomically reserve inventory and deduct points in a single transaction
       const redemption = await prisma.$transaction(async (tx) => {
-        // Deduct points immediately
-        await tx.user.update({
-          where: { id: request.user!.id },
-          data: {
-            points: { decrement: reward.pointsCost },
-          },
-        });
+        // Reserve inventory if limited (using updateMany for atomic check-and-update)
+        if (reward.copiesAvailable !== null) {
+          const reserveResult = await tx.rewardItem.updateMany({
+            where: {
+              id: reward.id,
+              copiesAvailable: { not: null },
+              copiesRedeemed: { lt: reward.copiesAvailable },
+            },
+            data: {
+              copiesRedeemed: { increment: 1 },
+            },
+          });
 
-        // Create point ledger entry
-        await tx.pointLedger.create({
-          data: {
-            userId: request.user!.id,
-            type: 'REWARD_REDEEMED',
-            amount: -reward.pointsCost,
-            refType: 'REWARD',
-            refId: reward.id,
-          },
-        });
+          // If no rows were updated, stock is exhausted
+          if (reserveResult.count === 0) {
+            throw new Error('This reward is out of stock');
+          }
+        }
+
+        // Spend points using the shared points service
+        const spendResult = await spendPoints(
+          request.user!.id,
+          reward.pointsCost,
+          'REWARD_REDEEMED',
+          'REWARD',
+          reward.id,
+          tx
+        );
+
+        if (!spendResult.ok) {
+          if (spendResult.reason === 'INSUFFICIENT_POINTS') {
+            throw new Error('Insufficient points');
+          }
+          throw new Error('Failed to deduct points');
+        }
 
         // Create redemption request
         return await tx.redemptionRequest.create({
@@ -136,6 +137,17 @@ export async function rewardRoutes(fastify: FastifyInstance) {
       reply.code(201);
       return { success: true, data: redemption };
     } catch (error) {
+      if (error instanceof Error) {
+        if (error.message === 'This reward is out of stock') {
+          reply.code(400);
+          return { success: false, error: error.message };
+        }
+        if (error.message === 'Insufficient points') {
+          reply.code(400);
+          return { success: false, error: error.message };
+        }
+      }
+
       reply.code(400);
       return {
         success: false,
