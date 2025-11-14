@@ -14,6 +14,7 @@ import { ClubDetailPage } from './pages/clubs/ClubDetail';
 import { ClubFormPage } from './pages/clubs/ClubForm';
 import { ClubRoomPage } from './pages/clubs/ClubRoom';
 import { PitchBrowserPage } from './pages/clubs/PitchBrowser';
+import { CreatePollPage } from './pages/clubs/CreatePoll';
 import { HostConsolePage } from './pages/clubs/HostConsole';
 import { VotePage } from './pages/clubs/Vote';
 import ClubInvitePage from './pages/clubs/ClubInvite';
@@ -62,6 +63,7 @@ export default function App() {
       <Route path="/clubs/invite/:code" component={ClubInvitePage} />
       <Route path="/clubs/:id/room" component={ClubRoomPage} />
       <Route path="/clubs/:id/pitches" component={PitchBrowserPage} />
+      <Route path="/clubs/:id/create-poll" component={CreatePollPage} />
       <Route path="/clubs/:id/host-console" component={HostConsolePage} />
       <Route path="/clubs/:clubId/polls/:pollId" component={VotePage} />
       <Route path="/clubs/:id" component={ClubDetailPage} />
