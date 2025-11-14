@@ -107,7 +107,7 @@ export function AchievementsPage() {
   const unearnedBadges = filteredBadges.filter((b) => !b.isEarned);
 
   const renderProgressBar = (badge: BadgeProgress) => {
-    if (!badge.progress.current || !badge.progress.required) return null;
+    if (badge.progress.current === undefined || badge.progress.required === undefined) return null;
 
     const percentage = Math.min(
       (badge.progress.current / badge.progress.required) * 100,
