@@ -170,6 +170,119 @@ export async function userRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // Search for authors (for swap discovery) - AUTHOR role required
+  fastify.get('/authors/search', async (request, reply) => {
+    // Require authentication
+    if (!request.user) {
+      reply.code(401);
+      return { success: false, error: 'Authentication required' } as ApiResponse;
+    }
+
+    // Require AUTHOR role
+    const user = await prisma.user.findUnique({
+      where: { id: request.user.id },
+      select: { roles: true },
+    });
+
+    if (!user?.roles.includes('AUTHOR')) {
+      reply.code(403);
+      return { success: false, error: 'Author role required to access author directory' } as ApiResponse;
+    }
+
+    try {
+      const schema = z.object({
+        q: z.string().optional(),
+        genres: z.string().optional(),
+        openToSwaps: z.string().optional(),
+        limit: z.string().optional().transform((val) => {
+          if (!val) return 20;
+          const num = parseInt(val, 10);
+          if (isNaN(num) || num < 1 || num > 100) return 20;
+          return num;
+        }),
+        offset: z.string().optional().transform((val) => {
+          if (!val) return 0;
+          const num = parseInt(val, 10);
+          if (isNaN(num) || num < 0) return 0;
+          return num;
+        }),
+      });
+      const { q, genres, openToSwaps, limit, offset } = schema.parse(request.query);
+
+      const genreList = genres ? genres.split(',').map(g => g.trim()).filter(Boolean) : undefined;
+      const onlyOpenToSwaps = openToSwaps === 'true';
+
+      // Build where clause - allow authors with or without profiles
+      const whereClause: any = {
+        roles: { has: 'AUTHOR' },
+        id: { not: request.user.id }, // Exclude current user
+        ...(q && {
+          OR: [
+            { name: { contains: q, mode: 'insensitive' } },
+            { bio: { contains: q, mode: 'insensitive' } },
+          ],
+        }),
+      };
+
+      // Only filter by profile fields if specified
+      if (genreList || onlyOpenToSwaps) {
+        whereClause.profile = {};
+        if (genreList) {
+          whereClause.profile.genres = { hasSome: genreList };
+        }
+        if (onlyOpenToSwaps) {
+          whereClause.profile.openToSwaps = true;
+        }
+      }
+
+      const authors = await prisma.user.findMany({
+        where: whereClause,
+        select: {
+          id: true,
+          name: true,
+          avatarUrl: true,
+          bio: true,
+          tier: true,
+          createdAt: true,
+          profile: {
+            select: {
+              genres: true,
+              openToSwaps: true,
+              booksPerMonth: true,
+            },
+          },
+          _count: {
+            select: {
+              books: true,
+              swapsRequested: { where: { status: 'VERIFIED' } },
+            },
+          },
+        },
+        take: limit,
+        skip: offset,
+        orderBy: [
+          { profile: { openToSwaps: 'desc' } }, // Open to swaps first
+          { createdAt: 'desc' },
+        ],
+      });
+
+      return { success: true, data: authors } as ApiResponse;
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        reply.code(400);
+        return {
+          success: false,
+          error: error.errors[0]?.message || 'Invalid query parameters',
+        } as ApiResponse;
+      }
+      reply.code(500);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to search authors',
+      } as ApiResponse;
+    }
+  });
+
   fastify.get('/', async (request, reply) => {
     try {
       const users = await prisma.user.findMany();

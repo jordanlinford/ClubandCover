@@ -32,6 +32,7 @@ import DiscoverPage from './pages/Discover';
 import OnboardingPage from './pages/Onboarding';
 import AuthorAnalyticsPage from './pages/analytics/AuthorAnalytics';
 import AuthorDashboard from './pages/AuthorDashboard';
+import AuthorDirectory from './pages/AuthorDirectory';
 
 export default function App() {
   return (
@@ -69,6 +70,7 @@ export default function App() {
       <Route path="/admin/moderation" component={ModerationQueue} />
       <Route path="/referrals" component={ReferralDashboard} />
       <Route path="/discover" component={DiscoverPage} />
+      <Route path="/authors" component={AuthorDirectory} />
       <Route path="/onboarding" component={OnboardingPage} />
       <Route path="/analytics/author" component={AuthorAnalyticsPage} />
       <Route component={NotFoundPage} />

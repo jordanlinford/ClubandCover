@@ -35,6 +35,7 @@ export function AppHeader() {
   const authorNavItems = [
     { href: '/author-dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/pitches', label: 'My Pitches', icon: Lightbulb },
+    { href: '/authors', label: 'Find Authors', icon: UserPlus },
     { href: '/analytics/author', label: 'Analytics', icon: BarChart3 },
     { href: '/swaps', label: 'Book Swaps', icon: Repeat },
     { href: '/billing', label: 'Billing', icon: CreditCard },
