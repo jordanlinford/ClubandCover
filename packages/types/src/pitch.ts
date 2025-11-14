@@ -1,3 +1,10 @@
+export enum BookFormat {
+  PAPERBACK = 'PAPERBACK',
+  HARDCOVER = 'HARDCOVER',
+  EBOOK = 'EBOOK',
+  AUDIOBOOK = 'AUDIOBOOK',
+}
+
 export interface Pitch {
   id: string;
   title: string;
@@ -5,6 +12,8 @@ export interface Pitch {
   authorId: string;
   targetClubId: string;
   status: 'PENDING' | 'ACCEPTED' | 'REJECTED';
+  availableFormats: string[];
+  offerFreeIfChosen: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -17,6 +26,8 @@ export interface CreatePitch {
   theme?: string;
   imageUrl?: string;
   videoUrl?: string;
+  availableFormats?: string[];
+  offerFreeIfChosen?: boolean;
 }
 
 export interface UpdatePitch {
