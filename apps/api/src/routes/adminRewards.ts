@@ -247,6 +247,20 @@ export async function adminRewardRoutes(fastify: FastifyInstance) {
 
       // Handle status changes in an atomic transaction
       const redemption = await prisma.$transaction(async (tx) => {
+        // Re-fetch the redemption inside the transaction to get fresh state
+        // This prevents stale reads during concurrent admin operations
+        const freshRedemption = await tx.redemptionRequest.findUnique({
+          where: { id },
+          include: {
+            rewardItem: true,
+            user: true,
+          },
+        });
+
+        if (!freshRedemption) {
+          throw new Error('Redemption not found');
+        }
+
         // For declines/cancellations, atomically transition status and handle refunds
         if (validated.status === 'DECLINED' || validated.status === 'CANCELLED') {
           // Atomically update status from PENDING or APPROVED to prevent concurrent double-refunds
@@ -269,11 +283,11 @@ export async function adminRewardRoutes(fastify: FastifyInstance) {
             throw new Error('Redemption has already been processed');
           }
 
-          // Release inventory (decrement copiesRedeemed since it was incremented at creation)
-          if (currentRedemption.rewardItem.copiesAvailable !== null) {
+          // Release inventory using fresh data (decrement copiesRedeemed since it was incremented at creation)
+          if (freshRedemption.rewardItem.copiesAvailable !== null) {
             const releaseResult = await tx.rewardItem.updateMany({
               where: {
-                id: currentRedemption.rewardItemId,
+                id: freshRedemption.rewardItemId,
                 copiesRedeemed: { gt: 0 }, // Ensure we don't go negative
               },
               data: {
@@ -288,11 +302,11 @@ export async function adminRewardRoutes(fastify: FastifyInstance) {
 
           // Refund points using the shared points service
           const refundResult = await refundPoints(
-            currentRedemption.userId,
-            currentRedemption.pointsSpent,
+            freshRedemption.userId,
+            freshRedemption.pointsSpent,
             'REWARD_REFUNDED',
             'REDEMPTION',
-            currentRedemption.id,
+            freshRedemption.id,
             tx
           );
 

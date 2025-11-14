@@ -319,30 +319,35 @@ export async function spendPoints(
 /**
  * Refund points to a user's balance with ledger tracking
  * 
+ * IMPORTANT: This function MUST be called within a Prisma transaction
+ * to ensure ledger entry and balance update are atomic.
+ * 
  * @param userId - User to refund points to
  * @param amount - Number of points to refund (positive number)
  * @param type - Type of point refund (e.g., REWARD_REFUNDED)
- * @param refType - Optional reference type (e.g., "REWARD")
+ * @param refType - Optional reference type (e.g., "REDEMPTION")
  * @param refId - Optional reference ID
- * @param tx - Optional Prisma transaction client
+ * @param tx - REQUIRED Prisma transaction client
  * @returns Result object with status
  */
 export async function refundPoints(
   userId: string,
   amount: number,
   type: PointType,
-  refType?: string,
-  refId?: string,
-  tx?: any
+  refType: string | undefined,
+  refId: string | undefined,
+  tx: any
 ): Promise<{ ok: boolean; reason?: string }> {
-  const client = tx || prisma;
+  if (!tx) {
+    throw new Error('refundPoints must be called within a transaction');
+  }
 
   if (amount <= 0) {
     return { ok: false, reason: 'INVALID_AMOUNT' };
   }
 
-  // Add points and create ledger entry
-  await client.pointLedger.create({
+  // Add points and create ledger entry atomically within the transaction
+  await tx.pointLedger.create({
     data: {
       userId,
       type,
@@ -352,7 +357,7 @@ export async function refundPoints(
     },
   });
 
-  await client.user.update({
+  await tx.user.update({
     where: { id: userId },
     data: {
       points: {
