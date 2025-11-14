@@ -248,6 +248,13 @@ export async function swapRoutes(fastify: FastifyInstance) {
       if (validated.status) updateData.status = validated.status;
       if (validated.dueDate) updateData.dueDate = new Date(validated.dueDate);
       if (validated.deliverable) updateData.deliverable = validated.deliverable;
+      
+      // Populate timestamps for review reminder tracking
+      if (validated.status === 'DELIVERED') {
+        updateData.deliveredAt = new Date();
+      } else if (validated.status === 'VERIFIED') {
+        updateData.verifiedAt = new Date();
+      }
 
       const updated = await prisma.swap.update({
         where: { id },
