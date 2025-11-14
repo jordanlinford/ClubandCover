@@ -53,6 +53,12 @@ The project is a monorepo using pnpm workspaces for frontend, backend, and share
 
 ## Recent Changes
 **November 2025:**
+-   **Production-Ready Suspension System:** Implemented comprehensive abuse control and safety features:
+    -   **Universal Enforcement:** Created onRequest hook that blocks SUSPENDED/DISABLED/DELETED users from all mutating operations (POST/PATCH/PUT/DELETE) across the entire API, ensuring single source of truth for suspension enforcement
+    -   **Complete Audit Logging:** Extended AccountStatusLog to capture ALL account status changes (ACTIVE↔DISABLED, ACTIVE↔SUSPENDED, DELETED) with oldStatus, newStatus, actorId, reason, and metadata
+    -   **Self-Recovery Flow:** DISABLED users can reactivate their accounts via POST /api/me/enable, while SUSPENDED users require admin intervention
+    -   **Defense-in-Depth:** Handler-level guards complement middleware enforcement to prevent status transition violations
+    -   **Integration Tests:** Comprehensive test suite validates suspended users are blocked from messages, pitches, clubs, swaps, and rewards while active users proceed normally
 -   **Streamlined Poll Creation:** Added genre filtering, search, and sort options to PitchBrowser. Implemented "Create Poll from Top Nominations" feature that auto-populates polls with the most nominated pitches, dramatically reducing manual work for club hosts.
 -   **Comprehensive Audit Logging System:** Implemented full audit trail for rewards redemption with two new database tables:
     -   `RedemptionAuditLog`: Tracks all redemption status changes, badge grants, and admin actions with timestamps, reviewer info, reasons, and metadata
