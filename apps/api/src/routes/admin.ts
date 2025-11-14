@@ -227,6 +227,82 @@ export async function adminRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // Suspend or unsuspend a user
+  fastify.patch<{
+    Params: { userId: string };
+  }>('/users/:userId/suspend', { onRequest: [requireAuth] }, async (request, reply) => {
+    if (!requireStaff(request, reply)) return;
+
+    try {
+      const schema = z.object({
+        suspend: z.boolean(), // true to suspend, false to unsuspend
+        reason: z.string().min(10, 'Reason must be at least 10 characters'),
+      });
+      const { suspend, reason } = schema.parse(request.body);
+
+      const user = await prisma.user.findUnique({
+        where: { id: request.params.userId },
+        select: { accountStatus: true },
+      });
+
+      if (!user) {
+        return reply.status(404).send({
+          success: false,
+          error: 'User not found',
+        });
+      }
+
+      const oldStatus = user.accountStatus;
+      const newStatus = suspend ? 'SUSPENDED' : 'ACTIVE';
+
+      // Don't allow suspending deleted accounts
+      if (oldStatus === 'DELETED') {
+        return reply.status(400).send({
+          success: false,
+          error: 'Cannot suspend a deleted account',
+        });
+      }
+
+      // Update user status
+      const updated = await prisma.user.update({
+        where: { id: request.params.userId },
+        data: {
+          accountStatus: newStatus,
+          suspendedAt: suspend ? new Date() : null,
+          suspendedBy: suspend ? request.user!.id : null,
+        },
+      });
+
+      // Create audit log entry
+      await prisma.accountStatusLog.create({
+        data: {
+          userId: request.params.userId,
+          changedBy: request.user!.id,
+          oldStatus,
+          newStatus,
+          reason,
+          metadata: {
+            action: suspend ? 'SUSPEND' : 'UNSUSPEND',
+            timestamp: new Date().toISOString(),
+          },
+        },
+      });
+
+      return reply.send({
+        success: true,
+        data: updated,
+        message: suspend
+          ? 'User has been suspended'
+          : 'User suspension has been lifted',
+      });
+    } catch (error: any) {
+      return reply.status(500).send({
+        success: false,
+        error: error.message || 'Failed to update user status',
+      });
+    }
+  });
+
   // Get all clubs with details
   fastify.get('/clubs', { onRequest: [requireAuth] }, async (request, reply) => {
     if (!requireStaff(request, reply)) return;

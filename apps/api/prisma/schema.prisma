@@ -285,6 +285,8 @@ model User {
   sponsoredPitches    SponsoredPitch[]
   clubInvitesCreated    ClubInvite[]          @relation("ClubInviteCreator")
   rewardContributions   RewardItem[]            @relation("RewardContributor")
+  accountStatusLogs     AccountStatusLog[]     @relation("AccountStatusLogs")
+  statusChanges         AccountStatusLog[]     @relation("StatusChangedBy")
   redemptions           RedemptionRequest[]     @relation("UserRedemptions")
   reviewedRedemptions   RedemptionRequest[]     @relation("RedemptionReviewer")
   auditLogsCreated      RedemptionAuditLog[]    @relation("AuditLogActor")
@@ -1122,4 +1124,23 @@ model AuthorFollow {
   @@index([followerId])
   @@index([authorId])
   @@map("author_follows")
+}
+
+model AccountStatusLog {
+  id           String        @id @default(uuid())
+  userId       String
+  changedBy    String
+  oldStatus    AccountStatus
+  newStatus    AccountStatus
+  reason       String        @db.Text
+  metadata     Json? // Optional additional context
+  createdAt    DateTime      @default(now())
+
+  // Relations
+  user          User @relation("AccountStatusLogs", fields: [userId], references: [id], onDelete: Cascade)
+  changedByUser User @relation("StatusChangedBy", fields: [changedBy], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([changedBy])
+  @@map("account_status_logs")
 }
