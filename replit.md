@@ -51,6 +51,11 @@ The project is a monorepo using pnpm workspaces for frontend, backend, and share
 -   **Frontend:** Radix UI, TanStack Query, Wouter, Zod, Tailwind CSS, Lucide React.
 -   **Backend:** Fastify, Prisma, Zod, Stripe SDK, Helmet.js, `@fastify/csrf-protection`.
 
+## Recent Changes
+**November 2025:**
+-   **Streamlined Poll Creation:** Added genre filtering, search, and sort options to PitchBrowser. Implemented "Create Poll from Top Nominations" feature that auto-populates polls with the most nominated pitches, dramatically reducing manual work for club hosts.
+
 ## Future Features / Backlog
 **Planned for Later Sprints:**
 -   **Club Badges:** Club-specific achievements and badges to display in the club room, rewarding club milestones, engagement, and participation.
+-   **Advanced Poll Voting Parameters:** Allow hosts to configure polls with flexible voting rules including max votes per member (e.g., "vote for up to 3 books"), and tie-breaking rules (revote, host decides, random selection, or oldest submission wins).
