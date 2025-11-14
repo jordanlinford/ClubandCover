@@ -118,6 +118,8 @@ enum PointType {
   SWAP_COMPLETED
   REWARD_REDEEMED // Points spent on rewards
   REWARD_REFUNDED // Points refunded from declined redemption
+  EARNED // Generic earned points (admin grant, etc.)
+  SPENT // Generic spent points (admin deduction, etc.)
 }
 
 enum ReferralStatus {

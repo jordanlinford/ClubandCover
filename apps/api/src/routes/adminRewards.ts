@@ -658,4 +658,320 @@ export async function adminRewardRoutes(fastify: FastifyInstance) {
       };
     }
   });
+
+  // POST /api/admin/rewards/badges/grant - Manually grant a badge to a user
+  fastify.post('/rewards/badges/grant', async (request, reply) => {
+    try {
+      const schema = z.object({
+        userId: z.string().uuid(),
+        badgeCode: z.string().min(1),
+        reason: z.string().optional(),
+      });
+      const validated = schema.parse(request.body);
+
+      // Check if user exists
+      const user = await prisma.user.findUnique({
+        where: { id: validated.userId },
+        select: { id: true, name: true, email: true },
+      });
+
+      if (!user) {
+        reply.code(404);
+        return { success: false, error: 'User not found' };
+      }
+
+      // Grant badge (upsert to handle duplicates gracefully)
+      const badge = await prisma.userBadge.upsert({
+        where: {
+          userId_code: {
+            userId: validated.userId,
+            code: validated.badgeCode,
+          },
+        },
+        create: {
+          userId: validated.userId,
+          code: validated.badgeCode,
+        },
+        update: {}, // Badge already exists, no-op
+      });
+
+      request.log.info(
+        { userId: validated.userId, badgeCode: validated.badgeCode, adminId: request.user!.id },
+        'Badge manually granted by admin'
+      );
+
+      return {
+        success: true,
+        data: {
+          badge,
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+          },
+        },
+      };
+    } catch (error) {
+      reply.code(400);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to grant badge',
+      };
+    }
+  });
+
+  // PATCH /api/admin/users/:id/points - Manually adjust user points
+  fastify.patch('/users/:id/points', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+      const schema = z.object({
+        amount: z.number().int(),
+        reason: z.string().min(1),
+        metadata: z.record(z.any()).optional(),
+      });
+      const validated = schema.parse(request.body);
+
+      // Perform adjustment in transaction
+      const result = await prisma.$transaction(async (tx) => {
+        // Get current user
+        const user = await tx.user.findUnique({
+          where: { id },
+          select: { id: true, name: true, email: true, points: true },
+        });
+
+        if (!user) {
+          throw new Error('User not found');
+        }
+
+        // Prevent negative points
+        const newPoints = user.points + validated.amount;
+        if (newPoints < 0) {
+          throw new Error(`Cannot reduce points below zero. User has ${user.points} points, adjustment is ${validated.amount}`);
+        }
+
+        // Update user points
+        const updatedUser = await tx.user.update({
+          where: { id },
+          data: { points: newPoints },
+          select: { id: true, name: true, email: true, points: true },
+        });
+
+        // Create audit log
+        await tx.pointsAdjustmentLog.create({
+          data: {
+            userId: id,
+            amount: validated.amount,
+            reason: validated.reason,
+            adjustedBy: request.user!.id,
+            metadata: validated.metadata,
+          },
+        });
+
+        // Create point ledger entry for tracking
+        await tx.pointLedger.create({
+          data: {
+            userId: id,
+            type: validated.amount > 0 ? 'EARNED' : 'SPENT',
+            amount: Math.abs(validated.amount),
+            refType: 'ADMIN_ADJUSTMENT',
+            refId: request.user!.id,
+          },
+        });
+
+        return updatedUser;
+      });
+
+      request.log.info(
+        {
+          userId: id,
+          amount: validated.amount,
+          newBalance: result.points,
+          adminId: request.user!.id,
+          reason: validated.reason,
+        },
+        'Points manually adjusted by admin'
+      );
+
+      return { success: true, data: result };
+    } catch (error) {
+      reply.code(400);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to adjust points',
+      };
+    }
+  });
+
+  // POST /api/admin/rewards/grant - Directly grant a reward to a user (bypass redemption)
+  fastify.post('/rewards/grant', async (request, reply) => {
+    try {
+      const schema = z.object({
+        userId: z.string().uuid(),
+        rewardItemId: z.string().uuid(),
+        reason: z.string().min(1),
+        skipNotification: z.boolean().optional().default(false),
+      });
+      const validated = schema.parse(request.body);
+
+      // Verify user and reward exist
+      const [user, reward] = await Promise.all([
+        prisma.user.findUnique({
+          where: { id: validated.userId },
+          select: { id: true, name: true, email: true, points: true },
+        }),
+        prisma.rewardItem.findUnique({
+          where: { id: validated.rewardItemId },
+        }),
+      ]);
+
+      if (!user) {
+        reply.code(404);
+        return { success: false, error: 'User not found' };
+      }
+
+      if (!reward) {
+        reply.code(404);
+        return { success: false, error: 'Reward not found' };
+      }
+
+      // Create a redemption record marked as fulfilled, with zero points cost
+      const redemption = await prisma.$transaction(async (tx) => {
+        const created = await tx.redemptionRequest.create({
+          data: {
+            userId: validated.userId,
+            rewardItemId: validated.rewardItemId,
+            pointsSpent: 0, // Admin grants are free
+            status: 'FULFILLED',
+            reviewedBy: request.user!.id,
+            reviewedAt: new Date(),
+            fulfilledAt: new Date(),
+            notes: `Admin grant: ${validated.reason}`,
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                points: true,
+              },
+            },
+            rewardItem: true,
+          },
+        });
+
+        // Create audit log
+        await tx.redemptionAuditLog.create({
+          data: {
+            redemptionId: created.id,
+            actionType: 'MANUAL_GRANT',
+            newStatus: 'FULFILLED',
+            changedBy: request.user!.id,
+            reason: validated.reason,
+            metadata: {
+              grantedByAdmin: true,
+              adminId: request.user!.id,
+              skipNotification: validated.skipNotification,
+            },
+          },
+        });
+
+        return created;
+      });
+
+      // Send notification unless skipped
+      if (!validated.skipNotification) {
+        void dispatchNotification(
+          validated.userId,
+          {
+            type: 'REDEMPTION_FULFILLED',
+            redemptionId: redemption.id,
+            rewardName: reward.name,
+            pointsSpent: 0,
+            status: 'FULFILLED',
+            note: 'Congratulations! This reward was granted to you by an administrator.',
+          },
+          request.log
+        ).catch((err) => request.log.error(err, 'Failed to dispatch grant notification'));
+      }
+
+      request.log.info(
+        {
+          userId: validated.userId,
+          rewardId: validated.rewardItemId,
+          rewardName: reward.name,
+          adminId: request.user!.id,
+          reason: validated.reason,
+        },
+        'Reward manually granted by admin'
+      );
+
+      return { success: true, data: redemption };
+    } catch (error) {
+      reply.code(400);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to grant reward',
+      };
+    }
+  });
+
+  // GET /api/admin/redemptions/:id/audit - Get audit log for a redemption
+  fastify.get('/redemptions/:id/audit', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+
+      const logs = await prisma.redemptionAuditLog.findMany({
+        where: { redemptionId: id },
+        include: {
+          actor: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      return { success: true, data: logs };
+    } catch (error) {
+      reply.code(400);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch audit logs',
+      };
+    }
+  });
+
+  // GET /api/admin/users/:id/points/history - Get points adjustment history for a user
+  fastify.get('/users/:id/points/history', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+
+      const logs = await prisma.pointsAdjustmentLog.findMany({
+        where: { userId: id },
+        include: {
+          adjuster: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 100, // Limit to last 100 adjustments
+      });
+
+      return { success: true, data: logs };
+    } catch (error) {
+      reply.code(400);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch points history',
+      };
+    }
+  });
 }
