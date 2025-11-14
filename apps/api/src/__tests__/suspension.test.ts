@@ -336,4 +336,87 @@ describe('Universal Suspension Enforcement', () => {
       expect(data.user.accountStatus).toBe('SUSPENDED');
     });
   });
+
+  describe('Account recovery flows', () => {
+    let disabledUserId: string;
+    let disabledUserToken: string;
+
+    beforeAll(async () => {
+      // Create a disabled user
+      const disabledUser = await prisma.user.create({
+        data: {
+          id: crypto.randomUUID(),
+          email: 'disabled-test@test.com',
+          name: 'Disabled Test User',
+          roles: ['READER'],
+          tier: 'FREE',
+          accountStatus: 'DISABLED',
+          disabledAt: new Date(),
+        },
+      });
+      disabledUserId = disabledUser.id;
+      disabledUserToken = `test-token-${disabledUserId}`;
+    });
+
+    afterAll(async () => {
+      await prisma.user.delete({ where: { id: disabledUserId } });
+    });
+
+    it('should allow DISABLED user to reactivate their account', async () => {
+      const response = await fetch(`${API_BASE}/api/me/enable`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${disabledUserToken}`,
+        },
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.success).toBe(true);
+      expect(data.message).toContain('reactivated');
+    });
+
+    it('should block DISABLED user from other mutating operations', async () => {
+      // First disable the user again
+      await prisma.user.update({
+        where: { id: disabledUserId },
+        data: { accountStatus: 'DISABLED', disabledAt: new Date() },
+      });
+
+      // Try to create a club (should be blocked)
+      const response = await fetch(`${API_BASE}/api/clubs`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${disabledUserToken}`,
+        },
+        body: JSON.stringify({
+          name: 'Test Club for Disabled User',
+          description: 'Should not be created',
+          preferredGenres: ['FICTION'],
+        }),
+      });
+
+      expect(response.status).toBe(403);
+      const data = await response.json();
+      expect(data.success).toBe(false);
+      expect(data.code).toBe('ACCOUNT_DISABLED');
+    });
+
+    it('should block SUSPENDED user from reactivating (only admins can unsuspend)', async () => {
+      const response = await fetch(`${API_BASE}/api/me/enable`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${suspendedUserToken}`,
+        },
+      });
+
+      expect(response.status).toBe(403);
+      const data = await response.json();
+      expect(data.success).toBe(false);
+      expect(data.code).toBe('ACCOUNT_SUSPENDED');
+    });
+  });
 });

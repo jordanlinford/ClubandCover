@@ -47,8 +47,18 @@ export async function enforceSuspensionPolicy(request: FastifyRequest, reply: Fa
     });
   }
 
-  // Block DISABLED users (already handled by requireActiveAccount, but adding for completeness)
+  // Allow DISABLED users to access self-recovery endpoints only
   if (request.user.accountStatus === 'DISABLED') {
+    const recoveryEndpoints = [
+      '/api/me/enable',
+    ];
+    
+    const isRecoveryEndpoint = recoveryEndpoints.some(endpoint => request.url.startsWith(endpoint));
+    
+    if (isRecoveryEndpoint) {
+      return; // Allow DISABLED users to reactivate themselves
+    }
+    
     return reply.code(403).send({
       success: false,
       error: 'Your account is disabled. Please reactivate it to continue.',

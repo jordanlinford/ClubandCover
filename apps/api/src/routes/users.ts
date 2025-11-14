@@ -525,6 +525,11 @@ export async function userRoutes(fastify: FastifyInstance) {
         return { success: true, message: 'Account is already active' } as ApiResponse;
       }
 
+      if (user.accountStatus === 'SUSPENDED') {
+        reply.code(403);
+        return { success: false, error: 'Your account is suspended. Only administrators can unsuspend accounts. Please contact support.' } as ApiResponse;
+      }
+
       if (user.accountStatus === 'DELETED') {
         reply.code(400);
         return { success: false, error: 'Cannot reactivate a deleted account. Please contact support.' } as ApiResponse;
