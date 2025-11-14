@@ -215,6 +215,7 @@ async function handleCreditPurchase(session: Stripe.Checkout.Session) {
       userId,
       type: 'PURCHASE',
       amount: credits,
+      amountPaidCents: session.amount_total || 0,
       balanceBefore,
       balanceAfter,
       stripePaymentId: session.id,

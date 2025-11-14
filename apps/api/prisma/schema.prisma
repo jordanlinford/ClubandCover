@@ -968,6 +968,7 @@ model CreditTransaction {
   pitchId         String?
   type            CreditTransactionType
   amount          Int // Credits added (positive) or spent (negative)
+  amountPaidCents Int? // Actual amount paid in cents for PURCHASE transactions
   balanceBefore   Int
   balanceAfter    Int
   stripePaymentId String?

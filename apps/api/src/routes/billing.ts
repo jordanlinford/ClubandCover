@@ -3,6 +3,7 @@ import { stripe, STRIPE_PRODUCTS, STRIPE_PRICES, CREDIT_PACKAGES } from '../lib/
 import { CheckoutSessionRequestSchema } from '@repo/types';
 import type { ApiResponse } from '@repo/types';
 import { z } from 'zod';
+import { prisma } from '../lib/prisma';
 
 export async function billingRoutes(fastify: FastifyInstance) {
   // Create Stripe checkout session
@@ -135,6 +136,75 @@ export async function billingRoutes(fastify: FastifyInstance) {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to create checkout session',
+      } as ApiResponse;
+    }
+  });
+
+  // Get billing history (subscriptions + credit purchases)
+  fastify.get('/history', async (request, reply) => {
+    if (!request.user) {
+      reply.code(401);
+      return { success: false, error: 'Unauthorized' } as ApiResponse;
+    }
+
+    try {
+      const userId = request.user.id;
+
+      // Fetch subscription payments and credit purchases in parallel
+      const [payments, creditTransactions] = await Promise.all([
+        prisma.payment.findMany({
+          where: { userId },
+          orderBy: { createdAt: 'desc' },
+        }),
+        prisma.creditTransaction.findMany({
+          where: { 
+            userId,
+            type: 'PURCHASE', // Only show purchases, not spending
+          },
+          orderBy: { createdAt: 'desc' },
+        }),
+      ]);
+
+      // Transform into unified format
+      const subscriptionRecords = payments.map((payment) => ({
+        id: payment.id,
+        type: 'subscription' as const,
+        date: payment.createdAt,
+        amount: payment.amount,
+        currency: 'usd',
+        description: `${payment.plan.replace('_', ' ')} subscription`,
+        tier: payment.plan,
+        stripePaymentId: payment.stripePaymentId,
+        status: payment.status.toLowerCase(),
+      }));
+
+      const creditRecords = creditTransactions.map((transaction) => ({
+        id: transaction.id,
+        type: 'credit_purchase' as const,
+        date: transaction.createdAt,
+        amount: transaction.amountPaidCents || 0, // Use actual amount paid from Stripe
+        currency: 'usd',
+        description: transaction.description || `Purchased ${transaction.amount} credits`,
+        tier: null,
+        stripePaymentId: transaction.stripePaymentId,
+        status: 'completed',
+      }));
+
+      // Combine and sort by date (most recent first)
+      const billingHistory = [...subscriptionRecords, ...creditRecords].sort(
+        (a, b) => b.date.getTime() - a.date.getTime()
+      );
+
+      return {
+        success: true,
+        data: billingHistory,
+      } as ApiResponse;
+    } catch (error) {
+      console.error('[BILLING] History error:', error);
+      reply.code(500);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch billing history',
       } as ApiResponse;
     }
   });
