@@ -67,6 +67,12 @@ The project is a monorepo using pnpm workspaces for frontend, backend, and share
     -   `GET /api/admin/redemptions/:id/audit`: Retrieve complete audit history for a specific redemption
     -   `GET /api/admin/users/:id/points/history`: Retrieve points adjustment history for a user (last 100 entries)
 -   **Enhanced PointType Enum:** Added `EARNED` and `SPENT` types for generic admin-initiated point transactions
+-   **Unified Billing History:** Implemented comprehensive billing history feature for authors:
+    -   Added `GET /api/billing/history` endpoint that combines subscription payments and credit purchases into a unified timeline
+    -   Created Billing page showing current tier, credit balance, and complete transaction history with proper formatting
+    -   Enhanced CreditTransaction schema with `amountPaidCents` field to persist actual Stripe payment amounts for accurate billing records
+    -   Webhook integration stores `session.amount_total` from Stripe for credit purchases, supporting variable pricing across credit packages
+    -   Billing history displays accurate dollar amounts for all transactions with type badges and status indicators
 
 ## Future Features / Backlog
 **Planned for Later Sprints:**
