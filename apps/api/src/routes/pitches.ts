@@ -233,6 +233,31 @@ export default async function pitchesRoutes(app: FastifyInstance) {
       request.log.error(err, 'Failed to check AUTHOR_LAUNCH badge');
     });
 
+    // Notify all followers of this author
+    const followers = await prisma.authorFollow.findMany({
+      where: { authorId: userId },
+      select: { followerId: true },
+    });
+
+    if (followers.length > 0) {
+      await prisma.notification.createMany({
+        data: followers.map(follow => ({
+          userId: follow.followerId,
+          type: 'AUTHOR_NEW_PITCH',
+          message: `${pitch.author.name} just pitched a new book: ${pitch.title}`,
+          link: `/pitches/${pitch.id}`,
+          metadata: {
+            authorId: userId,
+            authorName: pitch.author.name,
+            pitchId: pitch.id,
+            pitchTitle: pitch.title,
+          },
+        })),
+      }).catch(err => {
+        request.log.error(err, 'Failed to notify followers of new pitch');
+      });
+    }
+
     return reply.send({
       success: true,
       data: pitch,
