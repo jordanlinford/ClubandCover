@@ -4,6 +4,7 @@ import { CreateSwapSchema, UpdateSwapSchema } from '@repo/types';
 import type { ApiResponse } from '@repo/types';
 import { notify } from '../lib/mail';
 import { hasRole } from '../middleware/auth.js';
+import { z } from 'zod';
 
 export async function swapRoutes(fastify: FastifyInstance) {
   // Get user's swaps (sent and received)
@@ -346,24 +347,30 @@ export async function swapRoutes(fastify: FastifyInstance) {
     }
 
     const { id } = request.params as { id: string };
-    const { overallRating, onTime, bookCondition, communication, comment } = request.body as {
-      overallRating: number;
-      onTime: boolean;
-      bookCondition: number;
-      communication: number;
-      comment?: string;
-    };
+    
+    // Validate request body with Zod
+    const RateSwapSchema = z.object({
+      overallRating: z.number().int().min(1).max(5),
+      bookCondition: z.number().int().min(1).max(5),
+      communication: z.number().int().min(1).max(5),
+      onTime: z.boolean(),
+      comment: z.string().trim().optional().transform(val => val && val.length > 0 ? val : undefined),
+    });
+
+    let validated;
+    try {
+      validated = RateSwapSchema.parse(request.body);
+    } catch (error) {
+      reply.code(400);
+      return { 
+        success: false, 
+        error: 'Invalid rating data. All ratings must be 1-5, onTime must be boolean.' 
+      } as ApiResponse;
+    }
+
+    const { overallRating, onTime, bookCondition, communication, comment } = validated;
 
     try {
-      // Validate ratings are 1-5
-      if (
-        overallRating < 1 || overallRating > 5 ||
-        bookCondition < 1 || bookCondition > 5 ||
-        communication < 1 || communication > 5
-      ) {
-        reply.code(400);
-        return { success: false, error: 'Ratings must be between 1 and 5' } as ApiResponse;
-      }
 
       // Get swap with participants
       const swap = await prisma.swap.findUnique({
@@ -412,37 +419,54 @@ export async function swapRoutes(fastify: FastifyInstance) {
         return { success: false, error: 'You have already rated this swap' } as ApiResponse;
       }
 
-      // Create the rating
-      const rating = await prisma.swapRating.create({
-        data: {
-          swapId: id,
-          raterId: request.user.id,
-          ratedUserId,
-          overallRating,
-          onTime,
-          bookCondition,
-          communication,
-          comment: comment || null,
-        },
+      // Create rating and update reputation in a single transaction
+      const result = await prisma.$transaction(async (tx) => {
+        // Create the rating
+        const rating = await tx.swapRating.create({
+          data: {
+            swapId: id,
+            raterId: request.user.id,
+            ratedUserId,
+            overallRating,
+            onTime,
+            bookCondition,
+            communication,
+            comment: comment || null,
+          },
+        });
+
+        // Recalculate reputation using aggregate for accuracy
+        const ratingStats = await tx.swapRating.aggregate({
+          where: { ratedUserId },
+          _avg: { overallRating: true },
+          _count: { id: true },
+        });
+
+        // Count completed swaps (as requester or responder)
+        const completedSwaps = await tx.swap.count({
+          where: {
+            OR: [
+              { requesterId: ratedUserId },
+              { responderId: ratedUserId },
+            ],
+            status: 'VERIFIED',
+          },
+        });
+
+        // Update user reputation atomically
+        await tx.user.update({
+          where: { id: ratedUserId },
+          data: {
+            reputationScore: ratingStats._avg.overallRating || 0,
+            reputationCount: ratingStats._count.id,
+            swapsCompleted: completedSwaps,
+          },
+        });
+
+        return rating;
       });
 
-      // Recalculate reputation for the rated user
-      const allRatings = await prisma.swapRating.findMany({
-        where: { ratedUserId },
-        select: { overallRating: true },
-      });
-
-      const avgRating = allRatings.reduce((sum, r) => sum + r.overallRating, 0) / allRatings.length;
-
-      await prisma.user.update({
-        where: { id: ratedUserId },
-        data: {
-          reputationScore: avgRating,
-          reputationCount: allRatings.length,
-        },
-      });
-
-      return { success: true, data: rating } as ApiResponse;
+      return { success: true, data: result } as ApiResponse;
     } catch (error) {
       reply.code(400);
       return {
@@ -471,6 +495,60 @@ export async function swapRoutes(fastify: FastifyInstance) {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to fetch ratings',
+      } as ApiResponse;
+    }
+  });
+
+  // Get all ratings status for current user's swaps (batch endpoint)
+  fastify.get('/ratings/my-status', async (request, reply) => {
+    if (!request.user) {
+      reply.code(401);
+      return { success: false, error: 'Unauthorized' } as ApiResponse;
+    }
+
+    try {
+      // Get all user's swaps
+      const userSwaps = await prisma.swap.findMany({
+        where: {
+          OR: [
+            { requesterId: request.user.id },
+            { responderId: request.user.id },
+          ],
+          status: 'VERIFIED',
+        },
+        select: { id: true },
+      });
+
+      const swapIds = userSwaps.map(s => s.id);
+
+      // Get all ratings where user is the rater
+      const userRatings = await prisma.swapRating.findMany({
+        where: {
+          swapId: { in: swapIds },
+          raterId: request.user.id,
+        },
+        select: {
+          swapId: true,
+          overallRating: true,
+          onTime: true,
+          bookCondition: true,
+          communication: true,
+          comment: true,
+        },
+      });
+
+      // Create map of swapId -> rating
+      const ratingsMap: Record<string, any> = {};
+      userRatings.forEach(rating => {
+        ratingsMap[rating.swapId] = rating;
+      });
+
+      return { success: true, data: ratingsMap } as ApiResponse;
+    } catch (error) {
+      reply.code(500);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch ratings status',
       } as ApiResponse;
     }
   });

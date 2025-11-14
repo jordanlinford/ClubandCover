@@ -7,17 +7,34 @@ import { Input } from '@repo/ui';
 import type { Swap } from '@repo/types';
 import { useAuth } from '../contexts/AuthContext';
 import { BookCopy } from 'lucide-react';
+import { SwapRatingDialog } from '../components/SwapRatingDialog';
+
+interface SwapWithUsers extends Swap {
+  requester: { id: string; name: string; email: string };
+  responder: { id: string; name: string; email: string };
+  bookOffered: any;
+  bookRequested: any;
+}
 
 export function SwapsPage() {
   const [activeTab, setActiveTab] = useState<'sent' | 'received'>('sent');
   const [deliverable, setDeliverable] = useState<Record<string, string>>({});
   const [error, setError] = useState<string>('');
+  const [ratingDialogOpen, setRatingDialogOpen] = useState(false);
+  const [selectedSwap, setSelectedSwap] = useState<SwapWithUsers | null>(null);
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: swaps, isLoading } = useQuery<Swap[]>({
+  const { data: swaps, isLoading } = useQuery<SwapWithUsers[]>({
     queryKey: ['/api/swaps'],
   });
+
+  // Fetch ratings status for all user's swaps in one call (efficient batch endpoint)
+  const { data: ratingsResponse } = useQuery<{ success: boolean; data: Record<string, any> }>({
+    queryKey: ['/api/swaps/ratings/my-status'],
+    enabled: !!swaps && swaps.some(s => s.status === 'VERIFIED'),
+  });
+  const swapRatingsMap = ratingsResponse?.data;
 
   const updateSwapMutation = useMutation({
     mutationFn: async ({ id, status, deliverable }: { id: string; status: string; deliverable?: string }) => {
@@ -208,6 +225,21 @@ export function SwapsPage() {
                           Verify Received
                         </Button>
                       )}
+
+                      {/* Rating button for verified swaps */}
+                      {swap.status === 'VERIFIED' && !swapRatingsMap?.[swap.id] && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedSwap(swap);
+                            setRatingDialogOpen(true);
+                          }}
+                          data-testid={`button-rate-partner-${swap.id}`}
+                        >
+                          Rate Partner
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </Card>
@@ -221,6 +253,25 @@ export function SwapsPage() {
             </Card>
           )}
         </div>
+
+        {/* Rating Dialog - Keep mounted to preserve form state across close/reopen */}
+        {selectedSwap && (
+          <SwapRatingDialog
+            isOpen={ratingDialogOpen}
+            onClose={() => setRatingDialogOpen(false)}
+            swapId={selectedSwap.id}
+            partnerName={
+              activeTab === 'sent' 
+                ? selectedSwap.responder.name 
+                : selectedSwap.requester.name
+            }
+            onSuccess={() => {
+              // Only clear selection after successful submission
+              setSelectedSwap(null);
+              setRatingDialogOpen(false);
+            }}
+          />
+        )}
       </div>
     </div>
   );
