@@ -1,29 +1,10 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import App from './App';
 import './index.css';
 import { AuthProvider } from './contexts/AuthContext';
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      queryFn: async ({ queryKey }) => {
-        // Support hierarchical query keys: ['/api/books', id] -> '/api/books/:id'
-        const segments = queryKey.filter(segment => segment !== null && segment !== undefined);
-        const url = segments.join('/');
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error('Network response was not ok');
-        }
-        const json = await response.json();
-        return json.success ? json.data : json;
-      },
-      staleTime: 5000,
-      retry: 1,
-    },
-  },
-});
+import { queryClient } from './lib/queryClient';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

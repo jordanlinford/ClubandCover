@@ -2,6 +2,18 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { isAIEnabled, generateEmbedding, getEmbeddingText } from '../lib/ai.js';
+import { randomBytes } from 'crypto';
+
+// Generate cryptographically secure base58 invite code (10 chars)
+function generateInviteCode(): string {
+  const base58Chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  const bytes = randomBytes(10);
+  let code = '';
+  for (let i = 0; i < 10; i++) {
+    code += base58Chars[bytes[i] % base58Chars.length];
+  }
+  return code;
+}
 
 export async function clubRoutes(fastify: FastifyInstance) {
   // Search clubs with filters (Sprint-6)
@@ -611,6 +623,333 @@ export async function clubRoutes(fastify: FastifyInstance) {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to choose book',
+      };
+    }
+  });
+
+  // Generate/regenerate club invite code (owner/admin only)
+  fastify.post('/:id/invite', async (request, reply) => {
+    if (!request.user) {
+      reply.code(401);
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    try {
+      const { id: clubId } = request.params as { id: string };
+      const schema = z.object({
+        expiresIn: z.number().optional(), // Days until expiry (default 30)
+        maxUses: z.number().optional(), // Max number of uses (optional)
+      });
+      const validated = schema.parse(request.body);
+
+      // Check permissions
+      const membership = await prisma.membership.findUnique({
+        where: { clubId_userId: { clubId, userId: request.user.id } },
+      });
+
+      if (!membership || !['OWNER', 'ADMIN'].includes(membership.role)) {
+        reply.code(403);
+        return { success: false, error: 'Only club owners and admins can generate invite codes' };
+      }
+
+      // Revoke all existing ACTIVE invites for this club
+      await prisma.clubInvite.updateMany({
+        where: {
+          clubId,
+          status: 'ACTIVE',
+        },
+        data: {
+          status: 'REVOKED',
+        },
+      });
+
+      // Generate new invite code (uppercase for consistency)
+      let code = generateInviteCode().toUpperCase();
+      // Ensure uniqueness (very unlikely collision with 10-char base58, but be safe)
+      while (await prisma.clubInvite.findUnique({ where: { code } })) {
+        code = generateInviteCode().toUpperCase();
+      }
+
+      const expiresAt = validated.expiresIn
+        ? new Date(Date.now() + validated.expiresIn * 24 * 60 * 60 * 1000)
+        : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // Default 30 days
+
+      // Create new invite
+      const invite = await prisma.clubInvite.create({
+        data: {
+          clubId,
+          code,
+          createdById: request.user.id,
+          expiresAt,
+          maxUses: validated.maxUses,
+          status: 'ACTIVE',
+        },
+        include: {
+          club: {
+            select: {
+              id: true,
+              name: true,
+              description: true,
+              joinRules: true,
+            },
+          },
+          creator: {
+            select: {
+              id: true,
+              name: true,
+              avatarUrl: true,
+            },
+          },
+        },
+      });
+
+      // Update club's current inviteCode
+      await prisma.club.update({
+        where: { id: clubId },
+        data: { inviteCode: code },
+      });
+
+      reply.code(201);
+      return { success: true, data: invite };
+    } catch (error) {
+      reply.code(400);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to generate invite',
+      };
+    }
+  });
+
+  // Get club info from invite code (public preview)
+  fastify.get('/invite/:code', async (request, reply) => {
+    try {
+      const { code } = request.params as { code: string };
+      const normalizedCode = code.toUpperCase();
+
+      const invite = await prisma.clubInvite.findUnique({
+        where: { code: normalizedCode },
+        include: {
+          club: {
+            select: {
+              id: true,
+              name: true,
+              description: true,
+              coverImageUrl: true,
+              preferredGenres: true,
+              joinRules: true,
+              minPointsToJoin: true,
+              _count: {
+                select: {
+                  memberships: {
+                    where: { status: 'ACTIVE' },
+                  },
+                },
+              },
+            },
+          },
+          creator: {
+            select: {
+              id: true,
+              name: true,
+              avatarUrl: true,
+            },
+          },
+        },
+      });
+
+      if (!invite) {
+        reply.code(404);
+        return { success: false, error: 'Invalid invite code' };
+      }
+
+      // Check if invite is expired
+      if (invite.status !== 'ACTIVE') {
+        reply.code(404);
+        return { success: false, error: 'This invite code has been revoked or expired' };
+      }
+
+      if (invite.expiresAt && new Date() > invite.expiresAt) {
+        // Mark as expired
+        await prisma.clubInvite.update({
+          where: { id: invite.id },
+          data: { status: 'EXPIRED' },
+        });
+        reply.code(404);
+        return { success: false, error: 'This invite code has expired' };
+      }
+
+      // Check usage limit
+      if (invite.maxUses && invite.usesCount >= invite.maxUses) {
+        await prisma.clubInvite.update({
+          where: { id: invite.id },
+          data: { status: 'EXPIRED' },
+        });
+        reply.code(404);
+        return { success: false, error: 'This invite code has reached its usage limit' };
+      }
+
+      return { success: true, data: invite };
+    } catch (error) {
+      reply.code(400);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get invite info',
+      };
+    }
+  });
+
+  // Join club via invite code
+  fastify.post('/invite/:code/join', async (request, reply) => {
+    if (!request.user) {
+      reply.code(401);
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    try {
+      const { code } = request.params as { code: string };
+
+      const invite = await prisma.clubInvite.findUnique({
+        where: { code: code.toUpperCase() },
+        include: {
+          club: {
+            select: {
+              id: true,
+              name: true,
+              joinRules: true,
+              minPointsToJoin: true,
+            },
+          },
+        },
+      });
+
+      if (!invite || invite.status !== 'ACTIVE') {
+        reply.code(404);
+        return { success: false, error: 'Invalid or expired invite code' };
+      }
+
+      // Check expiry
+      if (invite.expiresAt && new Date() > invite.expiresAt) {
+        await prisma.clubInvite.update({
+          where: { id: invite.id },
+          data: { status: 'EXPIRED' },
+        });
+        reply.code(400);
+        return { success: false, error: 'This invite code has expired' };
+      }
+
+      // Check usage limit
+      if (invite.maxUses && invite.usesCount >= invite.maxUses) {
+        await prisma.clubInvite.update({
+          where: { id: invite.id },
+          data: { status: 'EXPIRED' },
+        });
+        reply.code(400);
+        return { success: false, error: 'This invite code has reached its usage limit' };
+      }
+
+      // Check if already a member
+      const existing = await prisma.membership.findUnique({
+        where: {
+          clubId_userId: {
+            clubId: invite.clubId,
+            userId: request.user.id,
+          },
+        },
+      });
+
+      // Block if user was removed from club
+      if (existing && existing.status === 'REMOVED') {
+        reply.code(403);
+        return { success: false, error: 'You have been removed from this club and cannot rejoin' };
+      }
+
+      // Allow invite to upgrade existing ACTIVE memberships is redundant
+      if (existing && existing.status === 'ACTIVE') {
+        reply.code(400);
+        return { success: false, error: 'You are already an active member of this club' };
+      }
+
+      // Determine status based on joinRules (role is always MEMBER for new joiners via invite)
+      let status: 'ACTIVE' | 'PENDING';
+      const role = 'MEMBER';
+
+      if (invite.club.joinRules === 'INVITE_ONLY') {
+        // Invite code grants immediate access to INVITE_ONLY clubs
+        status = 'ACTIVE';
+      } else if (invite.club.joinRules === 'OPEN') {
+        // Invite code bypasses point requirements for OPEN clubs
+        status = 'ACTIVE';
+      } else {
+        // APPROVAL clubs still require admin approval even with invite
+        status = 'PENDING';
+      }
+
+      // Create or update membership with invitation tracking
+      const membership = await prisma.$transaction(async (tx) => {
+        // Upsert: create new or update existing PENDING/DECLINED memberships
+        const newMembership = existing
+          ? await tx.membership.update({
+              where: { id: existing.id },
+              data: {
+                role,
+                status,
+                invitedBy: invite.createdById,
+                invitationId: invite.id,
+                joinedAt: new Date(), // Reset join timestamp
+              },
+            })
+          : await tx.membership.create({
+              data: {
+                userId: request.user!.id,
+                clubId: invite.clubId,
+                role,
+                status,
+                invitedBy: invite.createdById,
+                invitationId: invite.id,
+              },
+            });
+
+        // Increment invite usage count and update lastUsedAt
+        await tx.clubInvite.update({
+          where: { id: invite.id },
+          data: {
+            usesCount: { increment: 1 },
+            lastUsedAt: new Date(),
+          },
+        });
+
+        // Check if we hit max uses and auto-expire
+        if (invite.maxUses && invite.usesCount + 1 >= invite.maxUses) {
+          await tx.clubInvite.update({
+            where: { id: invite.id },
+            data: { status: 'EXPIRED' },
+          });
+        }
+
+        return newMembership;
+      });
+
+      // Award JOIN_CLUB points if membership is active
+      if (status === 'ACTIVE') {
+        const { awardPoints } = await import('../lib/points.js');
+        const { maybeAwardLoyalMember } = await import('../lib/award.js');
+        
+        await awardPoints(request.user.id, 'JOIN_CLUB', undefined, 'CLUB', invite.clubId).catch(err => {
+          fastify.log.error(err, 'Failed to award JOIN_CLUB points');
+        });
+        
+        await maybeAwardLoyalMember(request.user.id).catch(err => {
+          fastify.log.error(err, 'Failed to check LOYAL_MEMBER badge');
+        });
+      }
+
+      reply.code(201);
+      return { success: true, data: membership };
+    } catch (error) {
+      reply.code(400);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to join club via invite',
       };
     }
   });

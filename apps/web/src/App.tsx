@@ -16,6 +16,7 @@ import { ClubRoomPage } from './pages/clubs/ClubRoom';
 import { PitchBrowserPage } from './pages/clubs/PitchBrowser';
 import { HostConsolePage } from './pages/clubs/HostConsole';
 import { VotePage } from './pages/clubs/Vote';
+import ClubInvitePage from './pages/clubs/ClubInvite';
 import { PitchesListPage } from './pages/pitches/List';
 import { NewPitchPage } from './pages/pitches/New';
 import { PitchDetailPage } from './pages/pitches/Detail';
@@ -54,6 +55,7 @@ export default function App() {
       <Route path="/books/:id/edit" component={BookFormPage} />
       <Route path="/clubs" component={ClubsListPage} />
       <Route path="/clubs/new" component={ClubFormPage} />
+      <Route path="/clubs/invite/:code" component={ClubInvitePage} />
       <Route path="/clubs/:id/room" component={ClubRoomPage} />
       <Route path="/clubs/:id/pitches" component={PitchBrowserPage} />
       <Route path="/clubs/:id/host-console" component={HostConsolePage} />

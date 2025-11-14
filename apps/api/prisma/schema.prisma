@@ -119,6 +119,12 @@ enum ReferralStatus {
   EXPIRED
 }
 
+enum InviteStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
 enum NotificationType {
   POLL_CREATED
   POLL_CLOSING
@@ -196,6 +202,7 @@ model User {
   dailyCounters      DailyPointCounter[]
   creditTransactions CreditTransaction[]
   sponsoredPitches   SponsoredPitch[]
+  clubInvitesCreated ClubInvite[]        @relation("ClubInviteCreator")
 
   @@index([roles])
   @@index([tier])
@@ -265,6 +272,7 @@ model Club {
   isPublic         Boolean   @default(true)
   joinRules        JoinRules @default(OPEN)
   minPointsToJoin  Int       @default(0)
+  inviteCode       String?   @unique
   chosenBookId     String?
   chosenBookAt     DateTime?
   createdAt        DateTime  @default(now())
@@ -279,9 +287,11 @@ model Club {
   polls          Poll[]
   messages       ClubMessage[]
   clubBooks      ClubBook[]
+  invites        ClubInvite[]
 
   @@index([createdById])
   @@index([isPublic])
+  @@index([inviteCode])
   @@map("clubs")
 }
 
@@ -324,20 +334,45 @@ model ClubMessage {
   @@map("club_messages")
 }
 
-model Membership {
-  id        String           @id @default(uuid())
-  userId    String
-  clubId    String
-  role        MembershipRole   @default(PENDING)
-  status      MembershipStatus @default(PENDING)
-  permissions Json?
-  joinedAt    DateTime         @default(now())
-  invitedBy   String?
+model ClubInvite {
+  id           String       @id @default(uuid())
+  clubId       String
+  code         String       @unique
+  createdById  String
+  status       InviteStatus @default(ACTIVE)
+  expiresAt    DateTime?
+  maxUses      Int?
+  usesCount    Int          @default(0)
+  lastUsedAt   DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
   // Relations
-  user    User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  club    Club  @relation(fields: [clubId], references: [id], onDelete: Cascade)
-  inviter User? @relation("InvitedBy", fields: [invitedBy], references: [id])
+  club        Club         @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  creator     User         @relation("ClubInviteCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  memberships Membership[]
+
+  @@index([clubId, status])
+  @@index([code])
+  @@map("club_invites")
+}
+
+model Membership {
+  id           String           @id @default(uuid())
+  userId       String
+  clubId       String
+  role         MembershipRole   @default(PENDING)
+  status       MembershipStatus @default(PENDING)
+  permissions  Json?
+  joinedAt     DateTime         @default(now())
+  invitedBy    String?
+  invitationId String?
+
+  // Relations
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  club       Club        @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  inviter    User?       @relation("InvitedBy", fields: [invitedBy], references: [id])
+  invitation ClubInvite? @relation(fields: [invitationId], references: [id], onDelete: SetNull)
 
   @@unique([clubId, userId])
   @@index([userId])
