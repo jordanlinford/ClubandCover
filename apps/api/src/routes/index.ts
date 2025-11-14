@@ -30,6 +30,7 @@ import { adminRoutes } from './admin.js';
 import { userRoutes } from './users.js';
 import { rewardRoutes } from './rewards.js';
 import { adminRewardRoutes } from './adminRewards.js';
+import { authorFollowRoutes } from './author-follows.js';
 
 export async function routes(fastify: FastifyInstance) {
   fastify.get('/health', async () => {
@@ -96,6 +97,9 @@ export async function routes(fastify: FastifyInstance) {
   // Admin routes (STAFF only)
   await fastify.register(adminRoutes, { prefix: '/admin' });
   await fastify.register(adminRewardRoutes, { prefix: '/admin' });
+  
+  // Author follows (subscription to authors)
+  await fastify.register(authorFollowRoutes);
   
   // Test support routes (only enabled in test environment)
   await fastify.register(testSupportRoutes, { prefix: '/test' });

@@ -160,6 +160,7 @@ enum NotificationType {
   POINTS_AWARDED
   MEMBERSHIP_APPROVED
   NEW_MESSAGE
+  AUTHOR_NEW_PITCH
 }
 
 enum CreditTransactionType {
@@ -228,6 +229,8 @@ model User {
   referralsUsed       Referral[]          @relation("RefereeReferrals")
   notifications       Notification[]
   settings            UserSetting?
+  following           AuthorFollow[]      @relation("Follower")
+  followers           AuthorFollow[]      @relation("FollowedAuthor")
   checklistProgress   ChecklistProgress[]
   emailLogs           EmailLog[]
   clubMessages        ClubMessage[]
@@ -939,4 +942,20 @@ model RedemptionRequest {
   @@index([rewardItemId])
   @@index([status, createdAt])
   @@map("redemption_requests")
+}
+
+model AuthorFollow {
+  id         String   @id @default(uuid())
+  followerId String
+  authorId   String
+  createdAt  DateTime @default(now())
+
+  // Relations
+  follower User @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  author   User @relation("FollowedAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, authorId])
+  @@index([followerId])
+  @@index([authorId])
+  @@map("author_follows")
 }
