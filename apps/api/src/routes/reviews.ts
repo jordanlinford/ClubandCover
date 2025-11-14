@@ -120,6 +120,27 @@ export async function reviewRoutes(fastify: FastifyInstance) {
         return { success: false, error: 'Not authorized to review this swap' } as ApiResponse;
       }
 
+      // Check for duplicate review URL (prevent reusing someone else's review)
+      const existingReviewWithUrl = await prisma.review.findFirst({
+        where: {
+          reviewUrl: validated.reviewUrl,
+          NOT: {
+            AND: [
+              { swapId: validated.swapId },
+              { reviewerId: request.user.id }
+            ]
+          }
+        },
+      });
+
+      if (existingReviewWithUrl) {
+        reply.code(409);
+        return { 
+          success: false, 
+          error: 'This review URL has already been submitted by another user' 
+        } as ApiResponse;
+      }
+
       // Create or update review (upsert)
       const review = await prisma.review.upsert({
         where: {
@@ -294,6 +315,27 @@ export async function reviewRoutes(fastify: FastifyInstance) {
         return {
           success: false,
           error: 'Book must be from the pitch library',
+        } as ApiResponse;
+      }
+
+      // Check for duplicate review URL (prevent reusing someone else's review)
+      const existingReviewWithUrl = await prisma.review.findFirst({
+        where: {
+          reviewUrl: validated.reviewUrl,
+          NOT: {
+            AND: [
+              { clubBookId: clubBook.id },
+              { reviewerId: request.user.id }
+            ]
+          }
+        },
+      });
+
+      if (existingReviewWithUrl) {
+        reply.code(409);
+        return { 
+          success: false, 
+          error: 'This review URL has already been submitted by another user' 
         } as ApiResponse;
       }
 
