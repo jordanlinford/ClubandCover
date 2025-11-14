@@ -2,9 +2,9 @@ import type { FastifyInstance } from 'fastify';
 import { prisma } from '../lib/prisma';
 import { CreateSwapSchema, UpdateSwapSchema } from '@repo/types';
 import type { ApiResponse } from '@repo/types';
-import { notify } from '../lib/mail';
 import { hasRole } from '../middleware/auth.js';
 import { z } from 'zod';
+import { dispatchNotification } from '../lib/notifications.js';
 
 // Helper to check author verification status
 async function checkAuthorVerification(userId: string): Promise<{ verified: boolean; error?: string; code?: string }> {
@@ -228,19 +228,19 @@ export async function swapRoutes(fastify: FastifyInstance) {
         },
       });
 
-      // Send notification to responder
-      if (swap.responder.email) {
-        await notify({
-          event: 'swap_requested',
-          recipientEmail: swap.responder.email,
-          recipientName: swap.responder.name,
-          data: {
-            swapId: swap.id,
-            bookTitle: requestedBook.title,
-            requesterName: request.user.email?.split('@')[0] || 'Someone',
-          },
-        });
-      }
+      // Send notification to responder (in-app + email)
+      void dispatchNotification(
+        validated.responderId,
+        {
+          type: 'NEW_SWAP_REQUEST',
+          swapId: swap.id,
+          requesterName: swap.requester.name,
+          requesterId: request.user.id,
+          bookOfferedTitle: swap.bookOffered.title,
+          bookRequestedTitle: requestedBook.title,
+        },
+        request.log
+      ).catch((err) => request.log.error(err, 'Failed to dispatch NEW_SWAP_REQUEST notification'));
 
       reply.code(201);
       return { success: true, data: swap } as ApiResponse;
@@ -345,26 +345,28 @@ export async function swapRoutes(fastify: FastifyInstance) {
       });
 
       // Send notifications based on status
-      if (validated.status === 'ACCEPTED' && swap.requester.email) {
-        await notify({
-          event: 'swap_accepted',
-          recipientEmail: swap.requester.email,
-          recipientName: swap.requester.name,
-          data: {
+      if (validated.status === 'ACCEPTED') {
+        void dispatchNotification(
+          swap.requesterId,
+          {
+            type: 'SWAP_ACCEPTED',
             swapId: swap.id,
             responderName: swap.responder.name,
+            responderId: swap.responderId,
+            bookTitle: swap.bookRequested.title,
           },
-        });
-      } else if (validated.status === 'DELIVERED' && swap.requester.email) {
-        await notify({
-          event: 'swap_delivered',
-          recipientEmail: swap.requester.email,
-          recipientName: swap.requester.name,
-          data: {
+          request.log
+        ).catch((err) => request.log.error(err, 'Failed to dispatch SWAP_ACCEPTED notification'));
+      } else if (validated.status === 'DELIVERED') {
+        void dispatchNotification(
+          swap.requesterId,
+          {
+            type: 'SWAP_DELIVERED',
             swapId: swap.id,
-            deliverable: validated.deliverable,
+            deliverable: validated.deliverable || 'Book delivery confirmed',
           },
-        });
+          request.log
+        ).catch((err) => request.log.error(err, 'Failed to dispatch SWAP_DELIVERED notification'));
       } else if (validated.status === 'VERIFIED') {
         // Create verified review
         await prisma.review.create({
@@ -380,29 +382,30 @@ export async function swapRoutes(fastify: FastifyInstance) {
         });
 
         // Notify both parties
-        if (swap.responder.email) {
-          await notify({
-            event: 'swap_verified',
-            recipientEmail: swap.responder.email,
-            recipientName: swap.responder.name,
-            data: { swapId: swap.id },
-          });
-        }
-        if (swap.requester.email) {
-          await notify({
-            event: 'swap_verified',
-            recipientEmail: swap.requester.email,
-            recipientName: swap.requester.name,
-            data: { swapId: swap.id },
-          });
-        }
-      } else if (validated.status === 'DECLINED' && swap.requester.email) {
-        await notify({
-          event: 'swap_declined',
-          recipientEmail: swap.requester.email,
-          recipientName: swap.requester.name,
-          data: { swapId: swap.id },
-        });
+        void Promise.all([
+          dispatchNotification(
+            swap.responderId,
+            { type: 'SWAP_VERIFIED', swapId: swap.id },
+            request.log
+          ),
+          dispatchNotification(
+            swap.requesterId,
+            { type: 'SWAP_VERIFIED', swapId: swap.id },
+            request.log
+          ),
+        ]).catch((err) => request.log.error(err, 'Failed to dispatch SWAP_VERIFIED notifications'));
+      } else if (validated.status === 'DECLINED') {
+        void dispatchNotification(
+          swap.requesterId,
+          {
+            type: 'SWAP_DECLINED',
+            swapId: swap.id,
+            responderName: swap.responder.name,
+            responderId: swap.responderId,
+            bookTitle: swap.bookRequested.title,
+          },
+          request.log
+        ).catch((err) => request.log.error(err, 'Failed to dispatch SWAP_DECLINED notification'));
       }
 
       return { success: true, data: updated } as ApiResponse;

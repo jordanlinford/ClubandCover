@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { prisma } from '../lib/prisma';
 import { z } from 'zod';
 import type { ApiResponse } from '@repo/types';
+import { dispatchNotification } from '../lib/notifications.js';
 
 export async function reviewRoutes(fastify: FastifyInstance) {
   // Get reviews for a book
@@ -179,6 +180,28 @@ export async function reviewRoutes(fastify: FastifyInstance) {
         await maybeAwardSwapMaster(request.user.id).catch(err => {
           fastify.log.error(err, 'Failed to check SWAP_MASTER badge');
         });
+      }
+
+      // Get book and reviewer details for notification
+      const book = await prisma.book.findUnique({
+        where: { id: validated.bookId },
+        select: { title: true },
+      });
+
+      // Send notification to reviewee (the author whose book was reviewed)
+      if (book && validated.revieweeId) {
+        void dispatchNotification(
+          validated.revieweeId,
+          {
+            type: 'REVIEW_SUBMITTED',
+            reviewId: review.id,
+            reviewerName: review.reviewer.name,
+            reviewerId: request.user.id,
+            bookTitle: book.title,
+            platform: validated.platform,
+          },
+          request.log
+        ).catch((err) => request.log.error(err, 'Failed to dispatch REVIEW_SUBMITTED notification'));
       }
 
       reply.code(201);
