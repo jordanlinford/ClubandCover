@@ -10,6 +10,7 @@ import { dirname, resolve } from 'path';
 import { routes } from './routes/index.js';
 import { versionRoutes } from './routes/version.js';
 import { supabaseAuth, requireActiveAccount } from './middleware/auth.js';
+import { enforceSuspensionPolicy } from './middleware/suspensionEnforcement.js';
 import { ensureStripeProducts } from './lib/stripe.js';
 import { initializeOpenAI } from './lib/ai.js';
 
@@ -147,6 +148,13 @@ fastify.addHook('onRequest', async (request, reply) => {
 fastify.addHook('onRequest', async (request, reply) => {
   if (request.url.startsWith('/api')) {
     await requireActiveAccount(request, reply);
+  }
+});
+
+// Universal suspension enforcement - single source of truth for blocking suspended users
+fastify.addHook('onRequest', async (request, reply) => {
+  if (request.url.startsWith('/api')) {
+    await enforceSuspensionPolicy(request, reply);
   }
 });
 

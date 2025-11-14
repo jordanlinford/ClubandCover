@@ -458,12 +458,33 @@ export async function userRoutes(fastify: FastifyInstance) {
         }
       }
 
-      await prisma.user.update({
-        where: { id: request.user.id },
-        data: {
-          accountStatus: 'DISABLED',
-          disabledAt: new Date(),
-        },
+      const oldStatus = user.accountStatus;
+      const newStatus = 'DISABLED';
+
+      await prisma.$transaction(async (tx) => {
+        // Update user status
+        await tx.user.update({
+          where: { id: request.user.id },
+          data: {
+            accountStatus: newStatus,
+            disabledAt: new Date(),
+          },
+        });
+
+        // Create audit log entry
+        await tx.accountStatusLog.create({
+          data: {
+            userId: request.user.id,
+            changedBy: request.user.id, // Self-initiated
+            oldStatus,
+            newStatus,
+            reason: 'User disabled their own account',
+            metadata: {
+              action: 'SELF_DISABLE',
+              timestamp: new Date().toISOString(),
+            },
+          },
+        });
       });
 
       return {
@@ -523,12 +544,33 @@ export async function userRoutes(fastify: FastifyInstance) {
         }
       }
 
-      await prisma.user.update({
-        where: { id: request.user.id },
-        data: {
-          accountStatus: 'ACTIVE',
-          disabledAt: null,
-        },
+      const oldStatus = user.accountStatus;
+      const newStatus = 'ACTIVE';
+
+      await prisma.$transaction(async (tx) => {
+        // Update user status
+        await tx.user.update({
+          where: { id: request.user.id },
+          data: {
+            accountStatus: newStatus,
+            disabledAt: null,
+          },
+        });
+
+        // Create audit log entry
+        await tx.accountStatusLog.create({
+          data: {
+            userId: request.user.id,
+            changedBy: request.user.id, // Self-initiated
+            oldStatus,
+            newStatus,
+            reason: 'User reactivated their account',
+            metadata: {
+              action: 'SELF_ENABLE',
+              timestamp: new Date().toISOString(),
+            },
+          },
+        });
       });
 
       return {
@@ -585,6 +627,8 @@ export async function userRoutes(fastify: FastifyInstance) {
 
       // Anonymize user data while preserving relationships
       const anonymizedEmail = `deleted_${request.user.id}@deleted.local`;
+      const oldStatus = user.accountStatus;
+      const newStatus = 'DELETED';
       
       // Use transaction to ensure atomicity
       await prisma.$transaction(async (tx) => {
@@ -592,7 +636,7 @@ export async function userRoutes(fastify: FastifyInstance) {
         await tx.user.update({
           where: { id: request.user.id },
           data: {
-            accountStatus: 'DELETED',
+            accountStatus: newStatus,
             deletedAt: new Date(),
             email: anonymizedEmail,
             name: 'Deleted User',
@@ -605,6 +649,21 @@ export async function userRoutes(fastify: FastifyInstance) {
             passwordResetExpires: null,
             stripeCustomerId: null,
             stripeSubscriptionId: null,
+          },
+        });
+
+        // Create audit log entry
+        await tx.accountStatusLog.create({
+          data: {
+            userId: request.user.id,
+            changedBy: request.user.id, // Self-initiated
+            oldStatus,
+            newStatus,
+            reason: 'User deleted their own account',
+            metadata: {
+              action: 'SELF_DELETE',
+              timestamp: new Date().toISOString(),
+            },
           },
         });
 
