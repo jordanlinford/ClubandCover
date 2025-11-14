@@ -127,6 +127,21 @@ enum ReferralStatus {
   EXPIRED
 }
 
+enum VerificationStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum VerificationType {
+  AMAZON_LINK
+  GOODREADS_LINK
+  PUBLISHER_PAGE
+  ISBN
+  OTHER
+}
+
 enum InviteStatus {
   ACTIVE
   REVOKED
@@ -243,10 +258,12 @@ model User {
   dailyCounters       DailyPointCounter[]
   creditTransactions  CreditTransaction[]
   sponsoredPitches    SponsoredPitch[]
-  clubInvitesCreated  ClubInvite[]        @relation("ClubInviteCreator")
-  rewardContributions RewardItem[]        @relation("RewardContributor")
-  redemptions         RedemptionRequest[] @relation("UserRedemptions")
-  reviewedRedemptions RedemptionRequest[] @relation("RedemptionReviewer")
+  clubInvitesCreated    ClubInvite[]          @relation("ClubInviteCreator")
+  rewardContributions   RewardItem[]          @relation("RewardContributor")
+  redemptions           RedemptionRequest[]   @relation("UserRedemptions")
+  reviewedRedemptions   RedemptionRequest[]   @relation("RedemptionReviewer")
+  authorProfile         AuthorProfile?
+  verifiedProfiles      AuthorProfile[]       @relation("VerifiedByAdmin")
 
   @@index([roles])
   @@index([tier])
@@ -267,6 +284,46 @@ model UserProfile {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_profiles")
+}
+
+model AuthorProfile {
+  id                 String             @id @default(uuid())
+  userId             String             @unique
+  penName            String?
+  bio                String?            @db.Text
+  genres             String[]           @default([])
+  website            String?
+  socialLinks        Json?              // {twitter?: string, facebook?: string, instagram?: string, etc.}
+  verificationStatus VerificationStatus @default(UNVERIFIED)
+  verifiedAt         DateTime?
+  verifiedByAdminId  String?
+  rejectionReason    String?            @db.Text
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  // Relations
+  user               User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verifiedBy         User?                 @relation("VerifiedByAdmin", fields: [verifiedByAdminId], references: [id], onDelete: SetNull)
+  verificationProofs AuthorVerification[]
+
+  @@index([userId])
+  @@index([verificationStatus])
+  @@map("author_profiles")
+}
+
+model AuthorVerification {
+  id              String           @id @default(uuid())
+  authorProfileId String
+  type            VerificationType
+  value           String // URL or ISBN or other proof value
+  notes           String?          @db.Text
+  createdAt       DateTime         @default(now())
+
+  // Relations
+  authorProfile AuthorProfile @relation(fields: [authorProfileId], references: [id], onDelete: Cascade)
+
+  @@index([authorProfileId])
+  @@map("author_verifications")
 }
 
 model Book {
