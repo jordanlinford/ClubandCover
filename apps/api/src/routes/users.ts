@@ -115,6 +115,114 @@ export async function userRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // Get current user's profile
+  fastify.get('/me/profile', async (request, reply) => {
+    if (!request.user) {
+      reply.code(401);
+      return { success: false, error: 'Please sign in to view your profile' } as ApiResponse;
+    }
+
+    try {
+      const profile = await prisma.userProfile.findUnique({
+        where: { userId: request.user.id },
+      });
+
+      // Normalize profile to ensure no null fields
+      const profileData = {
+        userId: request.user.id,
+        bio: profile?.bio ?? null,
+        genres: profile?.genres ?? [],
+        booksPerMonth: profile?.booksPerMonth ?? null,
+        openToSwaps: profile?.openToSwaps ?? false,
+      };
+
+      return { success: true, data: profileData } as ApiResponse;
+    } catch (error) {
+      reply.code(500);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch profile',
+      } as ApiResponse;
+    }
+  });
+
+  // Update user profile preferences
+  fastify.patch('/me/profile', async (request, reply) => {
+    if (!request.user) {
+      reply.code(401);
+      return { success: false, error: 'Please sign in to update your profile' } as ApiResponse;
+    }
+
+    try {
+      const schema = z.object({
+        openToSwaps: z.boolean().optional(),
+        genres: z.array(z.string()).optional(),
+        booksPerMonth: z.number().optional(),
+        bio: z.string().optional().nullable(),
+      });
+      const updateData = schema.parse(request.body);
+
+      // Get existing profile to merge with updates
+      const existing = await prisma.userProfile.findUnique({
+        where: { userId: request.user.id },
+      });
+
+      // Normalize existing profile to fix legacy nulls
+      const normalizedExisting = existing ? {
+        bio: existing.bio ?? null,
+        genres: existing.genres ?? [],
+        booksPerMonth: existing.booksPerMonth ?? null,
+        openToSwaps: existing.openToSwaps ?? false,
+      } : {
+        bio: null,
+        genres: [],
+        booksPerMonth: null,
+        openToSwaps: false,
+      };
+
+      // Merge normalized existing with updates
+      const mergedData = {
+        bio: updateData.bio !== undefined ? updateData.bio : normalizedExisting.bio,
+        genres: updateData.genres ?? normalizedExisting.genres,
+        booksPerMonth: updateData.booksPerMonth ?? normalizedExisting.booksPerMonth,
+        openToSwaps: updateData.openToSwaps ?? normalizedExisting.openToSwaps,
+      };
+
+      const profile = await prisma.userProfile.upsert({
+        where: { userId: request.user.id },
+        create: {
+          userId: request.user.id,
+          ...mergedData,
+        },
+        update: mergedData,
+      });
+
+      // Normalize response
+      const normalizedProfile = {
+        userId: profile.userId,
+        bio: profile.bio ?? null,
+        genres: profile.genres ?? [],
+        booksPerMonth: profile.booksPerMonth ?? null,
+        openToSwaps: profile.openToSwaps ?? false,
+      };
+
+      return { success: true, data: normalizedProfile } as ApiResponse;
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        reply.code(400);
+        return {
+          success: false,
+          error: error.errors[0]?.message || 'Invalid profile data',
+        } as ApiResponse;
+      }
+      reply.code(500);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update profile',
+      } as ApiResponse;
+    }
+  });
+
   // Add role to current user (self-service)
   fastify.post('/me/roles', async (request, reply) => {
     if (!request.user) {
@@ -219,7 +327,7 @@ export async function userRoutes(fastify: FastifyInstance) {
         ...(q && {
           OR: [
             { name: { contains: q, mode: 'insensitive' } },
-            { bio: { contains: q, mode: 'insensitive' } },
+            { profile: { is: { bio: { contains: q, mode: 'insensitive' } } } },
           ],
         }),
       };
@@ -241,11 +349,11 @@ export async function userRoutes(fastify: FastifyInstance) {
           id: true,
           name: true,
           avatarUrl: true,
-          bio: true,
           tier: true,
           createdAt: true,
           profile: {
             select: {
+              bio: true,
               genres: true,
               openToSwaps: true,
               booksPerMonth: true,
@@ -266,7 +374,25 @@ export async function userRoutes(fastify: FastifyInstance) {
         ],
       });
 
-      return { success: true, data: authors } as ApiResponse;
+      // Normalize response to ensure all fields have defaults
+      const normalizedAuthors = authors.map((author) => ({
+        id: author.id,
+        name: author.name ?? '',
+        avatarUrl: author.avatarUrl ?? null,
+        tier: author.tier,
+        createdAt: author.createdAt,
+        bio: author.profile?.bio ?? null,
+        booksCount: author._count?.books ?? 0,
+        verifiedSwapCount: author._count?.swapsRequested ?? 0,
+        profile: {
+          bio: author.profile?.bio ?? null,
+          genres: author.profile?.genres ?? [],
+          openToSwaps: author.profile?.openToSwaps ?? false,
+          booksPerMonth: author.profile?.booksPerMonth ?? null,
+        },
+      }));
+
+      return { success: true, data: normalizedAuthors } as ApiResponse;
     } catch (error) {
       if (error instanceof z.ZodError) {
         reply.code(400);

@@ -45,6 +45,26 @@ export function ProfilePage() {
     enabled: !!user?.id,
   });
 
+  const { data: profileResponse } = useQuery<any>({
+    queryKey: ['/api/users/me/profile'],
+    enabled: !!user?.id && hasRole(userData, 'AUTHOR'),
+  });
+
+  const updateProfileMutation = useMutation({
+    mutationFn: (data: { openToSwaps: boolean }) =>
+      api.patch('/users/me/profile', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/users/me/profile'] });
+      setErrorMessage('');
+      setSuccessMessage('Preference updated successfully!');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    },
+    onError: (error: Error) => {
+      setSuccessMessage('');
+      setErrorMessage(error.message || 'Failed to update preference');
+    },
+  });
+
   const addRoleMutation = useMutation({
     mutationFn: (role: string) =>
       api.post('/users/me/roles', { role }),
@@ -253,6 +273,54 @@ export function ProfilePage() {
               </div>
             </div>
           </Card>
+
+          {/* Author Preferences */}
+          {hasRole(userData, 'AUTHOR') && (
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold mb-4">Author Preferences</h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                Manage your author profile and swap availability
+              </p>
+
+              {successMessage && (
+                <div
+                  className="mb-4 p-4 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-md"
+                  data-testid="text-success-author"
+                >
+                  {successMessage}
+                </div>
+              )}
+
+              {errorMessage && (
+                <div
+                  className="mb-4 p-4 bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 rounded-md"
+                  data-testid="text-error-author"
+                >
+                  {errorMessage}
+                </div>
+              )}
+
+              <div className="flex items-center justify-between p-4 border rounded-md">
+                <div className="flex-1">
+                  <h3 className="font-semibold">Open to Book Swaps</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Allow other authors to find you in the Author Directory for swap requests
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={profileResponse?.data?.openToSwaps || false}
+                    onChange={(e) => updateProfileMutation.mutate({ openToSwaps: e.target.checked })}
+                    disabled={updateProfileMutation.isPending}
+                    data-testid="toggle-open-to-swaps"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 dark:peer-focus:ring-primary/30 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+                </label>
+              </div>
+            </Card>
+          )}
 
           {pointsData && (
             <Card className="p-6">

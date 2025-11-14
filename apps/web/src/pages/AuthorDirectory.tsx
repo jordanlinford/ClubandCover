@@ -37,27 +37,19 @@ export default function AuthorDirectory() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const { data, isLoading } = useQuery({
+  const { data: authors = [], isLoading } = useQuery({
     queryKey: ['/api/users/authors/search', debouncedQuery, onlyOpenToSwaps],
     queryFn: async () => {
-      const params: Record<string, string> = {};
-      if (debouncedQuery) params.q = debouncedQuery;
-      if (onlyOpenToSwaps) params.openToSwaps = 'true';
+      const params = new URLSearchParams();
+      if (debouncedQuery) params.append('q', debouncedQuery);
+      if (onlyOpenToSwaps) params.append('openToSwaps', 'true');
       
-      const response = await api.get<{ success: boolean; data: AuthorProfile[] }>(
-        '/users/authors/search',
-        { params }
-      );
+      const queryString = params.toString();
+      const endpoint = `/users/authors/search${queryString ? `?${queryString}` : ''}`;
       
-      if (!response.success) {
-        throw new Error(response.error || 'Failed to search authors');
-      }
-      
-      return response.data;
+      return api.get<AuthorProfile[]>(endpoint);
     },
   });
-
-  const authors: AuthorProfile[] = data || [];
 
   return (
     <div className="min-h-screen bg-background">
