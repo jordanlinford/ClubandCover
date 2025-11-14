@@ -126,6 +126,15 @@ export async function sendNotificationEmail(
   if (emailType === 'points_update' && settings && !settings.emailPointsUpdates) {
     return false;
   }
+  if (emailType === 'club_invite' && settings && !settings.emailClubInvites) {
+    return false;
+  }
+  if (emailType === 'review_update' && settings && !settings.emailReviewUpdates) {
+    return false;
+  }
+  if (emailType === 'club_mention' && settings && !settings.emailClubMentions) {
+    return false;
+  }
 
   // Check daily limit
   const limitReached = await hasReachedDailyLimit(userId, emailType);
@@ -300,6 +309,109 @@ export const emailTemplates = {
           <li>Supports the AuthorSwap community</li>
           <li>Unlocks badges for your profile</li>
         </ul>
+        <p style="margin-top: 30px; color: #666; font-size: 14px;">
+          You can manage your email preferences in your account settings.
+        </p>
+      </div>
+    `,
+  }),
+
+  newSwapRequest: (requesterName: string, bookTitle: string, offeredBookTitle: string) => ({
+    subject: `New swap request from ${requesterName}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #333;">New Swap Request</h2>
+        <p>Hi there,</p>
+        <p><strong>${requesterName}</strong> wants to swap books with you!</p>
+        <p style="margin: 20px 0;">
+          <strong>They're offering:</strong> ${offeredBookTitle}<br/>
+          <strong>They want:</strong> ${bookTitle}
+        </p>
+        <p>Log in to your account to accept or decline this swap request.</p>
+        <p style="margin-top: 30px; color: #666; font-size: 14px;">
+          You can manage your email preferences in your account settings.
+        </p>
+      </div>
+    `,
+  }),
+
+  swapAccepted: (responderName: string, bookTitle: string) => ({
+    subject: `${responderName} accepted your swap request!`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #333;">Swap Accepted!</h2>
+        <p>Great news!</p>
+        <p><strong>${responderName}</strong> has accepted your swap request for "${bookTitle}".</p>
+        <p>You can now coordinate the exchange details. Make sure to:</p>
+        <ul style="color: #666;">
+          <li>Exchange shipping information</li>
+          <li>Agree on book condition expectations</li>
+          <li>Set delivery timelines</li>
+        </ul>
+        <p style="margin-top: 30px; color: #666; font-size: 14px;">
+          You can manage your email preferences in your account settings.
+        </p>
+      </div>
+    `,
+  }),
+
+  swapDeclined: (responderName: string, bookTitle: string) => ({
+    subject: 'Swap request declined',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #333;">Swap Request Update</h2>
+        <p>Hi there,</p>
+        <p>${responderName} has declined your swap request for "${bookTitle}".</p>
+        <p>Don't worry! There are plenty of other books and authors in our community. Keep exploring to find your next perfect swap.</p>
+        <p style="margin-top: 30px; color: #666; font-size: 14px;">
+          You can manage your email preferences in your account settings.
+        </p>
+      </div>
+    `,
+  }),
+
+  reviewSubmitted: (reviewerName: string, bookTitle: string, platform: string) => ({
+    subject: `${reviewerName} posted a review of your book!`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #333;">New Review Posted!</h2>
+        <p>Exciting news!</p>
+        <p><strong>${reviewerName}</strong> has submitted their review of "${bookTitle}" on ${platform}.</p>
+        <p>This review helps build your book's credibility and reach more readers. Thank you for participating in our swap community!</p>
+        <p style="margin-top: 30px; color: #666; font-size: 14px;">
+          You can manage your email preferences in your account settings.
+        </p>
+      </div>
+    `,
+  }),
+
+  clubInvite: (clubName: string, inviterName: string) => ({
+    subject: `You're invited to join ${clubName}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #333;">Club Invitation</h2>
+        <p>Hi there,</p>
+        <p><strong>${inviterName}</strong> has invited you to join <strong>${clubName}</strong>!</p>
+        <p>Join to participate in book discussions, vote on upcoming reads, and connect with fellow book lovers.</p>
+        <p>Log in to your account to accept this invitation.</p>
+        <p style="margin-top: 30px; color: #666; font-size: 14px;">
+          You can manage your email preferences in your account settings.
+        </p>
+      </div>
+    `,
+  }),
+
+  clubMention: (mentionerName: string, clubName: string, messagePreview: string) => ({
+    subject: `${mentionerName} mentioned you in ${clubName}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #333;">You Were Mentioned</h2>
+        <p>Hi there,</p>
+        <p><strong>${mentionerName}</strong> mentioned you in <strong>${clubName}</strong>:</p>
+        <blockquote style="border-left: 4px solid #4F46E5; padding-left: 16px; margin: 20px 0; color: #666;">
+          ${messagePreview}
+        </blockquote>
+        <p>Log in to see the full message and respond.</p>
         <p style="margin-top: 30px; color: #666; font-size: 14px;">
           You can manage your email preferences in your account settings.
         </p>

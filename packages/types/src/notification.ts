@@ -3,12 +3,20 @@ export type NotificationType =
   | 'POLL_CLOSING'
   | 'PITCH_ACCEPTED'
   | 'PITCH_REJECTED'
+  | 'NEW_SWAP_REQUEST'
+  | 'SWAP_ACCEPTED'
+  | 'SWAP_DECLINED'
   | 'SWAP_DELIVERED'
   | 'SWAP_VERIFIED'
+  | 'SWAP_REVIEW_REMINDER'
+  | 'REVIEW_SUBMITTED'
   | 'REFERRAL_ACTIVATED'
   | 'POINTS_AWARDED'
   | 'MEMBERSHIP_APPROVED'
-  | 'NEW_MESSAGE';
+  | 'NEW_MESSAGE'
+  | 'NEW_CLUB_INVITE'
+  | 'CLUB_MENTION'
+  | 'AUTHOR_NEW_PITCH';
 
 export interface Notification {
   id: string;
