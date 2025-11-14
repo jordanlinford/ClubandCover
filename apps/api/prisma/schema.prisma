@@ -19,6 +19,7 @@ enum AccountStatus {
   ACTIVE
   DISABLED
   DELETED
+  SUSPENDED
 }
 
 enum Tier {
@@ -226,6 +227,8 @@ model User {
   accountStatus            AccountStatus @default(ACTIVE)
   disabledAt               DateTime?
   deletedAt                DateTime?
+  suspendedAt              DateTime?
+  suspendedBy              String?
   stripeCustomerId         String?
   stripeSubscriptionId     String?
   creditBalance            Int           @default(0) // Promotion credits for visibility boosts
