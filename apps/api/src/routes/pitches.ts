@@ -72,9 +72,30 @@ export default async function pitchesRoutes(app: FastifyInstance) {
       theme: z.string().max(500, 'Theme must be 500 characters or less').optional(),
       imageUrl: z.string().url('Must be a valid URL').optional(),
       videoUrl: z.string().optional(),
+      availableFormats: z.array(z.enum(['PAPERBACK', 'HARDCOVER', 'EBOOK', 'AUDIOBOOK']))
+        .min(1, 'At least one format must be selected')
+        .optional(),
+      offerFreeIfChosen: z.boolean().optional(),
     });
 
     const body = schema.parse(request.body);
+    
+    // Validate format and free offer combination
+    if (body.offerFreeIfChosen && body.availableFormats && body.availableFormats.length > 0) {
+      const hasPhysicalFormat = body.availableFormats.some(
+        format => format === 'PAPERBACK' || format === 'HARDCOVER'
+      );
+      
+      if (hasPhysicalFormat) {
+        // Note: Physical format free offers imply shipping responsibility
+        // This could be expanded in the future to track shipping details
+        // For now, we just log the commitment
+        request.log.info({
+          userId,
+          pitchData: { title: body.title, formats: body.availableFormats },
+        }, 'Author offering physical format for free - shipping required');
+      }
+    }
     
     // Validate and normalize YouTube URL if provided
     let normalizedVideoUrl: string | null = null;
@@ -176,6 +197,8 @@ export default async function pitchesRoutes(app: FastifyInstance) {
         theme: body.theme || null,
         imageUrl: body.imageUrl || null,
         videoUrl: normalizedVideoUrl,
+        availableFormats: body.availableFormats || [],
+        offerFreeIfChosen: body.offerFreeIfChosen || false,
         status: 'SUBMITTED',
         authorTier: user.tier, // Set author tier for visibility boost sorting
       },
