@@ -163,6 +163,16 @@ enum RedemptionStatus {
   CANCELLED
 }
 
+enum AuditActionType {
+  STATUS_CHANGE
+  MANUAL_GRANT
+  POINTS_ADJUSTMENT
+  BADGE_GRANT
+  BADGE_REVOKE
+  TIER_CHANGE
+  REFUND
+}
+
 enum NotificationType {
   POLL_CREATED
   POLL_CLOSING
@@ -269,11 +279,14 @@ model User {
   creditTransactions  CreditTransaction[]
   sponsoredPitches    SponsoredPitch[]
   clubInvitesCreated    ClubInvite[]          @relation("ClubInviteCreator")
-  rewardContributions   RewardItem[]          @relation("RewardContributor")
-  redemptions           RedemptionRequest[]   @relation("UserRedemptions")
-  reviewedRedemptions   RedemptionRequest[]   @relation("RedemptionReviewer")
+  rewardContributions   RewardItem[]            @relation("RewardContributor")
+  redemptions           RedemptionRequest[]     @relation("UserRedemptions")
+  reviewedRedemptions   RedemptionRequest[]     @relation("RedemptionReviewer")
+  auditLogsCreated      RedemptionAuditLog[]    @relation("AuditLogActor")
+  pointsAdjustments     PointsAdjustmentLog[]   @relation("UserPointsAdjustments")
+  pointsAdjustmentsMade PointsAdjustmentLog[]   @relation("PointsAdjuster")
   authorProfile         AuthorProfile?
-  verifiedProfiles      AuthorProfile[]       @relation("VerifiedByAdmin")
+  verifiedProfiles      AuthorProfile[]         @relation("VerifiedByAdmin")
 
   @@index([roles])
   @@index([tier])
@@ -1039,14 +1052,54 @@ model RedemptionRequest {
   updatedAt       DateTime         @updatedAt
 
   // Relations
-  user       User       @relation("UserRedemptions", fields: [userId], references: [id], onDelete: Cascade)
-  rewardItem RewardItem @relation(fields: [rewardItemId], references: [id], onDelete: Cascade)
-  reviewer   User?      @relation("RedemptionReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
+  user       User                  @relation("UserRedemptions", fields: [userId], references: [id], onDelete: Cascade)
+  rewardItem RewardItem            @relation(fields: [rewardItemId], references: [id], onDelete: Cascade)
+  reviewer   User?                 @relation("RedemptionReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
+  auditLogs  RedemptionAuditLog[]
 
   @@index([userId, status])
   @@index([rewardItemId])
   @@index([status, createdAt])
   @@map("redemption_requests")
+}
+
+model RedemptionAuditLog {
+  id            String            @id @default(uuid())
+  redemptionId  String
+  actionType    AuditActionType
+  oldStatus     RedemptionStatus?
+  newStatus     RedemptionStatus?
+  changedBy     String // Staff user ID
+  reason        String?           @db.Text
+  metadata      Json? // Additional context (e.g., points refunded, badge granted)
+  createdAt     DateTime          @default(now())
+
+  // Relations
+  redemption RedemptionRequest @relation(fields: [redemptionId], references: [id], onDelete: Cascade)
+  actor      User              @relation("AuditLogActor", fields: [changedBy], references: [id], onDelete: Cascade)
+
+  @@index([redemptionId, createdAt])
+  @@index([changedBy])
+  @@index([actionType])
+  @@map("redemption_audit_logs")
+}
+
+model PointsAdjustmentLog {
+  id          String   @id @default(uuid())
+  userId      String
+  amount      Int // Positive for additions, negative for subtractions
+  reason      String   @db.Text
+  adjustedBy  String // Staff user ID
+  metadata    Json? // Additional context
+  createdAt   DateTime @default(now())
+
+  // Relations
+  user     User @relation("UserPointsAdjustments", fields: [userId], references: [id], onDelete: Cascade)
+  adjuster User @relation("PointsAdjuster", fields: [adjustedBy], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([adjustedBy])
+  @@map("points_adjustment_logs")
 }
 
 model AuthorFollow {
