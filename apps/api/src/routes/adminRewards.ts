@@ -4,21 +4,44 @@ import { prisma } from '../lib/prisma.js';
 import { refundPoints } from '../lib/points.js';
 import { dispatchNotification } from '../lib/notifications.js';
 
-// Metadata validators by reward type
+// Metadata validators by reward type - aligned with seed data and runtime behavior
 const FeatureMetadataSchema = z.object({
-  boostDays: z.number().int().positive().optional(),
+  // Badge grants
   badgeCode: z.string().optional(),
-}).strict();
+  
+  // Pitch boosting
+  boostDays: z.number().int().positive().optional(),
+  boostCount: z.number().int().positive().optional(),
+  
+  // Tier upgrades
+  durationDays: z.number().int().positive().optional(),
+  tier: z.enum(['PRO', 'PUBLISHER']).optional(),
+  
+  // Custom features
+  feature: z.string().optional(),
+});
 
 const AuthorContributedMetadataSchema = z.object({
+  // Delivery configuration
+  deliveryMethod: z.enum(['PHYSICAL_MAIL', 'EMAIL_CODE', 'DIGITAL_DOWNLOAD']).optional(),
+  estimatedDays: z.number().int().positive().optional(),
+  instructions: z.string().optional(),
+  
+  // Contact info (legacy)
   deliveryInfo: z.string().optional(),
   contactEmail: z.string().email().optional(),
-}).strict();
+});
+
+const DigitalMetadataSchema = z.object({
+  deliveryMethod: z.enum(['EMAIL_CODE', 'DIGITAL_DOWNLOAD']).optional(),
+  instructions: z.string().optional(),
+});
 
 const RewardMetadataSchema = z.union([
   FeatureMetadataSchema,
   AuthorContributedMetadataSchema,
-  z.object({}).strict(), // Empty metadata is valid
+  DigitalMetadataSchema,
+  z.object({}), // Empty metadata is valid for PLATFORM rewards
 ]);
 
 export async function adminRewardRoutes(fastify: FastifyInstance) {
@@ -111,11 +134,20 @@ export async function adminRewardRoutes(fastify: FastifyInstance) {
               error: 'Invalid AUTHOR_CONTRIBUTED metadata: ' + validation.error.message,
             };
           }
-        } else if (Object.keys(validated.metadata).length > 0) {
+        } else if (validated.rewardType === 'DIGITAL') {
+          const validation = DigitalMetadataSchema.safeParse(validated.metadata);
+          if (!validation.success) {
+            reply.code(400);
+            return {
+              success: false,
+              error: 'Invalid DIGITAL metadata: ' + validation.error.message,
+            };
+          }
+        } else if (validated.rewardType === 'PLATFORM' && Object.keys(validated.metadata).length > 0) {
           reply.code(400);
           return {
             success: false,
-            error: `Reward type ${validated.rewardType} does not support metadata`,
+            error: 'Reward type PLATFORM does not support metadata',
           };
         }
       }
@@ -193,11 +225,20 @@ export async function adminRewardRoutes(fastify: FastifyInstance) {
               error: 'Invalid AUTHOR_CONTRIBUTED metadata: ' + validation.error.message,
             };
           }
-        } else if (validated.metadata !== null && Object.keys(validated.metadata).length > 0) {
+        } else if (rewardType === 'DIGITAL') {
+          const validation = DigitalMetadataSchema.safeParse(validated.metadata);
+          if (!validation.success) {
+            reply.code(400);
+            return {
+              success: false,
+              error: 'Invalid DIGITAL metadata: ' + validation.error.message,
+            };
+          }
+        } else if (rewardType === 'PLATFORM' && validated.metadata !== null && Object.keys(validated.metadata).length > 0) {
           reply.code(400);
           return {
             success: false,
-            error: `Reward type ${rewardType} does not support metadata`,
+            error: 'Reward type PLATFORM does not support metadata',
           };
         }
       }
