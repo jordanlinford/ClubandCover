@@ -50,3 +50,7 @@ The project is a monorepo using pnpm workspaces for frontend, backend, and share
 **Key Libraries:**
 -   **Frontend:** Radix UI, TanStack Query, Wouter, Zod, Tailwind CSS, Lucide React.
 -   **Backend:** Fastify, Prisma, Zod, Stripe SDK, Helmet.js, `@fastify/csrf-protection`.
+
+## Future Features / Backlog
+**Planned for Later Sprints:**
+-   **Club Badges:** Club-specific achievements and badges to display in the club room, rewarding club milestones, engagement, and participation.
