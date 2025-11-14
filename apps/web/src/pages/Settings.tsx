@@ -4,9 +4,11 @@ import { useLocation } from 'wouter';
 import { Card } from '@repo/ui';
 import { Button } from '@repo/ui';
 import { PageHeader } from '@repo/ui';
+import { Input } from '@repo/ui';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../lib/api';
-import { AlertTriangle, ShieldOff, Trash2, X, Eye, EyeOff } from 'lucide-react';
+import { useToast } from '../hooks/use-toast';
+import { AlertTriangle, ShieldOff, Trash2, X, Eye, EyeOff, Key, User } from 'lucide-react';
 
 type ConfirmationModalProps = {
   isOpen: boolean;
@@ -74,10 +76,23 @@ export function SettingsPage() {
   const [, setLocation] = useLocation();
   const [disableDialogOpen, setDisableDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [displayName, setDisplayName] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: profileResponse } = useQuery<{ success: boolean; data: any }>({
     queryKey: ['/api/users/me/profile'],
+    enabled: !!user?.id,
+  });
+
+  const { data: currentUserResponse } = useQuery<{ success: boolean; data: { id: string; name: string; email: string } }>({
+    queryKey: ['/api/users/me'],
     enabled: !!user?.id,
   });
 
@@ -107,10 +122,57 @@ export function SettingsPage() {
     },
   });
 
+  const displayNameMutation = useMutation({
+    mutationFn: (newName: string) => api.patch('/users/me/profile', { displayName: newName }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/users/me'] });
+      toast({
+        title: 'Display name updated',
+        description: 'Your display name has been changed successfully.',
+      });
+      setDisplayName('');
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to update display name',
+        description: error.message || 'Please try again later.',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const passwordChangeMutation = useMutation({
+    mutationFn: (data: { currentPassword: string; newPassword: string }) => 
+      api.post('/users/me/change-password', data),
+    onSuccess: () => {
+      toast({
+        title: 'Password changed',
+        description: 'Your password has been updated. A confirmation email has been sent.',
+      });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to change password',
+        description: error.message || 'Please check your current password and try again.',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const passwordsMatch = newPassword === confirmPassword;
+  const isPasswordValid = newPassword.length >= 8 && 
+    /[A-Z]/.test(newPassword) && 
+    /[a-z]/.test(newPassword) && 
+    /[0-9]/.test(newPassword);
+
   const profileData = profileResponse?.data;
   const showClubs = profileData?.showClubs ?? true;
   const showBadges = profileData?.showBadges ?? true;
   const showGenres = profileData?.showGenres ?? true;
+  const currentUserName = currentUserResponse?.data?.name || 'User';
 
   if (!user) {
     setLocation('/auth/sign-in');
@@ -189,6 +251,168 @@ export function SettingsPage() {
                     </Button>
                   </div>
                 </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Display Name Section */}
+          <Card className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <User className="w-6 h-6 text-primary" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold mb-2">Display Name</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Change how your name appears across the platform. Your display name must be 2-50 characters and can only contain letters, numbers, spaces, dots, underscores, and hyphens.
+                </p>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (displayName.trim()) {
+                      displayNameMutation.mutate(displayName.trim());
+                    }
+                  }}
+                  className="space-y-3"
+                >
+                  <div className="flex gap-3">
+                    <Input
+                      type="text"
+                      placeholder={currentUserName || 'Enter new display name'}
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      disabled={displayNameMutation.isPending}
+                      minLength={2}
+                      maxLength={50}
+                      data-testid="input-display-name"
+                      className="flex-1"
+                    />
+                    <Button
+                      type="submit"
+                      disabled={!displayName.trim() || displayNameMutation.isPending}
+                      data-testid="button-update-display-name"
+                    >
+                      {displayNameMutation.isPending ? 'Updating...' : 'Update Name'}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Current: <span className="font-medium">{currentUserName}</span> • You can change your name 3 times per day
+                  </p>
+                </form>
+              </div>
+            </div>
+          </Card>
+
+          {/* Password Change Section */}
+          <Card className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Key className="w-6 h-6 text-primary" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold mb-2">Change Password</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Update your password to keep your account secure. Your password must be at least 8 characters and include uppercase, lowercase, and a number.
+                </p>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (currentPassword && newPassword && passwordsMatch && isPasswordValid) {
+                      passwordChangeMutation.mutate({ currentPassword, newPassword });
+                    }
+                  }}
+                  className="space-y-3"
+                >
+                  <div className="relative">
+                    <Input
+                      type={showCurrentPassword ? 'text' : 'password'}
+                      placeholder="Current password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      disabled={passwordChangeMutation.isPending}
+                      data-testid="input-current-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      data-testid="toggle-current-password"
+                    >
+                      {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <Input
+                      type={showNewPassword ? 'text' : 'password'}
+                      placeholder="New password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      disabled={passwordChangeMutation.isPending}
+                      minLength={8}
+                      data-testid="input-new-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      data-testid="toggle-new-password"
+                    >
+                      {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {newPassword && (
+                    <div className="text-xs space-y-1">
+                      <p className={newPassword.length >= 8 ? 'text-green-600' : 'text-muted-foreground'}>
+                        • At least 8 characters
+                      </p>
+                      <p className={/[A-Z]/.test(newPassword) ? 'text-green-600' : 'text-muted-foreground'}>
+                        • One uppercase letter
+                      </p>
+                      <p className={/[a-z]/.test(newPassword) ? 'text-green-600' : 'text-muted-foreground'}>
+                        • One lowercase letter
+                      </p>
+                      <p className={/[0-9]/.test(newPassword) ? 'text-green-600' : 'text-muted-foreground'}>
+                        • One number
+                      </p>
+                    </div>
+                  )}
+                  <div className="relative">
+                    <Input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      placeholder="Confirm new password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      disabled={passwordChangeMutation.isPending}
+                      data-testid="input-confirm-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      data-testid="toggle-confirm-password"
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {confirmPassword && !passwordsMatch && (
+                    <p className="text-xs text-destructive">Passwords do not match</p>
+                  )}
+                  <Button
+                    type="submit"
+                    disabled={!currentPassword || !newPassword || !confirmPassword || !passwordsMatch || !isPasswordValid || passwordChangeMutation.isPending}
+                    data-testid="button-change-password"
+                    className="w-full"
+                  >
+                    {passwordChangeMutation.isPending ? 'Changing Password...' : 'Change Password'}
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    A confirmation email will be sent after changing your password
+                  </p>
+                </form>
               </div>
             </div>
           </Card>

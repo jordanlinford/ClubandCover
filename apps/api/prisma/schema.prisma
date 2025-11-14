@@ -292,6 +292,8 @@ model User {
   auditLogsCreated      RedemptionAuditLog[]    @relation("AuditLogActor")
   pointsAdjustments     PointsAdjustmentLog[]   @relation("UserPointsAdjustments")
   pointsAdjustmentsMade PointsAdjustmentLog[]   @relation("PointsAdjuster")
+  passwordChangeLogs    PasswordChangeLog[]
+  displayNameChangeLogs DisplayNameChangeLog[]
   authorProfile         AuthorProfile?
   verifiedProfiles      AuthorProfile[]         @relation("VerifiedByAdmin")
 
@@ -1143,4 +1145,32 @@ model AccountStatusLog {
   @@index([userId, createdAt])
   @@index([changedBy])
   @@map("account_status_logs")
+}
+
+model PasswordChangeLog {
+  id        String   @id @default(uuid())
+  userId    String
+  changedAt DateTime @default(now())
+  ipAddress String?
+  userAgent String?
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, changedAt])
+  @@map("password_change_logs")
+}
+
+model DisplayNameChangeLog {
+  id        String   @id @default(uuid())
+  userId    String
+  oldName   String
+  newName   String
+  changedAt DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, changedAt])
+  @@map("display_name_change_logs")
 }

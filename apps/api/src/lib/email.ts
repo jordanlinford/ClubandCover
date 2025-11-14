@@ -293,6 +293,27 @@ export const emailTemplates = {
     `,
   }),
 
+  passwordChanged: (userName: string) => ({
+    subject: 'Your password was changed',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #333;">Password Changed</h2>
+        <p>Hi ${userName},</p>
+        <p>This is a confirmation that your password was successfully changed.</p>
+        <p style="margin-top: 20px;">
+          <strong>If you made this change, no further action is needed.</strong>
+        </p>
+        <p style="margin-top: 20px; padding: 15px; background-color: #FEF3C7; border-left: 4px solid #F59E0B; color: #92400E;">
+          <strong>If you didn't make this change:</strong><br/>
+          Please reset your password immediately and contact our support team. Someone may have unauthorized access to your account.
+        </p>
+        <p style="margin-top: 30px; color: #666; font-size: 14px;">
+          For your security, we recommend using a strong, unique password and enabling two-factor authentication if available.
+        </p>
+      </div>
+    `,
+  }),
+
   swapReviewReminder: (bookTitle: string, partnerName: string, daysWaiting: number) => ({
     subject: 'Reminder: Submit your book review',
     html: `

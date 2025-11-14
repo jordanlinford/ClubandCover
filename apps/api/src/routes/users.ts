@@ -3,6 +3,9 @@ import { prisma } from '../lib/prisma';
 import { CreateUserSchema, UpdateUserSchema } from '@repo/types';
 import type { ApiResponse } from '@repo/types';
 import { z } from 'zod';
+import { validateDisplayName } from '../lib/profanity-filter';
+import { checkPasswordChangeRateLimit, checkDisplayNameChangeRateLimit } from '../lib/account-rate-limit';
+import { emailTemplates, sendTransactionalEmail } from '../lib/email';
 
 export async function userRoutes(fastify: FastifyInstance) {
   // Get current authenticated user
@@ -149,7 +152,7 @@ export async function userRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Update user profile preferences
+  // Update user profile preferences and display name
   fastify.patch('/me/profile', async (request, reply) => {
     if (!request.user) {
       reply.code(401);
@@ -162,8 +165,55 @@ export async function userRoutes(fastify: FastifyInstance) {
         genres: z.array(z.string()).optional(),
         booksPerMonth: z.number().optional(),
         bio: z.string().optional().nullable(),
+        displayName: z.string().optional(),
       });
       const updateData = schema.parse(request.body);
+
+      // Handle display name change separately with validation and logging
+      if (updateData.displayName !== undefined) {
+        // Validate display name
+        const validation = validateDisplayName(updateData.displayName);
+        if (!validation.valid) {
+          reply.code(400);
+          return { success: false, error: validation.error } as ApiResponse;
+        }
+
+        // Check rate limit
+        const rateLimit = await checkDisplayNameChangeRateLimit(request.user.id);
+        if (!rateLimit.allowed) {
+          reply.code(429);
+          return { success: false, error: rateLimit.error } as ApiResponse;
+        }
+
+        // Get current user to capture old name
+        const currentUser = await prisma.user.findUnique({
+          where: { id: request.user.id },
+          select: { name: true },
+        });
+
+        if (!currentUser) {
+          reply.code(404);
+          return { success: false, error: 'User not found' } as ApiResponse;
+        }
+
+        // Only update if the name is actually changing
+        if (currentUser.name !== updateData.displayName) {
+          // Update user name
+          await prisma.user.update({
+            where: { id: request.user.id },
+            data: { name: updateData.displayName },
+          });
+
+          // Log the change
+          await prisma.displayNameChangeLog.create({
+            data: {
+              userId: request.user.id,
+              oldName: currentUser.name,
+              newName: updateData.displayName,
+            },
+          });
+        }
+      }
 
       // Get existing profile to merge with updates
       const existing = await prisma.userProfile.findUnique({
@@ -222,6 +272,141 @@ export async function userRoutes(fastify: FastifyInstance) {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to update profile',
+      } as ApiResponse;
+    }
+  });
+
+  // Change password (requires current password)
+  fastify.post('/me/change-password', async (request, reply) => {
+    if (!request.user) {
+      reply.code(401);
+      return { success: false, error: 'Please sign in to change your password' } as ApiResponse;
+    }
+
+    try {
+      const schema = z.object({
+        currentPassword: z.string().min(1, 'Current password is required'),
+        newPassword: z.string()
+          .min(8, 'New password must be at least 8 characters')
+          .regex(/[A-Z]/, 'New password must contain at least one uppercase letter')
+          .regex(/[a-z]/, 'New password must contain at least one lowercase letter')
+          .regex(/[0-9]/, 'New password must contain at least one number'),
+      });
+      const { currentPassword, newPassword } = schema.parse(request.body);
+
+      // Check rate limit
+      const rateLimit = await checkPasswordChangeRateLimit(request.user.id);
+      if (!rateLimit.allowed) {
+        reply.code(429);
+        return { success: false, error: rateLimit.error } as ApiResponse;
+      }
+
+      // Get user email for Supabase auth
+      const user = await prisma.user.findUnique({
+        where: { id: request.user.id },
+        select: { email: true, name: true },
+      });
+
+      if (!user) {
+        reply.code(404);
+        return { success: false, error: 'User not found' } as ApiResponse;
+      }
+
+      // Verify current password with Supabase
+      const supabaseUrl = process.env.SUPABASE_URL;
+      const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !supabaseAnonKey) {
+        reply.code(500);
+        return { success: false, error: 'Authentication service not configured' } as ApiResponse;
+      }
+
+      // Try to sign in with current password to verify it
+      const signInResponse = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseAnonKey,
+        },
+        body: JSON.stringify({
+          email: user.email,
+          password: currentPassword,
+        }),
+      });
+
+      if (!signInResponse.ok) {
+        // Log failed attempt for rate limiting and audit trail
+        await prisma.passwordChangeLog.create({
+          data: {
+            userId: request.user.id,
+            ipAddress: request.ip,
+            userAgent: request.headers['user-agent'] || null,
+          },
+        });
+        
+        reply.code(400);
+        return { success: false, error: 'Current password is incorrect' } as ApiResponse;
+      }
+
+      // Update password using Supabase Admin API
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (!supabaseServiceKey) {
+        reply.code(500);
+        return { success: false, error: 'Password update not available' } as ApiResponse;
+      }
+
+      const updateResponse = await fetch(`${supabaseUrl}/auth/v1/admin/users/${request.user.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseServiceKey}`,
+          'apikey': supabaseServiceKey,
+        },
+        body: JSON.stringify({
+          password: newPassword,
+        }),
+      });
+
+      if (!updateResponse.ok) {
+        const errorText = await updateResponse.text();
+        request.log.error({ error: errorText }, 'Failed to update password via Supabase');
+        reply.code(500);
+        return { success: false, error: 'Failed to update password' } as ApiResponse;
+      }
+
+      // Log the password change
+      await prisma.passwordChangeLog.create({
+        data: {
+          userId: request.user.id,
+          ipAddress: request.ip,
+          userAgent: request.headers['user-agent'] || null,
+        },
+      });
+
+      // Send notification email
+      const emailTemplate = emailTemplates.passwordChanged(user.name);
+      await sendTransactionalEmail({
+        to: user.email,
+        subject: emailTemplate.subject,
+        html: emailTemplate.html,
+      });
+
+      return { 
+        success: true, 
+        message: 'Password changed successfully. A confirmation email has been sent.' 
+      } as ApiResponse;
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        reply.code(400);
+        return {
+          success: false,
+          error: error.errors[0]?.message || 'Invalid password data',
+        } as ApiResponse;
+      }
+      reply.code(500);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to change password',
       } as ApiResponse;
     }
   });
