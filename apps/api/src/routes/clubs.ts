@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { isAIEnabled, generateEmbedding, getEmbeddingText } from '../lib/ai.js';
 import { randomBytes } from 'crypto';
-import { requireNotSuspended } from '../middleware/auth.js';
+import { requireAuth, requireNotSuspended } from '../middleware/auth.js';
 
 // Generate cryptographically secure base58 invite code (10 chars)
 function generateInviteCode(): string {
@@ -350,14 +350,11 @@ export async function clubRoutes(fastify: FastifyInstance) {
   });
 
   // Create club (any authenticated user can create a club)
-  fastify.post('/', async (request, reply) => {
+  fastify.post('/', { preHandler: [requireAuth, requireNotSuspended] }, async (request, reply) => {
     if (!request.user) {
       reply.code(401);
       return { success: false, error: 'Unauthorized' };
     }
-
-    // Check if user is suspended
-    if (!requireNotSuspended(request, reply)) return;
 
     try {
       const schema = z.object({
@@ -803,14 +800,11 @@ export async function clubRoutes(fastify: FastifyInstance) {
   });
 
   // Join club via invite code
-  fastify.post('/invite/:code/join', async (request, reply) => {
+  fastify.post('/invite/:code/join', { preHandler: [requireAuth, requireNotSuspended] }, async (request, reply) => {
     if (!request.user) {
       reply.code(401);
       return { success: false, error: 'Unauthorized' };
     }
-
-    // Check if user is suspended
-    if (!requireNotSuspended(request, reply)) return;
 
     try {
       const { code } = request.params as { code: string };

@@ -4,7 +4,7 @@ import { createMessageSchema, createReportSchema, MessagePage } from '@repo/type
 import { sendRateLimit } from '../middleware/sendRateLimit.js';
 import { moderationFilter } from '../middleware/moderationFilter.js';
 import { notify } from '../lib/mail.js';
-import { hasRole, requireNotSuspended } from '../middleware/auth.js';
+import { hasRole, requireAuth, requireNotSuspended } from '../middleware/auth.js';
 
 export default async function messageRoutes(fastify: FastifyInstance) {
   /**
@@ -15,15 +15,12 @@ export default async function messageRoutes(fastify: FastifyInstance) {
   fastify.post(
     '/threads/:id/messages',
     {
-      preHandler: [sendRateLimit, moderationFilter],
+      preHandler: [requireAuth, sendRateLimit, moderationFilter, requireNotSuspended],
     },
     async (request, reply) => {
       if (!request.user) {
         return reply.code(401).send({ success: false, error: 'Unauthorized' });
       }
-
-      // Check if user is suspended
-      if (!requireNotSuspended(request, reply)) return;
 
       const { id: threadId } = request.params as { id: string };
       const body = createMessageSchema.parse(request.body);

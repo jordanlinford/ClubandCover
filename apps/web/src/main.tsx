@@ -5,12 +5,15 @@ import App from './App';
 import './index.css';
 import { AuthProvider } from './contexts/AuthContext';
 import { queryClient } from './lib/queryClient';
+import { RootLayout } from './components/RootLayout';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <App />
+        <RootLayout>
+          <App />
+        </RootLayout>
       </AuthProvider>
     </QueryClientProvider>
   </StrictMode>

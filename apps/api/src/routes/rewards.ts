@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { spendPoints } from '../lib/points.js';
-import { requireNotSuspended } from '../middleware/auth.js';
+import { requireAuth, requireNotSuspended } from '../middleware/auth.js';
 
 export async function rewardRoutes(fastify: FastifyInstance) {
   // GET /api/rewards - List active rewards (public)
@@ -56,14 +56,11 @@ export async function rewardRoutes(fastify: FastifyInstance) {
   });
 
   // POST /api/redemptions - Redeem a reward
-  fastify.post('/redemptions', async (request, reply) => {
+  fastify.post('/redemptions', { preHandler: [requireAuth, requireNotSuspended] }, async (request, reply) => {
     if (!request.user) {
       reply.code(401);
       return { success: false, error: 'Unauthorized' };
     }
-
-    // Check if user is suspended
-    if (!requireNotSuspended(request, reply)) return;
 
     try {
       const schema = z.object({

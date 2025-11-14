@@ -6,6 +6,8 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  accountStatus: 'ACTIVE' | 'SUSPENDED' | 'DISABLED' | 'DELETED' | null;
+  suspendedAt: string | null;
   signOut: () => Promise<void>;
 }
 
@@ -15,6 +17,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [accountStatus, setAccountStatus] = useState<'ACTIVE' | 'SUSPENDED' | 'DISABLED' | 'DELETED' | null>(null);
+  const [suspendedAt, setSuspendedAt] = useState<string | null>(null);
 
   useEffect(() => {
     async function initializeAuth() {
@@ -82,6 +86,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       setSession(session);
       setUser(session?.user ?? null);
+      
+      // Fetch account status if user is logged in
+      if (session?.user) {
+        try {
+          const response = await fetch('/api/user/me', { credentials: 'include' });
+          const result = await response.json();
+          if (result.success && result.user) {
+            setAccountStatus(result.user.accountStatus || 'ACTIVE');
+            setSuspendedAt(result.user.suspendedAt || null);
+          }
+        } catch (error) {
+          console.warn('[AUTH] Failed to fetch account status:', error);
+        }
+      } else {
+        setAccountStatus(null);
+        setSuspendedAt(null);
+      }
+      
       setLoading(false);
     }
 
@@ -111,7 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signOut: handleSignOut }}>
+    <AuthContext.Provider value={{ user, session, loading, accountStatus, suspendedAt, signOut: handleSignOut }}>
       {children}
     </AuthContext.Provider>
   );

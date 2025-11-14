@@ -123,18 +123,20 @@ export async function requireAuth(request: FastifyRequest, reply: FastifyReply) 
 }
 
 /**
- * Check if user is suspended and reject the request
- * This should be used on routes where suspended users should not be able to perform actions
+ * Middleware that blocks suspended users from performing actions
+ * Returns 403 if user is suspended
  */
-export function requireNotSuspended(request: FastifyRequest, reply: FastifyReply): boolean {
-  if (request.user?.accountStatus === 'SUSPENDED') {
-    reply.code(403).send({
+export async function requireNotSuspended(request: FastifyRequest, reply: FastifyReply) {
+  if (!request.user) {
+    return; // Let requireAuth handle this
+  }
+
+  if (request.user.accountStatus === 'SUSPENDED') {
+    return reply.code(403).send({
       success: false,
       error: 'Your account is currently suspended. You cannot perform this action.',
     });
-    return false;
   }
-  return true;
 }
 
 /**
