@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
+import { dispatchNotification } from '../lib/notifications.js';
 
 export async function membershipRoutes(fastify: FastifyInstance) {
   // Request to join a club
@@ -172,6 +173,17 @@ export async function membershipRoutes(fastify: FastifyInstance) {
         await maybeAwardLoyalMember(membership.userId).catch(err => {
           request.log.error(err, 'Failed to check LOYAL_MEMBER badge');
         });
+
+        // Send MEMBERSHIP_APPROVED notification
+        void dispatchNotification(
+          membership.userId,
+          {
+            type: 'MEMBERSHIP_APPROVED',
+            clubId: membership.clubId,
+            clubName: membership.club.name,
+          },
+          request.log
+        ).catch((err) => request.log.error(err, 'Failed to dispatch MEMBERSHIP_APPROVED notification'));
       }
 
       return { success: true, data: updated };

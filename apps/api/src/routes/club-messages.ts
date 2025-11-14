@@ -2,6 +2,23 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { ensureUser } from '../middleware/ensureUser.js';
+import { dispatchNotification } from '../lib/notifications.js';
+
+/**
+ * Extract @username mentions from message text
+ * Matches @username patterns with alphanumeric characters, underscores, and hyphens
+ */
+function extractMentions(text: string): string[] {
+  const mentionRegex = /@([a-zA-Z0-9_-]+)/g;
+  const matches = text.matchAll(mentionRegex);
+  const mentions = new Set<string>();
+  
+  for (const match of matches) {
+    mentions.add(match[1].toLowerCase());
+  }
+  
+  return Array.from(mentions);
+}
 
 export default async function clubMessagesRoutes(app: FastifyInstance) {
   // Get club messages (paginated, newest first) - member-only
@@ -179,6 +196,72 @@ export default async function clubMessagesRoutes(app: FastifyInstance) {
           await maybeAwardSociable(userId).catch(err => {
             request.log.error(err, 'Failed to check SOCIABLE badge');
           });
+        }
+
+        // Extract @mentions and send notifications
+        // NOTE: Current implementation matches against display name (user.name)
+        // TODO: Add dedicated username field for reliable @mention matching
+        const mentionedUsernames = extractMentions(body);
+        if (mentionedUsernames.length > 0) {
+          // Batch lookup mentioned users AND verify they are active club members
+          const [mentionedUsers, club] = await Promise.all([
+            prisma.user.findMany({
+              where: {
+                name: { in: mentionedUsernames, mode: 'insensitive' },
+              },
+              select: { id: true, name: true },
+            }),
+            prisma.club.findUnique({
+              where: { id: clubId },
+              select: { name: true },
+            }),
+          ]);
+
+          // Get active club members to filter mentions
+          const activeMembers = await prisma.membership.findMany({
+            where: {
+              clubId,
+              status: 'ACTIVE',
+              userId: { in: mentionedUsers.map(u => u.id) },
+            },
+            select: { userId: true },
+          });
+
+          const activeMemberIds = new Set(activeMembers.map(m => m.userId));
+
+          // Sanitize message preview (escape HTML entities, limit length)
+          const sanitizedPreview = body
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;')
+            .substring(0, 100);
+          const messagePreview = body.length > 100 ? sanitizedPreview + '...' : sanitizedPreview;
+
+          // Send notifications only to active club members (exclude self)
+          const notificationPromises = mentionedUsers
+            .filter(user => user.id !== userId && activeMemberIds.has(user.id))
+            .map(user => 
+              dispatchNotification(
+                user.id,
+                {
+                  type: 'CLUB_MENTION',
+                  clubId,
+                  clubName: club?.name || 'Unknown Club',
+                  messageId: message.id,
+                  mentionerName: message.author.name,
+                  mentionerId: userId,
+                  messagePreview,
+                },
+                request.log
+              )
+            );
+
+          // Fire notifications in parallel without blocking response
+          void Promise.all(notificationPromises).catch(err => 
+            request.log.error(err, 'Failed to dispatch CLUB_MENTION notifications')
+          );
         }
 
         return reply.status(201).send({
