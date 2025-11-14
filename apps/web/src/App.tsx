@@ -41,6 +41,7 @@ import { SettingsPage } from './pages/Settings';
 import AuthorVerification from './pages/AuthorVerification';
 import AdminAuthorVerifications from './pages/admin/AuthorVerifications';
 import { AchievementsPage } from './pages/Achievements';
+import { PublicProfilePage } from './pages/PublicProfile';
 
 export default function App() {
   return (
@@ -56,6 +57,7 @@ export default function App() {
       <Route path="/auth/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />
       <Route path="/profile" component={ProfilePage} />
+      <Route path="/users/:userId/profile" component={PublicProfilePage} />
       <Route path="/settings" component={SettingsPage} />
       <Route path="/books" component={BooksListPage} />
       <Route path="/books/new" component={BookFormPage} />

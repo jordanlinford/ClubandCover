@@ -134,6 +134,9 @@ export async function userRoutes(fastify: FastifyInstance) {
         genres: profile?.genres ?? [],
         booksPerMonth: profile?.booksPerMonth ?? null,
         openToSwaps: profile?.openToSwaps ?? false,
+        showClubs: profile?.showClubs ?? true,
+        showBadges: profile?.showBadges ?? true,
+        showGenres: profile?.showGenres ?? true,
       };
 
       return { success: true, data: profileData } as ApiResponse;
@@ -651,6 +654,159 @@ export async function userRoutes(fastify: FastifyInstance) {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to delete account',
+      } as ApiResponse;
+    }
+  });
+
+  // Update privacy settings for current user
+  fastify.patch('/profile/privacy', async (request, reply) => {
+    if (!request.user) {
+      reply.code(401);
+      return { success: false, error: 'Please sign in to update privacy settings' } as ApiResponse;
+    }
+
+    try {
+      const schema = z.object({
+        showClubs: z.boolean().optional(),
+        showBadges: z.boolean().optional(),
+        showGenres: z.boolean().optional(),
+      });
+      const privacyData = schema.parse(request.body);
+
+      const profile = await prisma.userProfile.upsert({
+        where: { userId: request.user.id },
+        create: {
+          userId: request.user.id,
+          showClubs: privacyData.showClubs ?? true,
+          showBadges: privacyData.showBadges ?? true,
+          showGenres: privacyData.showGenres ?? true,
+        },
+        update: privacyData,
+        select: {
+          showClubs: true,
+          showBadges: true,
+          showGenres: true,
+        },
+      });
+
+      return { success: true, data: profile } as ApiResponse;
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        reply.code(400);
+        return {
+          success: false,
+          error: error.errors[0]?.message || 'Invalid privacy settings',
+        } as ApiResponse;
+      }
+      reply.code(500);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update privacy settings',
+      } as ApiResponse;
+    }
+  });
+
+  // Get public profile for any user (respects privacy settings)
+  fastify.get('/:userId/profile', async (request, reply) => {
+    try {
+      const { userId } = request.params as { userId: string };
+
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          name: true,
+          avatarUrl: true,
+          bio: true,
+          accountStatus: true,
+          createdAt: true,
+          profile: {
+            select: {
+              bio: true,
+              genres: true,
+              showClubs: true,
+              showBadges: true,
+              showGenres: true,
+            },
+          },
+        },
+      });
+
+      if (!user) {
+        reply.code(404);
+        return { success: false, error: 'User not found' } as ApiResponse;
+      }
+
+      if (user.accountStatus === 'DISABLED' || user.accountStatus === 'DELETED') {
+        reply.code(404);
+        return { success: false, error: 'User not found' } as ApiResponse;
+      }
+
+      const publicProfile: any = {
+        id: user.id,
+        name: user.name,
+        avatarUrl: user.avatarUrl,
+        bio: user.profile?.bio || user.bio || null,
+        createdAt: user.createdAt,
+      };
+
+      if (user.profile?.showClubs) {
+        const memberships = await prisma.membership.findMany({
+          where: {
+            userId: user.id,
+            status: 'ACTIVE',
+          },
+          select: {
+            club: {
+              select: {
+                id: true,
+                name: true,
+                description: true,
+                coverImageUrl: true,
+                _count: { select: { memberships: true } },
+              },
+            },
+            role: true,
+            joinedAt: true,
+          },
+          orderBy: { joinedAt: 'desc' },
+          take: 10,
+        });
+
+        publicProfile.clubs = memberships.map((m) => ({
+          id: m.club.id,
+          name: m.club.name,
+          description: m.club.description,
+          coverImageUrl: m.club.coverImageUrl,
+          memberCount: m.club._count.memberships,
+          role: m.role,
+          joinedAt: m.joinedAt,
+        }));
+      }
+
+      if (user.profile?.showBadges) {
+        const badges = await prisma.userBadge.findMany({
+          where: { userId: user.id },
+          select: {
+            code: true,
+            awardedAt: true,
+          },
+          orderBy: { awardedAt: 'desc' },
+        });
+
+        publicProfile.badges = badges;
+      }
+
+      if (user.profile?.showGenres) {
+        publicProfile.genres = user.profile.genres || [];
+      }
+
+      return { success: true, data: publicProfile } as ApiResponse;
+    } catch (error) {
+      reply.code(500);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch profile',
       } as ApiResponse;
     }
   });

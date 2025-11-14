@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import { Card } from '@repo/ui';
 import { Button } from '@repo/ui';
 import { PageHeader } from '@repo/ui';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../lib/api';
-import { AlertTriangle, ShieldOff, Trash2, X } from 'lucide-react';
+import { AlertTriangle, ShieldOff, Trash2, X, Eye, EyeOff } from 'lucide-react';
 
 type ConfirmationModalProps = {
   isOpen: boolean;
@@ -74,6 +74,20 @@ export function SettingsPage() {
   const [, setLocation] = useLocation();
   const [disableDialogOpen, setDisableDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const queryClient = useQueryClient();
+
+  const { data: profileResponse } = useQuery<{ success: boolean; data: any }>({
+    queryKey: ['/api/users/me/profile'],
+    enabled: !!user?.id,
+  });
+
+  const privacyMutation = useMutation({
+    mutationFn: (data: { showClubs?: boolean; showBadges?: boolean; showGenres?: boolean }) =>
+      api.patch('/users/profile/privacy', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/users/me/profile'] });
+    },
+  });
 
   const disableAccountMutation = useMutation({
     mutationFn: () => api.post('/users/me/disable', {}),
@@ -93,6 +107,11 @@ export function SettingsPage() {
     },
   });
 
+  const profileData = profileResponse?.data;
+  const showClubs = profileData?.showClubs ?? true;
+  const showBadges = profileData?.showBadges ?? true;
+  const showGenres = profileData?.showGenres ?? true;
+
   if (!user) {
     setLocation('/auth/sign-in');
     return null;
@@ -107,6 +126,73 @@ export function SettingsPage() {
         />
 
         <div className="mt-6 space-y-6">
+          {/* Profile Privacy Section */}
+          <Card className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Eye className="w-6 h-6 text-primary" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold mb-2">Profile Privacy</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Control what information is visible on your public profile
+                </p>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between py-2">
+                    <div>
+                      <p className="font-medium">Show Clubs</p>
+                      <p className="text-sm text-muted-foreground">Display the clubs you're a member of</p>
+                    </div>
+                    <Button
+                      variant={showClubs ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => privacyMutation.mutate({ showClubs: !showClubs })}
+                      disabled={privacyMutation.isPending}
+                      data-testid="toggle-show-clubs"
+                    >
+                      {showClubs ? <Eye className="h-4 w-4 mr-1" /> : <EyeOff className="h-4 w-4 mr-1" />}
+                      {showClubs ? 'Visible' : 'Hidden'}
+                    </Button>
+                  </div>
+                  <div className="flex items-center justify-between py-2 border-t">
+                    <div>
+                      <p className="font-medium">Show Badges</p>
+                      <p className="text-sm text-muted-foreground">Display your earned achievement badges</p>
+                    </div>
+                    <Button
+                      variant={showBadges ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => privacyMutation.mutate({ showBadges: !showBadges })}
+                      disabled={privacyMutation.isPending}
+                      data-testid="toggle-show-badges"
+                    >
+                      {showBadges ? <Eye className="h-4 w-4 mr-1" /> : <EyeOff className="h-4 w-4 mr-1" />}
+                      {showBadges ? 'Visible' : 'Hidden'}
+                    </Button>
+                  </div>
+                  <div className="flex items-center justify-between py-2 border-t">
+                    <div>
+                      <p className="font-medium">Show Favorite Genres</p>
+                      <p className="text-sm text-muted-foreground">Display your preferred book genres</p>
+                    </div>
+                    <Button
+                      variant={showGenres ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => privacyMutation.mutate({ showGenres: !showGenres })}
+                      disabled={privacyMutation.isPending}
+                      data-testid="toggle-show-genres"
+                    >
+                      {showGenres ? <Eye className="h-4 w-4 mr-1" /> : <EyeOff className="h-4 w-4 mr-1" />}
+                      {showGenres ? 'Visible' : 'Hidden'}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+
           {/* Disable Account Section */}
           <Card className="p-6">
             <div className="flex items-start gap-4">
