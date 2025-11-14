@@ -195,7 +195,10 @@ model User {
   aiCallsToday             Int           @default(0)
   aiCallsResetAt           DateTime      @default(now())
   points                   Int           @default(0)
-  reputation               Int           @default(0)
+  reputation               Int           @default(0) // Legacy field - kept for backward compatibility
+  reputationScore          Float         @default(0) // Averaged swap rating score (0-5)
+  reputationCount          Int           @default(0) // Number of swap ratings received
+  swapsCompleted           Int           @default(0) // Number of verified swaps
   emailVerified            Boolean       @default(false)
   emailVerificationToken   String?
   emailVerificationExpires DateTime?
@@ -213,6 +216,8 @@ model User {
   swapsReceived       Swap[]              @relation("SwapResponder")
   reviewsGiven        Review[]            @relation("Reviewer")
   reviewsReceived     Review[]            @relation("Reviewee")
+  swapRatingsGiven    SwapRating[]        @relation("SwapRatingGiven")
+  swapRatingsReceived SwapRating[]        @relation("SwapRatingReceived")
   payments            Payment[]
   membershipsInvited  Membership[]        @relation("InvitedBy")
   threadMemberships   ThreadMember[]
@@ -437,12 +442,13 @@ model Swap {
   updatedAt       DateTime   @updatedAt
 
   // Relations
-  requester     User      @relation("SwapRequester", fields: [requesterId], references: [id])
-  responder     User      @relation("SwapResponder", fields: [responderId], references: [id])
-  bookOffered   Book      @relation("BookOffered", fields: [bookOfferedId], references: [id])
-  bookRequested Book      @relation("BookRequested", fields: [bookRequestedId], references: [id])
+  requester     User         @relation("SwapRequester", fields: [requesterId], references: [id])
+  responder     User         @relation("SwapResponder", fields: [responderId], references: [id])
+  bookOffered   Book         @relation("BookOffered", fields: [bookOfferedId], references: [id])
+  bookRequested Book         @relation("BookRequested", fields: [bookRequestedId], references: [id])
   reviews       Review[]
   payments      Payment[]
+  swapRatings   SwapRating[]
 
   @@index([requesterId])
   @@index([responderId])
@@ -450,6 +456,30 @@ model Swap {
   @@index([bookRequestedId])
   @@index([status])
   @@map("swaps")
+}
+
+model SwapRating {
+  id              String   @id @default(uuid())
+  swapId          String
+  raterId         String   // Who's giving the rating
+  ratedUserId     String   // Who's being rated
+  overallRating   Int      // 1-5 overall experience
+  onTime          Boolean  // Did they complete on time?
+  bookCondition   Int      // 1-5 book condition rating
+  communication   Int      // 1-5 communication quality
+  comment         String?  @db.Text
+  createdAt       DateTime @default(now())
+
+  // Relations
+  swap      Swap @relation(fields: [swapId], references: [id], onDelete: Cascade)
+  rater     User @relation("SwapRatingGiven", fields: [raterId], references: [id], onDelete: Cascade)
+  ratedUser User @relation("SwapRatingReceived", fields: [ratedUserId], references: [id], onDelete: Cascade)
+
+  @@unique([swapId, raterId]) // Each person can only rate once per swap
+  @@index([raterId])
+  @@index([ratedUserId])
+  @@index([swapId])
+  @@map("swap_ratings")
 }
 
 model Review {

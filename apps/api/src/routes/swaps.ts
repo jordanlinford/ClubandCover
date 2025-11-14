@@ -337,4 +337,141 @@ export async function swapRoutes(fastify: FastifyInstance) {
       } as ApiResponse;
     }
   });
+
+  // Submit rating for swap partner
+  fastify.post('/:id/rate', async (request, reply) => {
+    if (!request.user) {
+      reply.code(401);
+      return { success: false, error: 'Unauthorized' } as ApiResponse;
+    }
+
+    const { id } = request.params as { id: string };
+    const { overallRating, onTime, bookCondition, communication, comment } = request.body as {
+      overallRating: number;
+      onTime: boolean;
+      bookCondition: number;
+      communication: number;
+      comment?: string;
+    };
+
+    try {
+      // Validate ratings are 1-5
+      if (
+        overallRating < 1 || overallRating > 5 ||
+        bookCondition < 1 || bookCondition > 5 ||
+        communication < 1 || communication > 5
+      ) {
+        reply.code(400);
+        return { success: false, error: 'Ratings must be between 1 and 5' } as ApiResponse;
+      }
+
+      // Get swap with participants
+      const swap = await prisma.swap.findUnique({
+        where: { id },
+        include: {
+          requester: { select: { id: true, name: true } },
+          responder: { select: { id: true, name: true } },
+        },
+      });
+
+      if (!swap) {
+        reply.code(404);
+        return { success: false, error: 'Swap not found' } as ApiResponse;
+      }
+
+      // Verify user is part of the swap
+      const isRequester = swap.requesterId === request.user.id;
+      const isResponder = swap.responderId === request.user.id;
+
+      if (!isRequester && !isResponder) {
+        reply.code(403);
+        return { success: false, error: 'Not authorized to rate this swap' } as ApiResponse;
+      }
+
+      // Swap must be VERIFIED before rating
+      if (swap.status !== 'VERIFIED') {
+        reply.code(400);
+        return { success: false, error: 'Can only rate verified swaps' } as ApiResponse;
+      }
+
+      // Determine who is being rated
+      const ratedUserId = isRequester ? swap.responderId : swap.requesterId;
+
+      // Check if user already rated this swap
+      const existingRating = await prisma.swapRating.findUnique({
+        where: {
+          swapId_raterId: {
+            swapId: id,
+            raterId: request.user.id,
+          },
+        },
+      });
+
+      if (existingRating) {
+        reply.code(409);
+        return { success: false, error: 'You have already rated this swap' } as ApiResponse;
+      }
+
+      // Create the rating
+      const rating = await prisma.swapRating.create({
+        data: {
+          swapId: id,
+          raterId: request.user.id,
+          ratedUserId,
+          overallRating,
+          onTime,
+          bookCondition,
+          communication,
+          comment: comment || null,
+        },
+      });
+
+      // Recalculate reputation for the rated user
+      const allRatings = await prisma.swapRating.findMany({
+        where: { ratedUserId },
+        select: { overallRating: true },
+      });
+
+      const avgRating = allRatings.reduce((sum, r) => sum + r.overallRating, 0) / allRatings.length;
+
+      await prisma.user.update({
+        where: { id: ratedUserId },
+        data: {
+          reputationScore: avgRating,
+          reputationCount: allRatings.length,
+        },
+      });
+
+      return { success: true, data: rating } as ApiResponse;
+    } catch (error) {
+      reply.code(400);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to submit rating',
+      } as ApiResponse;
+    }
+  });
+
+  // Get ratings for a swap
+  fastify.get('/:id/ratings', async (request, reply) => {
+    const { id } = request.params as { id: string };
+
+    try {
+      const ratings = await prisma.swapRating.findMany({
+        where: { swapId: id },
+        include: {
+          rater: { select: { id: true, name: true } },
+          ratedUser: { select: { id: true, name: true } },
+        },
+      });
+
+      return { success: true, data: ratings } as ApiResponse;
+    } catch (error) {
+      reply.code(500);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch ratings',
+      } as ApiResponse;
+    }
+  });
 }
