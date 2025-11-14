@@ -110,8 +110,8 @@ enum PointType {
   MESSAGE_POSTED
   PITCH_CREATED
   SWAP_COMPLETED
-  REWARD_REDEEMED     // Points spent on rewards
-  REWARD_REFUNDED     // Points refunded from declined redemption
+  REWARD_REDEEMED // Points spent on rewards
+  REWARD_REFUNDED // Points refunded from declined redemption
 }
 
 enum ReferralStatus {
@@ -128,10 +128,10 @@ enum InviteStatus {
 }
 
 enum RewardType {
-  PLATFORM      // Managed by platform (gift cards, etc.)
+  PLATFORM // Managed by platform (gift cards, etc.)
   AUTHOR_CONTRIBUTED // Authors provide the reward
-  FEATURE       // Platform features (boosts, badges, etc.)
-  DIGITAL       // Digital items (ebooks, etc.)
+  FEATURE // Platform features (boosts, badges, etc.)
+  DIGITAL // Digital items (ebooks, etc.)
 }
 
 enum RedemptionStatus {
@@ -163,66 +163,73 @@ enum CreditTransactionType {
   REFUND
 }
 
+enum BookFormat {
+  PAPERBACK
+  HARDCOVER
+  EBOOK
+  AUDIOBOOK
+}
+
 // Models
 model User {
-  id                        String    @id
-  email                     String    @unique
-  name                      String
-  avatarUrl                 String?
-  bio                       String?
-  roles                     UserRole[]  @default([READER])
-  tier                      Tier      @default(FREE)
-  stripeCustomerId          String?
-  stripeSubscriptionId      String?
-  creditBalance             Int       @default(0) // Promotion credits for visibility boosts
-  aiCallsToday              Int       @default(0)
-  aiCallsResetAt            DateTime  @default(now())
-  points                    Int       @default(0)
-  reputation                Int       @default(0)
-  emailVerified             Boolean   @default(false)
-  emailVerificationToken    String?
-  emailVerificationExpires  DateTime?
-  passwordResetToken        String?
-  passwordResetExpires      DateTime?
-  createdAt                 DateTime  @default(now())
-  updatedAt                 DateTime  @updatedAt
+  id                       String     @id
+  email                    String     @unique
+  name                     String
+  avatarUrl                String?
+  bio                      String?
+  roles                    UserRole[] @default([READER])
+  tier                     Tier       @default(FREE)
+  stripeCustomerId         String?
+  stripeSubscriptionId     String?
+  creditBalance            Int        @default(0) // Promotion credits for visibility boosts
+  aiCallsToday             Int        @default(0)
+  aiCallsResetAt           DateTime   @default(now())
+  points                   Int        @default(0)
+  reputation               Int        @default(0)
+  emailVerified            Boolean    @default(false)
+  emailVerificationToken   String?
+  emailVerificationExpires DateTime?
+  passwordResetToken       String?
+  passwordResetExpires     DateTime?
+  createdAt                DateTime   @default(now())
+  updatedAt                DateTime   @updatedAt
 
   // Relations
-  profile            UserProfile?
-  books              Book[]             @relation("UserBooks")
-  clubsCreated       Club[]             @relation("ClubCreator")
-  memberships        Membership[]
-  swapsRequested     Swap[]             @relation("SwapRequester")
-  swapsReceived      Swap[]             @relation("SwapResponder")
-  reviewsGiven       Review[]           @relation("Reviewer")
-  reviewsReceived    Review[]           @relation("Reviewee")
-  payments           Payment[]
-  membershipsInvited Membership[]       @relation("InvitedBy")
-  threadMemberships  ThreadMember[]
-  sentMessages       Message[]
-  reviewedMessages   Message[]          @relation("ReviewedMessages")
-  reportedMessages   ModerationReport[] @relation("ReportedMessages")
-  reviewedReports    ModerationReport[] @relation("ReviewedReports")
-  pitches            Pitch[]
-  pitchNominations   PitchNomination[]
-  pointEntries       PointLedger[]
-  votes              Vote[]
-  pollsCreated       Poll[]
-  referralsGiven     Referral[]         @relation("ReferrerReferrals")
-  referralsUsed      Referral[]         @relation("RefereeReferrals")
-  notifications      Notification[]
-  settings           UserSetting?
-  checklistProgress  ChecklistProgress[]
-  emailLogs          EmailLog[]
+  profile             UserProfile?
+  books               Book[]              @relation("UserBooks")
+  clubsCreated        Club[]              @relation("ClubCreator")
+  memberships         Membership[]
+  swapsRequested      Swap[]              @relation("SwapRequester")
+  swapsReceived       Swap[]              @relation("SwapResponder")
+  reviewsGiven        Review[]            @relation("Reviewer")
+  reviewsReceived     Review[]            @relation("Reviewee")
+  payments            Payment[]
+  membershipsInvited  Membership[]        @relation("InvitedBy")
+  threadMemberships   ThreadMember[]
+  sentMessages        Message[]
+  reviewedMessages    Message[]           @relation("ReviewedMessages")
+  reportedMessages    ModerationReport[]  @relation("ReportedMessages")
+  reviewedReports     ModerationReport[]  @relation("ReviewedReports")
+  pitches             Pitch[]
+  pitchNominations    PitchNomination[]
+  pointEntries        PointLedger[]
+  votes               Vote[]
+  pollsCreated        Poll[]
+  referralsGiven      Referral[]          @relation("ReferrerReferrals")
+  referralsUsed       Referral[]          @relation("RefereeReferrals")
+  notifications       Notification[]
+  settings            UserSetting?
+  checklistProgress   ChecklistProgress[]
+  emailLogs           EmailLog[]
   clubMessages        ClubMessage[]
   badges              UserBadge[]
   dailyCounters       DailyPointCounter[]
   creditTransactions  CreditTransaction[]
   sponsoredPitches    SponsoredPitch[]
-  clubInvitesCreated  ClubInvite[]          @relation("ClubInviteCreator")
-  rewardContributions RewardItem[]          @relation("RewardContributor")
-  redemptions         RedemptionRequest[]   @relation("UserRedemptions")
-  reviewedRedemptions RedemptionRequest[]   @relation("RedemptionReviewer")
+  clubInvitesCreated  ClubInvite[]        @relation("ClubInviteCreator")
+  rewardContributions RewardItem[]        @relation("RewardContributor")
+  redemptions         RedemptionRequest[] @relation("UserRedemptions")
+  reviewedRedemptions RedemptionRequest[] @relation("RedemptionReviewer")
 
   @@index([roles])
   @@index([tier])
@@ -246,22 +253,22 @@ model UserProfile {
 }
 
 model Book {
-  id            String        @id @default(uuid())
-  ownerId       String
-  title         String
-  subtitle      String?
-  author        String
-  genres        String[]      @default([])
-  isbn          String?
-  description   String?
-  condition     BookCondition @default(GOOD)
-  imageUrl      String?
-  isAvailable   Boolean       @default(true)
+  id           String        @id @default(uuid())
+  ownerId      String
+  title        String
+  subtitle     String?
+  author       String
+  genres       String[]      @default([])
+  isbn         String?
+  description  String?
+  condition    BookCondition @default(GOOD)
+  imageUrl     String?
+  isAvailable  Boolean       @default(true)
   // Review tracking URLs (provided by author for readers to leave reviews)
-  goodreadsUrl  String?
-  amazonUrl     String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  goodreadsUrl String?
+  amazonUrl    String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
   // Relations
   owner          User         @relation("UserBooks", fields: [ownerId], references: [id], onDelete: Cascade)
@@ -279,24 +286,24 @@ model Book {
 }
 
 model Club {
-  id              String   @id @default(uuid())
+  id              String    @id @default(uuid())
   name            String
   description     String?
-  about           String?  @db.Text
-  preferredGenres String[] @default([])
+  about           String?   @db.Text
+  preferredGenres String[]  @default([])
   frequency       Int?
   imageUrl        String?
   coverImageUrl   String?
   createdById     String
-  maxMembers       Int       @default(50)
-  isPublic         Boolean   @default(true)
-  joinRules        JoinRules @default(OPEN)
-  minPointsToJoin  Int       @default(0)
-  inviteCode       String?   @unique
-  chosenBookId     String?
-  chosenBookAt     DateTime?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  maxMembers      Int       @default(50)
+  isPublic        Boolean   @default(true)
+  joinRules       JoinRules @default(OPEN)
+  minPointsToJoin Int       @default(0)
+  inviteCode      String?   @unique
+  chosenBookId    String?
+  chosenBookAt    DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   // Relations
   createdBy      User            @relation("ClubCreator", fields: [createdById], references: [id])
@@ -355,17 +362,17 @@ model ClubMessage {
 }
 
 model ClubInvite {
-  id           String       @id @default(uuid())
-  clubId       String
-  code         String       @unique
-  createdById  String
-  status       InviteStatus @default(ACTIVE)
-  expiresAt    DateTime?
-  maxUses      Int?
-  usesCount    Int          @default(0)
-  lastUsedAt   DateTime?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  id          String       @id @default(uuid())
+  clubId      String
+  code        String       @unique
+  createdById String
+  status      InviteStatus @default(ACTIVE)
+  expiresAt   DateTime?
+  maxUses     Int?
+  usesCount   Int          @default(0)
+  lastUsedAt  DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   // Relations
   club        Club         @relation(fields: [clubId], references: [id], onDelete: Cascade)
@@ -418,10 +425,10 @@ model Swap {
   updatedAt       DateTime   @updatedAt
 
   // Relations
-  requester     User     @relation("SwapRequester", fields: [requesterId], references: [id])
-  responder     User     @relation("SwapResponder", fields: [responderId], references: [id])
-  bookOffered   Book     @relation("BookOffered", fields: [bookOfferedId], references: [id])
-  bookRequested Book     @relation("BookRequested", fields: [bookRequestedId], references: [id])
+  requester     User      @relation("SwapRequester", fields: [requesterId], references: [id])
+  responder     User      @relation("SwapResponder", fields: [responderId], references: [id])
+  bookOffered   Book      @relation("BookOffered", fields: [bookOfferedId], references: [id])
+  bookRequested Book      @relation("BookRequested", fields: [bookRequestedId], references: [id])
   reviews       Review[]
   payments      Payment[]
 
@@ -579,35 +586,38 @@ model Embedding {
 }
 
 model Pitch {
-  id            String       @id @default(uuid())
-  authorId      String
-  bookId        String
-  targetClubId  String?
-  title         String
-  synopsis      String?      @db.Text
-  sampleUrl     String?
+  id                String      @id @default(uuid())
+  authorId          String
+  bookId            String
+  targetClubId      String?
+  title             String
+  synopsis          String?     @db.Text
+  sampleUrl         String?
   // New pitch enhancement fields
-  genres        String[]     @default([]) // Up to 3 genres
-  theme         String?      @db.Text // Book theme/topic
-  imageUrl      String?      // Pitch cover image
-  videoUrl      String?      // YouTube video URL
-  status        PitchStatus  @default(SUBMITTED)
-  impressions   Int          @default(0)
+  genres            String[]    @default([]) // Up to 3 genres
+  theme             String?     @db.Text // Book theme/topic
+  imageUrl          String? // Pitch cover image
+  videoUrl          String? // YouTube video URL
+  // Format availability and free offer
+  availableFormats  String[]    @default([]) // BookFormat enum values (PAPERBACK, HARDCOVER, EBOOK, AUDIOBOOK)
+  offerFreeIfChosen Boolean     @default(false) // Author commits to provide book for free if selected
+  status            PitchStatus @default(SUBMITTED)
+  impressions       Int         @default(0)
   // Visibility boost fields
-  isBoosted     Boolean      @default(false)
-  boostEndsAt   DateTime?
+  isBoosted         Boolean     @default(false)
+  boostEndsAt       DateTime?
   // Denormalized author tier for efficient sorting (synced on pitch creation & tier changes)
-  authorTier    Tier         @default(FREE)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  authorTier        Tier        @default(FREE)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
 
   // Relations
-  author           User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  book             Book              @relation(fields: [bookId], references: [id], onDelete: Cascade)
-  targetClub       Club?             @relation(fields: [targetClubId], references: [id], onDelete: Cascade)
-  pollOptions      PollOption[]
-  nominations      PitchNomination[]
-  sponsorships     SponsoredPitch[]
+  author             User                @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  book               Book                @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  targetClub         Club?               @relation(fields: [targetClubId], references: [id], onDelete: Cascade)
+  pollOptions        PollOption[]
+  nominations        PitchNomination[]
+  sponsorships       SponsoredPitch[]
   creditTransactions CreditTransaction[]
 
   @@index([authorId])
@@ -678,10 +688,10 @@ model PollOption {
 }
 
 model Vote {
-  id       String   @id @default(uuid())
-  pollId   String
-  userId   String
-  optionId String
+  id        String   @id @default(uuid())
+  pollId    String
+  userId    String
+  optionId  String
   createdAt DateTime @default(now())
 
   // Relations
@@ -750,13 +760,13 @@ model Notification {
 }
 
 model UserSetting {
-  userId              String   @id
-  emailOptIn          Boolean  @default(true)
-  emailPollReminders  Boolean  @default(true)
-  emailSwapUpdates    Boolean  @default(true)
-  emailPointsUpdates  Boolean  @default(false)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  userId             String   @id
+  emailOptIn         Boolean  @default(true)
+  emailPollReminders Boolean  @default(true)
+  emailSwapUpdates   Boolean  @default(true)
+  emailPointsUpdates Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -765,11 +775,11 @@ model UserSetting {
 }
 
 model ChecklistProgress {
-  id        String   @id @default(uuid())
-  userId    String
-  code      String
-  stepKey   String
-  doneAt    DateTime @default(now())
+  id      String   @id @default(uuid())
+  userId  String
+  code    String
+  stepKey String
+  doneAt  DateTime @default(now())
 
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -822,7 +832,7 @@ model DailyPointCounter {
 }
 
 model CreditTransaction {
-  id              String                 @id @default(uuid())
+  id              String                @id @default(uuid())
   userId          String
   pitchId         String?
   type            CreditTransactionType
@@ -831,7 +841,7 @@ model CreditTransaction {
   balanceAfter    Int
   stripePaymentId String?
   description     String?
-  createdAt       DateTime               @default(now())
+  createdAt       DateTime              @default(now())
 
   // Relations
   user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -849,10 +859,10 @@ model SponsoredPitch {
   userId          String // Author who purchased the sponsorship
   pitchId         String
   targetGenres    String[] @default([]) // Empty = all genres
-  minMemberCount  Int?     // Minimum club members (null = no limit)
-  maxMemberCount  Int?     // Maximum club members (null = no limit)
-  targetFrequency String?  // Club reading frequency filter (null = all)
-  budget          Int      // Total credits allocated
+  minMemberCount  Int? // Minimum club members (null = no limit)
+  maxMemberCount  Int? // Maximum club members (null = no limit)
+  targetFrequency String? // Club reading frequency filter (null = all)
+  budget          Int // Total credits allocated
   creditsSpent    Int      @default(0)
   impressions     Int      @default(0) // How many times shown to clubs
   clicks          Int      @default(0) // How many times clicked
@@ -874,23 +884,23 @@ model SponsoredPitch {
 }
 
 model RewardItem {
-  id                String              @id @default(uuid())
-  name              String
-  description       String?             @db.Text
-  pointsCost        Int
-  rewardType        RewardType          @default(PLATFORM)
-  contributorId     String?             // Author who contributed this reward (if author_contributed)
-  copiesAvailable   Int?                // For limited quantity items
-  copiesRedeemed    Int                 @default(0)
-  imageUrl          String?
-  isActive          Boolean             @default(true)
-  sortOrder         Int                 @default(0)
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
+  id              String     @id @default(uuid())
+  name            String
+  description     String?    @db.Text
+  pointsCost      Int
+  rewardType      RewardType @default(PLATFORM)
+  contributorId   String? // Author who contributed this reward (if author_contributed)
+  copiesAvailable Int? // For limited quantity items
+  copiesRedeemed  Int        @default(0)
+  imageUrl        String?
+  isActive        Boolean    @default(true)
+  sortOrder       Int        @default(0)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
 
   // Relations
-  contributor  User?               @relation("RewardContributor", fields: [contributorId], references: [id], onDelete: SetNull)
-  redemptions  RedemptionRequest[]
+  contributor User?               @relation("RewardContributor", fields: [contributorId], references: [id], onDelete: SetNull)
+  redemptions RedemptionRequest[]
 
   @@index([isActive, sortOrder])
   @@index([contributorId])
@@ -898,18 +908,18 @@ model RewardItem {
 }
 
 model RedemptionRequest {
-  id              String            @id @default(uuid())
+  id              String           @id @default(uuid())
   userId          String
   rewardItemId    String
   pointsSpent     Int
-  status          RedemptionStatus  @default(PENDING)
-  reviewedBy      String?           // Admin who approved/declined
+  status          RedemptionStatus @default(PENDING)
+  reviewedBy      String? // Admin who approved/declined
   reviewedAt      DateTime?
-  rejectionReason String?           @db.Text
+  rejectionReason String?          @db.Text
   fulfilledAt     DateTime?
-  notes           String?           @db.Text
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  notes           String?          @db.Text
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   // Relations
   user       User       @relation("UserRedemptions", fields: [userId], references: [id], onDelete: Cascade)
