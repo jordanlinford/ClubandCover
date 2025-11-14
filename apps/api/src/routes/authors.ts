@@ -102,6 +102,7 @@ export async function authorPublicRoutes(fastify: FastifyInstance) {
       });
 
       // Check if current user is following (if authenticated)
+      // Note: request.user is populated by the global auth hook and may be undefined on public routes
       let isFollowing = false;
       if (request.user) {
         const follow = await prisma.authorFollow.findUnique({

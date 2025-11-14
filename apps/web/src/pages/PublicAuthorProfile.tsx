@@ -51,6 +51,8 @@ export function PublicAuthorProfilePage() {
     mutationFn: () => api.followAuthor(userId!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/authors/${userId}`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/authors'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/users/me/follows'] });
       toast({
         title: 'Following author',
         description: `You are now following ${profile?.penName || profile?.name}`,
@@ -69,6 +71,8 @@ export function PublicAuthorProfilePage() {
     mutationFn: () => api.unfollowAuthor(userId!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/authors/${userId}`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/authors'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/users/me/follows'] });
       toast({
         title: 'Unfollowed author',
         description: `You are no longer following ${profile?.penName || profile?.name}`,
