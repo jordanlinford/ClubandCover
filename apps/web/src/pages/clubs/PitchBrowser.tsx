@@ -49,7 +49,7 @@ export function PitchBrowserPage() {
   });
 
   const { data: pitchesData, isLoading } = useQuery({
-    queryKey: ['/api/pitches', { targetClubId: clubId, search: searchQuery, genre: genreFilter }],
+    queryKey: ['/api/pitches', { targetClubId: clubId, search: searchQuery, genre: genreFilter, sortBy }],
     queryFn: async () => {
       const params = new URLSearchParams({
         targetClubId: clubId,
@@ -105,8 +105,9 @@ export function PitchBrowserPage() {
         {}
       ),
     onSuccess: () => {
+      // Invalidate all pitch queries for this club to refresh nomination counts
       queryClient.invalidateQueries({ 
-        queryKey: ['/api/pitches', { targetClubId: clubId }] 
+        queryKey: ['/api/pitches']
       });
     },
   });
@@ -132,9 +133,11 @@ export function PitchBrowserPage() {
     )
   ).sort();
   
-  const topNominated = pitchesData?.pitches
+  // Get top nominated pitches by explicitly sorting by nomination count
+  const topNominated = [...(pitchesData?.pitches || [])]
     .filter(p => (p as any).nominationCount > 0)
-    .slice(0, 5) || [];
+    .sort((a, b) => ((b as any).nominationCount || 0) - ((a as any).nominationCount || 0))
+    .slice(0, 5);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
