@@ -378,12 +378,14 @@ export async function userRoutes(fastify: FastifyInstance) {
       const normalizedAuthors = authors.map((author) => ({
         id: author.id,
         name: author.name ?? '',
-        avatarUrl: author.avatarUrl ?? null,
+        avatarUrl: author.avatarUrl ?? '',
         tier: author.tier,
         createdAt: author.createdAt,
         bio: author.profile?.bio ?? null,
-        booksCount: author._count?.books ?? 0,
-        verifiedSwapCount: author._count?.swapsRequested ?? 0,
+        _count: {
+          books: author._count?.books ?? 0,
+          swapsRequested: author._count?.swapsRequested ?? 0,
+        },
         profile: {
           bio: author.profile?.bio ?? null,
           genres: author.profile?.genres ?? [],
