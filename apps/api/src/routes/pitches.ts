@@ -337,6 +337,8 @@ export default async function pitchesRoutes(app: FastifyInstance) {
       status: z.enum(['SUBMITTED', 'ACCEPTED', 'REJECTED', 'ARCHIVED']).optional(),
       authorId: z.string().uuid().optional(),
       targetClubId: z.string().uuid().optional(),
+      genre: z.string().optional(),
+      search: z.string().optional(),
       limit: z.coerce.number().min(1).max(100).default(50),
       offset: z.coerce.number().min(0).default(0),
     });
@@ -355,6 +357,39 @@ export default async function pitchesRoutes(app: FastifyInstance) {
 
     if (query.targetClubId) {
       where.targetClubId = query.targetClubId;
+    }
+
+    if (query.genre) {
+      where.genres = {
+        has: query.genre,
+      };
+    }
+
+    if (query.search) {
+      where.OR = [
+        {
+          title: {
+            contains: query.search,
+            mode: 'insensitive',
+          },
+        },
+        {
+          book: {
+            title: {
+              contains: query.search,
+              mode: 'insensitive',
+            },
+          },
+        },
+        {
+          book: {
+            author: {
+              contains: query.search,
+              mode: 'insensitive',
+            },
+          },
+        },
+      ];
     }
 
     const [pitches, total] = await Promise.all([
