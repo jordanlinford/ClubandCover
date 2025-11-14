@@ -168,13 +168,19 @@ enum NotificationType {
   POLL_CLOSING
   PITCH_ACCEPTED
   PITCH_REJECTED
+  NEW_SWAP_REQUEST
+  SWAP_ACCEPTED
+  SWAP_DECLINED
   SWAP_DELIVERED
   SWAP_VERIFIED
   SWAP_REVIEW_REMINDER
+  REVIEW_SUBMITTED
   REFERRAL_ACTIVATED
   POINTS_AWARDED
   MEMBERSHIP_APPROVED
   NEW_MESSAGE
+  NEW_CLUB_INVITE
+  CLUB_MENTION
   AUTHOR_NEW_PITCH
 }
 
@@ -862,13 +868,16 @@ model Notification {
 }
 
 model UserSetting {
-  userId             String   @id
-  emailOptIn         Boolean  @default(true)
-  emailPollReminders Boolean  @default(true)
-  emailSwapUpdates   Boolean  @default(true)
-  emailPointsUpdates Boolean  @default(false)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  userId              String   @id
+  emailOptIn          Boolean  @default(true)
+  emailPollReminders  Boolean  @default(true)
+  emailSwapUpdates    Boolean  @default(true)
+  emailPointsUpdates  Boolean  @default(false)
+  emailClubInvites    Boolean  @default(true)
+  emailReviewUpdates  Boolean  @default(true)
+  emailClubMentions   Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
