@@ -423,6 +423,10 @@ class ApiClient {
     return this.post(`/clubs/${clubId}/messages`, data);
   }
 
+  async deleteClubMessage(clubId: string, messageId: string): Promise<{ id: string }> {
+    return this.delete(`/clubs/${clubId}/messages/${messageId}`);
+  }
+
   // Author Verification API
   async getAuthorProfile(): Promise<any> {
     return this.get('/author-profiles');

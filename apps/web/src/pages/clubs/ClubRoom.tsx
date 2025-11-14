@@ -5,8 +5,37 @@ import { Card } from '@repo/ui';
 import { Button } from '@repo/ui';
 import { PageHeader } from '@repo/ui';
 import { api } from '../../lib/api';
-import { Users, MessageSquare, BarChart3, Info, Calendar, BookOpen, Paperclip, X, UserCog, UserX, UserPlus } from 'lucide-react';
+import { Users, MessageSquare, BarChart3, Info, Calendar, BookOpen, Paperclip, X, UserCog, UserX, UserPlus, Trash2 } from 'lucide-react';
 import { Link } from 'wouter';
+import { useAuth } from '../../contexts/AuthContext';
+
+// Helper component to linkify URLs in text
+function Linkify({ children }: { children: string }) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = children.split(urlRegex);
+  
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (part.match(urlRegex)) {
+          return (
+            <a
+              key={i}
+              href={part}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 dark:text-blue-400 hover:underline"
+              data-testid="link-message-url"
+            >
+              {part}
+            </a>
+          );
+        }
+        return <span key={i}>{part}</span>;
+      })}
+    </>
+  );
+}
 
 type Club = {
   id: string;
@@ -39,6 +68,7 @@ export function ClubRoomPage() {
   const [activeTab, setActiveTab] = useState<'feed' | 'polls' | 'info' | 'members'>('feed');
   const [messageBody, setMessageBody] = useState('');
   const [error, setError] = useState('');
+  const [messagePage, setMessagePage] = useState(1);
   const [attachment, setAttachment] = useState<{
     dataUrl: string;
     type: string;
@@ -46,6 +76,7 @@ export function ClubRoomPage() {
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const { data: club, isLoading: clubLoading } = useQuery<Club>({
     queryKey: ['/api/clubs', clubId],
@@ -53,8 +84,8 @@ export function ClubRoomPage() {
   });
 
   const { data: messagesData } = useQuery({
-    queryKey: ['/api/clubs', clubId, 'messages'],
-    queryFn: () => api.getClubMessages(clubId),
+    queryKey: ['/api/clubs', clubId, 'messages', messagePage],
+    queryFn: () => api.getClubMessages(clubId, { page: messagePage, limit: 20 }),
     enabled: !!clubId && activeTab === 'feed',
   });
 
@@ -99,12 +130,20 @@ export function ClubRoomPage() {
       setMessageBody('');
       setAttachment(null);
       setError('');
+      setMessagePage(1); // Reset to first page after posting
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
     },
     onError: (err: any) => {
       setError(err.message || 'Failed to post message');
+    },
+  });
+
+  const deleteMessageMutation = useMutation({
+    mutationFn: (messageId: string) => api.deleteClubMessage(clubId, messageId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/clubs', clubId, 'messages'] });
     },
   });
 
@@ -400,34 +439,40 @@ export function ClubRoomPage() {
 
             {/* Messages */}
             <div className="space-y-4">
-              {messagesData?.messages.map((message) => (
-                <Card key={message.id} className="p-6">
-                  <div className="flex items-start gap-4">
-                    <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
-                      {message.author.avatarUrl ? (
-                        <img
-                          src={message.author.avatarUrl}
-                          alt={message.author.name}
-                          className="w-full h-full rounded-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-gray-600 dark:text-gray-400 font-semibold">
-                          {message.author.name.charAt(0).toUpperCase()}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="font-semibold text-gray-900 dark:text-gray-100">
-                          {message.author.name}
-                        </span>
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
-                          {new Date(message.createdAt).toLocaleDateString()}
-                        </span>
+              {messagesData?.messages.map((message) => {
+                const canDelete = user && (
+                  message.userId === user.id || 
+                  isHost
+                );
+
+                return (
+                  <Card key={message.id} className="p-6" data-testid={`message-${message.id}`}>
+                    <div className="flex items-start gap-4">
+                      <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                        {message.author.avatarUrl ? (
+                          <img
+                            src={message.author.avatarUrl}
+                            alt={message.author.name}
+                            className="w-full h-full rounded-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-gray-600 dark:text-gray-400 font-semibold">
+                            {message.author.name.charAt(0).toUpperCase()}
+                          </span>
+                        )}
                       </div>
-                      <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                        {message.body}
-                      </p>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="font-semibold text-gray-900 dark:text-gray-100">
+                            {message.author.name}
+                          </span>
+                          <span className="text-sm text-gray-500 dark:text-gray-400">
+                            {new Date(message.createdAt).toLocaleString()}
+                          </span>
+                        </div>
+                        <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                          <Linkify>{message.body}</Linkify>
+                        </p>
                       
                       {/* Attachment Display */}
                       {message.attachmentUrl && (
@@ -456,10 +501,29 @@ export function ClubRoomPage() {
                           )}
                         </div>
                       )}
+                      </div>
+                      
+                      {/* Delete Button */}
+                      {canDelete && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            if (confirm('Delete this message?')) {
+                              deleteMessageMutation.mutate(message.id);
+                            }
+                          }}
+                          disabled={deleteMessageMutation.isPending}
+                          className="text-gray-400 hover:text-red-600 dark:hover:text-red-400"
+                          data-testid={`button-delete-message-${message.id}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
-                  </div>
-                </Card>
-              ))}
+                  </Card>
+                );
+              })}
               {messagesData?.messages.length === 0 && (
                 <Card className="p-8 text-center">
                   <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-400" />
@@ -467,6 +531,19 @@ export function ClubRoomPage() {
                     No messages yet. Be the first to post!
                   </p>
                 </Card>
+              )}
+
+              {/* Load More Button */}
+              {messagesData && messagesData.pagination.page < messagesData.pagination.totalPages && (
+                <div className="flex justify-center mt-6">
+                  <Button
+                    variant="outline"
+                    onClick={() => setMessagePage(prev => prev + 1)}
+                    data-testid="button-load-more-messages"
+                  >
+                    Load More Messages
+                  </Button>
+                </div>
               )}
             </div>
           </div>
