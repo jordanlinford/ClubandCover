@@ -1,9 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Button, Card, Badge } from '@repo/ui';
+import { Button, Card } from '@repo/ui';
 import { Gift, Sparkles, Trophy, BookOpen, Clock, Check } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../lib/api';
 import { useState } from 'react';
+
+// Simple Badge component
+const Badge = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+  <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${className || 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'}`}>
+    {children}
+  </span>
+);
 
 type RewardType = 'PLATFORM' | 'AUTHOR_CONTRIBUTED' | 'FEATURE' | 'DIGITAL';
 
@@ -66,6 +73,11 @@ export function RewardsPage() {
     queryKey: ['/api/rewards'],
   });
 
+  const { data: pointsResponse } = useQuery<any>({
+    queryKey: ['/api/points/me'],
+    enabled: !!user,
+  });
+
   const { data: historyResponse } = useQuery<any>({
     queryKey: ['/api/rewards/redemptions/me'],
     enabled: !!user,
@@ -95,8 +107,8 @@ export function RewardsPage() {
       return;
     }
 
-    if ((user.points || 0) < reward.pointsCost) {
-      setErrorMessage(`You need ${reward.pointsCost} points but only have ${user.points || 0}`);
+    if (userPoints < reward.pointsCost) {
+      setErrorMessage(`You need ${reward.pointsCost} points but only have ${userPoints}`);
       return;
     }
 
@@ -110,6 +122,7 @@ export function RewardsPage() {
 
   const rewards: RewardItem[] = rewardsResponse?.data || [];
   const history: RedemptionHistory[] = historyResponse?.data || [];
+  const userPoints = pointsResponse?.data?.points || 0;
 
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-8">
@@ -127,7 +140,7 @@ export function RewardsPage() {
                 <Trophy className="w-5 h-5 text-primary" />
                 <div>
                   <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Your Points</div>
-                  <div className="text-2xl font-semibold">{user.points || 0}</div>
+                  <div className="text-2xl font-semibold">{userPoints}</div>
                 </div>
               </div>
             </Card>
@@ -163,7 +176,7 @@ export function RewardsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {rewards.map((reward) => {
               const Icon = rewardTypeIcons[reward.rewardType];
-              const canAfford = (user?.points || 0) >= reward.pointsCost;
+              const canAfford = userPoints >= reward.pointsCost;
 
               return (
                 <Card key={reward.id} className="p-6 flex flex-col" data-testid={`card-reward-${reward.id}`}>

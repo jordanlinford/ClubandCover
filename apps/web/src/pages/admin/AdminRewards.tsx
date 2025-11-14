@@ -1,8 +1,15 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Button, Card, Badge } from '@repo/ui';
+import { Button, Card } from '@repo/ui';
 import { Plus, Edit, Clock, Check, X, Gift } from 'lucide-react';
 import { api } from '../../lib/api';
+
+// Simple Badge component
+const Badge = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+  <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${className || 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'}`}>
+    {children}
+  </span>
+);
 
 type RewardType = 'PLATFORM' | 'AUTHOR_CONTRIBUTED' | 'FEATURE' | 'DIGITAL';
 type RedemptionStatus = 'PENDING' | 'APPROVED' | 'DECLINED' | 'FULFILLED' | 'CANCELLED';
@@ -354,7 +361,6 @@ export function AdminRewardsPage() {
       {reviewingRedemption && (
         <RedemptionReviewDialog
           redemption={reviewingRedemption}
-          onClose={() => setReviewingRedemption(null)}
           onUpdate={(status, rejectionReason, notes) => {
             updateRedemptionMutation.mutate({
               id: reviewingRedemption.id,
@@ -551,12 +557,10 @@ function RewardFormDialog({
 
 function RedemptionReviewDialog({
   redemption,
-  onClose,
   onUpdate,
   isPending,
 }: {
   redemption: RedemptionRequest;
-  onClose: () => void;
   onUpdate: (status: RedemptionStatus, rejectionReason?: string, notes?: string) => void;
   isPending: boolean;
 }) {
