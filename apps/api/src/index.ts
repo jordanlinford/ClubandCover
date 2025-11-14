@@ -9,7 +9,7 @@ import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import { routes } from './routes/index.js';
 import { versionRoutes } from './routes/version.js';
-import { supabaseAuth } from './middleware/auth.js';
+import { supabaseAuth, requireActiveAccount } from './middleware/auth.js';
 import { ensureStripeProducts } from './lib/stripe.js';
 import { initializeOpenAI } from './lib/ai.js';
 
@@ -140,6 +140,13 @@ fastify.setNotFoundHandler((request, reply) => {
 fastify.addHook('onRequest', async (request, reply) => {
   if (request.url.startsWith('/api')) {
     await supabaseAuth(request, reply);
+  }
+});
+
+// Require active account for all authenticated routes (blocks disabled/deleted users)
+fastify.addHook('onRequest', async (request, reply) => {
+  if (request.url.startsWith('/api')) {
+    await requireActiveAccount(request, reply);
   }
 });
 

@@ -36,6 +36,7 @@ import AuthorDashboard from './pages/AuthorDashboard';
 import AuthorDirectory from './pages/AuthorDirectory';
 import { RewardsPage } from './pages/Rewards';
 import { AdminRewardsPage } from './pages/admin/AdminRewards';
+import { SettingsPage } from './pages/Settings';
 
 export default function App() {
   return (
@@ -51,6 +52,7 @@ export default function App() {
       <Route path="/auth/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />
       <Route path="/profile" component={ProfilePage} />
+      <Route path="/settings" component={SettingsPage} />
       <Route path="/books" component={BooksListPage} />
       <Route path="/books/new" component={BookFormPage} />
       <Route path="/books/:id" component={BookDetailPage} />
