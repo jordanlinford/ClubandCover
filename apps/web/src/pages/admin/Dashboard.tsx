@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLocation } from 'wouter';
 import { Card, Button } from '@repo/ui';
-import { Users, BookOpen, Award, Shield, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Users, BookOpen, Award, Shield, TrendingUp, AlertTriangle, CheckCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { hasRole } from '@/lib/hasRole';
 
@@ -25,6 +26,7 @@ interface UserData {
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
   const { user, loading: authLoading } = useAuth();
 
   const { data: userData, isLoading: userDataLoading } = useQuery<UserData>({
@@ -54,6 +56,10 @@ export default function AdminDashboard() {
     activeSwaps: number;
   }>>({
     queryKey: ['/api/admin/stats'],
+  });
+
+  const { data: pendingVerifications } = useQuery<AdminResponse<any[]>>({
+    queryKey: ['/api/admin/author-verifications/pending'],
   });
 
   const changeRoleMutation = useMutation({
@@ -286,6 +292,31 @@ export default function AdminDashboard() {
               </div>
             </Card>
           </div>
+
+          {/* Author Verifications Card */}
+          {pendingVerifications?.data && pendingVerifications.data.length > 0 && (
+            <Card className="p-6 border-2 border-yellow-500 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/20">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <CheckCircle className="h-6 w-6 text-yellow-600 dark:text-yellow-500" />
+                  <div>
+                    <h3 className="text-lg font-semibold text-yellow-900 dark:text-yellow-100">
+                      Pending Author Verifications
+                    </h3>
+                    <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                      {pendingVerifications.data.length} author{pendingVerifications.data.length !== 1 ? 's' : ''} awaiting verification review
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => setLocation('/admin/author-verifications')}
+                  data-testid="button-review-verifications"
+                >
+                  Review Now
+                </Button>
+              </div>
+            </Card>
+          )}
         </div>
       )}
 

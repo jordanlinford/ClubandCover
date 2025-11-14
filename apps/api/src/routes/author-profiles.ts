@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { prisma } from '../lib/prisma.js';
 import type { ApiResponse } from '@repo/types';
 import { z } from 'zod';
+import { requireAuth, requireActiveAccount } from '../middleware/auth.js';
 
 const CreateAuthorProfileSchema = z.object({
   penName: z.string().min(1).max(100).optional(),
@@ -19,11 +20,7 @@ const SubmitVerificationSchema = z.object({
 
 export async function authorProfileRoutes(fastify: FastifyInstance) {
   // Get current user's author profile (returns null if not created yet)
-  fastify.get('/', async (request, reply) => {
-    if (!request.user) {
-      reply.code(401);
-      return { success: false, error: 'Please sign in to view your author profile' } as ApiResponse;
-    }
+  fastify.get('/', { preHandler: [requireAuth, requireActiveAccount] }, async (request, reply) => {
 
     try {
       const profile = await prisma.authorProfile.findUnique({
@@ -48,11 +45,7 @@ export async function authorProfileRoutes(fastify: FastifyInstance) {
   });
 
   // Create or update author profile
-  fastify.post('/', async (request, reply) => {
-    if (!request.user) {
-      reply.code(401);
-      return { success: false, error: 'Please sign in to create an author profile' } as ApiResponse;
-    }
+  fastify.post('/', { preHandler: [requireAuth, requireActiveAccount] }, async (request, reply) => {
 
     try {
       const data = CreateAuthorProfileSchema.parse(request.body);
@@ -116,11 +109,7 @@ export async function authorProfileRoutes(fastify: FastifyInstance) {
   });
 
   // Submit verification proof
-  fastify.post('/submit-verification', async (request, reply) => {
-    if (!request.user) {
-      reply.code(401);
-      return { success: false, error: 'Please sign in to submit verification' } as ApiResponse;
-    }
+  fastify.post('/submit-verification', { preHandler: [requireAuth, requireActiveAccount] }, async (request, reply) => {
 
     try {
       const data = SubmitVerificationSchema.parse(request.body);

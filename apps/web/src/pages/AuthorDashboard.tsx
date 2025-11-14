@@ -18,6 +18,9 @@ import {
   RefreshCcw,
   CheckCircle2,
   XCircle,
+  AlertCircle,
+  Clock,
+  CheckCircle,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -50,8 +53,15 @@ export default function AuthorDashboard() {
     enabled: !!user?.id,
   });
 
+  const { data: authorProfileData } = useQuery<any>({
+    queryKey: ['/api/author-profiles'],
+    enabled: !!user?.id,
+    retry: false,
+  });
+
   // Server-side filtered data (already scoped to current user)
   const analytics = analyticsData?.data || {};
+  const authorProfile = authorProfileData?.data;
   const myPitches = pitchesData?.data || [];
   
   // Swaps endpoint already filters by user (requester or responder)
@@ -145,6 +155,67 @@ export default function AuthorDashboard() {
             {getTierBadge()}
           </div>
         </div>
+
+        {/* Author Verification Alert */}
+        {authorProfile && authorProfile.verificationStatus !== 'VERIFIED' && (
+          <Card className="mb-8 p-6 border-2 border-yellow-500 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/20">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-3">
+                {authorProfile.verificationStatus === 'UNVERIFIED' && (
+                  <AlertCircle className="w-6 h-6 text-yellow-600 dark:text-yellow-500 flex-shrink-0 mt-0.5" />
+                )}
+                {authorProfile.verificationStatus === 'PENDING' && (
+                  <Clock className="w-6 h-6 text-yellow-600 dark:text-yellow-500 flex-shrink-0 mt-0.5" />
+                )}
+                {authorProfile.verificationStatus === 'REJECTED' && (
+                  <XCircle className="w-6 h-6 text-red-600 dark:text-red-500 flex-shrink-0 mt-0.5" />
+                )}
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold mb-1 text-yellow-900 dark:text-yellow-100">
+                    {authorProfile.verificationStatus === 'UNVERIFIED' && 'Complete Author Verification'}
+                    {authorProfile.verificationStatus === 'PENDING' && 'Verification Under Review'}
+                    {authorProfile.verificationStatus === 'REJECTED' && 'Verification Rejected'}
+                  </h3>
+                  <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-3">
+                    {authorProfile.verificationStatus === 'UNVERIFIED' && 
+                      'Verify your author status to publish pitches and participate in author swaps. This helps build trust with readers and clubs.'
+                    }
+                    {authorProfile.verificationStatus === 'PENDING' && 
+                      'Our team is reviewing your verification submission. You\'ll receive an update within 24-48 hours.'
+                    }
+                    {authorProfile.verificationStatus === 'REJECTED' && 
+                      `Your verification was not approved. ${authorProfile.rejectionReason || 'Please submit additional proof of your published works.'}`
+                    }
+                  </p>
+                  {(authorProfile.verificationStatus === 'UNVERIFIED' || authorProfile.verificationStatus === 'REJECTED') && (
+                    <Button
+                      onClick={() => setLocation('/author-verification')}
+                      data-testid="button-goto-verification"
+                    >
+                      {authorProfile.verificationStatus === 'UNVERIFIED' ? 'Get Verified' : 'Resubmit Verification'}
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
+        {authorProfile && authorProfile.verificationStatus === 'VERIFIED' && (
+          <Card className="mb-8 p-6 border-2 border-green-500 dark:border-green-600 bg-green-50 dark:bg-green-900/20">
+            <div className="flex items-center gap-3">
+              <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-500" />
+              <div>
+                <h3 className="text-lg font-semibold text-green-900 dark:text-green-100">
+                  Verified Author
+                </h3>
+                <p className="text-sm text-green-800 dark:text-green-200">
+                  You're verified and can now publish pitches and participate in all author features.
+                </p>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* Quick Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">

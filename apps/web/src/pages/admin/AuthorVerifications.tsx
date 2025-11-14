@@ -1,21 +1,7 @@
 import { useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
-import { queryClient, apiRequest } from '@/lib/queryClient';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Button, Card } from '@repo/ui';
 import { Loader2, CheckCircle, XCircle, ExternalLink } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 
 interface AuthorProfile {
   id: string;
@@ -43,62 +29,68 @@ interface AuthorProfile {
   }>;
 }
 
-export default function AuthorVerifications() {
-  const { toast } = useToast();
+export default function AdminAuthorVerifications() {
+  const queryClient = useQueryClient();
   const [selectedProfile, setSelectedProfile] = useState<AuthorProfile | null>(null);
   const [actionType, setActionType] = useState<'approve' | 'reject' | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
-  const { data: pendingVerifications, isLoading } = useQuery({
+  const { data: pendingResponse, isLoading } = useQuery<{ success: boolean; data: AuthorProfile[] }>({
     queryKey: ['/api/admin/author-verifications/pending'],
   });
 
   const approveMutation = useMutation({
-    mutationFn: (profileId: string) =>
-      apiRequest('/api/admin/author-verifications/approve', {
+    mutationFn: async (profileId: string) => {
+      const response = await fetch('/api/admin/author-verifications/approve', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ profileId }),
-      }),
-    onSuccess: () => {
-      toast({
-        title: 'Verification approved',
-        description: 'Author has been verified successfully.',
       });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to approve verification');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      setSuccess('Author verification approved successfully');
+      setError('');
       queryClient.invalidateQueries({ queryKey: ['/api/admin/author-verifications/pending'] });
       setSelectedProfile(null);
       setActionType(null);
     },
-    onError: (error: any) => {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to approve verification',
-        variant: 'destructive',
-      });
+    onError: (err: Error) => {
+      setError(err.message);
+      setSuccess('');
     },
   });
 
   const rejectMutation = useMutation({
-    mutationFn: ({ profileId, reason }: { profileId: string; reason?: string }) =>
-      apiRequest('/api/admin/author-verifications/reject', {
+    mutationFn: async ({ profileId, reason }: { profileId: string; reason?: string }) => {
+      const response = await fetch('/api/admin/author-verifications/reject', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ profileId, reason }),
-      }),
-    onSuccess: () => {
-      toast({
-        title: 'Verification rejected',
-        description: 'Author verification has been rejected.',
       });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to reject verification');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      setSuccess('Author verification rejected');
+      setError('');
       queryClient.invalidateQueries({ queryKey: ['/api/admin/author-verifications/pending'] });
       setSelectedProfile(null);
       setActionType(null);
       setRejectionReason('');
     },
-    onError: (error: any) => {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to reject verification',
-        variant: 'destructive',
-      });
+    onError: (err: Error) => {
+      setError(err.message);
+      setSuccess('');
     },
   });
 
@@ -110,49 +102,58 @@ export default function AuthorVerifications() {
     );
   }
 
-  const profiles = pendingVerifications?.data || [];
+  const profiles = pendingResponse?.data || [];
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
       <div className="mb-8">
         <h1 className="text-3xl font-semibold mb-2">Author Verifications</h1>
-        <p className="text-muted-foreground">
+        <p className="text-gray-600 dark:text-gray-400">
           Review and approve pending author verification requests.
         </p>
       </div>
 
+      {error && (
+        <div className="mb-4 p-4 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 rounded-lg">
+          {error}
+        </div>
+      )}
+
+      {success && (
+        <div className="mb-4 p-4 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded-lg">
+          {success}
+        </div>
+      )}
+
       {profiles.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground" data-testid="text-no-pending">
-              No pending verifications
-            </p>
-          </CardContent>
+        <Card className="p-12 text-center">
+          <p className="text-gray-600 dark:text-gray-400" data-testid="text-no-pending">
+            No pending verifications
+          </p>
         </Card>
       ) : (
         <div className="space-y-6">
           {profiles.map((profile: AuthorProfile) => (
-            <Card key={profile.id} data-testid={`card-profile-${profile.id}`}>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle>
-                      {profile.penName || profile.user.name}
-                      <Badge variant="secondary" className="ml-2">
-                        Pending Review
-                      </Badge>
-                    </CardTitle>
-                    <CardDescription>{profile.user.email}</CardDescription>
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    Submitted {new Date(profile.updatedAt).toLocaleDateString()}
-                  </div>
+            <Card key={profile.id} className="p-6" data-testid={`card-profile-${profile.id}`}>
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h2 className="text-xl font-semibold">
+                    {profile.penName || profile.user.name}
+                    <span className="ml-2 px-3 py-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 rounded-full text-sm font-medium">
+                      Pending Review
+                    </span>
+                  </h2>
+                  <p className="text-gray-600 dark:text-gray-400">{profile.user.email}</p>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  Submitted {new Date(profile.updatedAt).toLocaleDateString()}
+                </div>
+              </div>
+
+              <div className="space-y-4">
                 <div>
                   <h4 className="font-medium mb-2">Bio</h4>
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap" data-testid="text-bio">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap" data-testid="text-bio">
                     {profile.bio}
                   </p>
                 </div>
@@ -161,9 +162,13 @@ export default function AuthorVerifications() {
                   <h4 className="font-medium mb-2">Genres</h4>
                   <div className="flex flex-wrap gap-2">
                     {profile.genres.map((genre) => (
-                      <Badge key={genre} variant="outline" data-testid={`badge-genre-${genre}`}>
+                      <span
+                        key={genre}
+                        className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded-full text-sm"
+                        data-testid={`badge-genre-${genre}`}
+                      >
                         {genre}
-                      </Badge>
+                      </span>
                     ))}
                   </div>
                 </div>
@@ -175,7 +180,7 @@ export default function AuthorVerifications() {
                       href={profile.website}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm text-primary hover:underline flex items-center gap-1"
+                      className="text-sm text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
                       data-testid="link-website"
                     >
                       {profile.website}
@@ -190,12 +195,14 @@ export default function AuthorVerifications() {
                     {profile.verificationProofs.map((proof) => (
                       <div
                         key={proof.id}
-                        className="border rounded-lg p-3"
+                        className="border dark:border-gray-700 rounded-lg p-3"
                         data-testid={`proof-${proof.type}`}
                       >
                         <div className="flex items-start justify-between mb-2">
-                          <Badge variant="secondary">{proof.type.replace(/_/g, ' ')}</Badge>
-                          <span className="text-xs text-muted-foreground">
+                          <span className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded-full text-sm">
+                            {proof.type.replace(/_/g, ' ')}
+                          </span>
+                          <span className="text-xs text-gray-600 dark:text-gray-400">
                             {new Date(proof.createdAt).toLocaleDateString()}
                           </span>
                         </div>
@@ -203,21 +210,21 @@ export default function AuthorVerifications() {
                           href={proof.value}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm text-primary hover:underline flex items-center gap-1 break-all"
+                          className="text-sm text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 break-all"
                           data-testid="link-proof-value"
                         >
                           {proof.value}
                           <ExternalLink className="w-3 h-3 flex-shrink-0" />
                         </a>
                         {proof.notes && (
-                          <p className="text-sm text-muted-foreground mt-2">{proof.notes}</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">{proof.notes}</p>
                         )}
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div className="flex gap-2 pt-4 border-t">
+                <div className="flex gap-2 pt-4 border-t dark:border-gray-700">
                   <Button
                     onClick={() => {
                       setSelectedProfile(profile);
@@ -229,18 +236,18 @@ export default function AuthorVerifications() {
                     Approve
                   </Button>
                   <Button
-                    variant="destructive"
                     onClick={() => {
                       setSelectedProfile(profile);
                       setActionType('reject');
                     }}
+                    className="bg-red-600 hover:bg-red-700 text-white"
                     data-testid="button-reject"
                   >
                     <XCircle className="w-4 h-4 mr-2" />
                     Reject
                   </Button>
                 </div>
-              </CardContent>
+              </div>
             </Card>
           ))}
         </div>
@@ -248,20 +255,14 @@ export default function AuthorVerifications() {
 
       {/* Confirmation Dialogs */}
       {selectedProfile && actionType === 'approve' && (
-        <Dialog open onOpenChange={() => {
-          setSelectedProfile(null);
-          setActionType(null);
-        }}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Approve Author Verification</DialogTitle>
-              <DialogDescription>
-                Are you sure you want to verify {selectedProfile.penName || selectedProfile.user.name} as an author?
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="p-6 max-w-md w-full mx-4">
+            <h2 className="text-xl font-semibold mb-2">Approve Author Verification</h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              Are you sure you want to verify {selectedProfile.penName || selectedProfile.user.name} as an author?
+            </p>
+            <div className="flex gap-4">
               <Button
-                variant="outline"
                 onClick={() => {
                   setSelectedProfile(null);
                   setActionType(null);
@@ -278,40 +279,31 @@ export default function AuthorVerifications() {
                 {approveMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Approve
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </div>
+          </Card>
+        </div>
       )}
 
       {selectedProfile && actionType === 'reject' && (
-        <Dialog open onOpenChange={() => {
-          setSelectedProfile(null);
-          setActionType(null);
-          setRejectionReason('');
-        }}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Reject Author Verification</DialogTitle>
-              <DialogDescription>
-                Please provide a reason for rejecting this verification request.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div>
-                <Label htmlFor="rejection-reason">Rejection Reason (optional)</Label>
-                <Textarea
-                  id="rejection-reason"
-                  value={rejectionReason}
-                  onChange={(e) => setRejectionReason(e.target.value)}
-                  placeholder="E.g., Insufficient proof of published works..."
-                  rows={4}
-                  data-testid="input-rejection-reason"
-                />
-              </div>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="p-6 max-w-md w-full mx-4">
+            <h2 className="text-xl font-semibold mb-2">Reject Author Verification</h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              Please provide a reason for rejecting this verification request.
+            </p>
+            <div className="mb-6">
+              <label className="block text-sm font-medium mb-2">Rejection Reason (optional)</label>
+              <textarea
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="E.g., Insufficient proof of published works..."
+                rows={4}
+                className="w-full px-4 py-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700"
+                data-testid="input-rejection-reason"
+              />
             </div>
-            <DialogFooter>
+            <div className="flex gap-4">
               <Button
-                variant="outline"
                 onClick={() => {
                   setSelectedProfile(null);
                   setActionType(null);
@@ -322,7 +314,6 @@ export default function AuthorVerifications() {
                 Cancel
               </Button>
               <Button
-                variant="destructive"
                 onClick={() =>
                   rejectMutation.mutate({
                     profileId: selectedProfile.id,
@@ -330,14 +321,15 @@ export default function AuthorVerifications() {
                   })
                 }
                 disabled={rejectMutation.isPending}
+                className="bg-red-600 hover:bg-red-700 text-white"
                 data-testid="button-confirm-reject"
               >
                 {rejectMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Reject
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </div>
+          </Card>
+        </div>
       )}
     </div>
   );

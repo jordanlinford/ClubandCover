@@ -209,6 +209,24 @@ async function ensureUser(id: string, email: string, metadata?: Record<string, a
 }
 
 /**
+ * Middleware that requires STAFF role
+ * Returns 403 if user is not a staff member
+ */
+export async function requireStaffRole(request: FastifyRequest, reply: FastifyReply) {
+  if (!request.user) {
+    return; // Let requireAuth handle this
+  }
+
+  if (!request.user.roles?.includes('STAFF')) {
+    return reply.code(403).send({
+      success: false,
+      error: 'Staff access required',
+      code: 'STAFF_ACCESS_REQUIRED',
+    });
+  }
+}
+
+/**
  * Check if user has a specific role
  */
 export function hasRole(user: { roles?: string[] } | undefined, role: string): boolean {

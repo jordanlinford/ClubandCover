@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { prisma } from '../lib/prisma.js';
 import type { ApiResponse } from '@repo/types';
 import { z } from 'zod';
+import { requireAuth, requireActiveAccount, requireStaffRole } from '../middleware/auth.js';
 
 const ApproveVerificationSchema = z.object({
   profileId: z.string().uuid(),
@@ -12,26 +13,9 @@ const RejectVerificationSchema = z.object({
   reason: z.string().min(1).max(1000).optional(),
 });
 
-// Helper to check if user has STAFF role
-function requireStaff(request: any, reply: any) {
-  if (!request.user) {
-    reply.code(401);
-    return { success: false, error: 'Authentication required' } as ApiResponse;
-  }
-
-  if (!request.user.roles.includes('STAFF')) {
-    reply.code(403);
-    return { success: false, error: 'Staff access required' } as ApiResponse;
-  }
-
-  return null;
-}
-
 export async function adminAuthorVerificationRoutes(fastify: FastifyInstance) {
   // Get all pending author verifications
-  fastify.get('/pending', async (request, reply) => {
-    const authError = requireStaff(request, reply);
-    if (authError) return authError;
+  fastify.get('/pending', { preHandler: [requireAuth, requireActiveAccount, requireStaffRole] }, async (request, reply) => {
 
     try {
       const pendingProfiles = await prisma.authorProfile.findMany({
@@ -69,9 +53,7 @@ export async function adminAuthorVerificationRoutes(fastify: FastifyInstance) {
   });
 
   // Approve author verification
-  fastify.post('/approve', async (request, reply) => {
-    const authError = requireStaff(request, reply);
-    if (authError) return authError;
+  fastify.post('/approve', { preHandler: [requireAuth, requireActiveAccount, requireStaffRole] }, async (request, reply) => {
 
     try {
       const data = ApproveVerificationSchema.parse(request.body);
@@ -131,9 +113,7 @@ export async function adminAuthorVerificationRoutes(fastify: FastifyInstance) {
   });
 
   // Reject author verification
-  fastify.post('/reject', async (request, reply) => {
-    const authError = requireStaff(request, reply);
-    if (authError) return authError;
+  fastify.post('/reject', { preHandler: [requireAuth, requireActiveAccount, requireStaffRole] }, async (request, reply) => {
 
     try {
       const data = RejectVerificationSchema.parse(request.body);
