@@ -207,6 +207,7 @@ model UserProfile {
   booksPerMonth Int?
   bio           String?  @db.Text
   avatarUrl     String?
+  openToSwaps   Boolean  @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
