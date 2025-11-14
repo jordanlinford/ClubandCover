@@ -12,7 +12,7 @@ interface PitchFormData {
   theme: string;
   imageUrl: string;
   videoUrl: string;
-  availableFormats: string[];
+  availableFormats: BookFormat[];
   offerFreeIfChosen: boolean;
 }
 
@@ -61,7 +61,7 @@ export function PitchForm({ onSubmit, isPending, clubs }: PitchFormProps) {
     }
   };
 
-  const handleFormatToggle = (format: string) => {
+  const handleFormatToggle = (format: BookFormat) => {
     setFormatError('');
     const currentFormats = formData.availableFormats;
     
@@ -104,7 +104,7 @@ export function PitchForm({ onSubmit, isPending, clubs }: PitchFormProps) {
       theme: formData.theme.trim() || undefined,
       imageUrl: formData.imageUrl.trim() || undefined,
       videoUrl: formData.videoUrl.trim() || undefined,
-      availableFormats: formData.availableFormats.length > 0 ? formData.availableFormats : undefined,
+      availableFormats: formData.availableFormats,
       offerFreeIfChosen: formData.offerFreeIfChosen,
     };
     

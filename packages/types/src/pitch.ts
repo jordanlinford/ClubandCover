@@ -12,7 +12,7 @@ export interface Pitch {
   authorId: string;
   targetClubId: string;
   status: 'PENDING' | 'ACCEPTED' | 'REJECTED';
-  availableFormats: string[];
+  availableFormats: BookFormat[];
   offerFreeIfChosen: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -26,7 +26,7 @@ export interface CreatePitch {
   theme?: string;
   imageUrl?: string;
   videoUrl?: string;
-  availableFormats?: string[];
+  availableFormats: BookFormat[];
   offerFreeIfChosen?: boolean;
 }
 

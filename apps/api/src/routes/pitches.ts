@@ -73,8 +73,7 @@ export default async function pitchesRoutes(app: FastifyInstance) {
       imageUrl: z.string().url('Must be a valid URL').optional(),
       videoUrl: z.string().optional(),
       availableFormats: z.array(z.enum(['PAPERBACK', 'HARDCOVER', 'EBOOK', 'AUDIOBOOK']))
-        .min(1, 'At least one format must be selected')
-        .optional(),
+        .min(1, 'At least one format must be selected'),
       offerFreeIfChosen: z.boolean().optional(),
     });
 
@@ -197,7 +196,7 @@ export default async function pitchesRoutes(app: FastifyInstance) {
         theme: body.theme || null,
         imageUrl: body.imageUrl || null,
         videoUrl: normalizedVideoUrl,
-        availableFormats: body.availableFormats || [],
+        availableFormats: body.availableFormats,
         offerFreeIfChosen: body.offerFreeIfChosen || false,
         status: 'SUBMITTED',
         authorTier: user.tier, // Set author tier for visibility boost sorting
