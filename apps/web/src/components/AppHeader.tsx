@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'wouter';
 import { Button } from '@repo/ui';
 import { useAuth } from '../contexts/AuthContext';
-import { BookOpen, LogOut, User, TrendingUp, Users, Lightbulb, MessageSquare, LayoutDashboard, Menu, X, Bell, Repeat, CreditCard, Gift, BarChart3, Plus, UserPlus } from 'lucide-react';
+import { BookOpen, LogOut, User, TrendingUp, Users, Lightbulb, MessageSquare, LayoutDashboard, Menu, X, Bell, Repeat, CreditCard, Gift, BarChart3, Plus, UserPlus, Award } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { hasRole } from '../lib/hasRole';
 import { useState } from 'react';
@@ -48,7 +48,9 @@ export function AppHeader() {
   ];
 
   const readerNavItems = [
-    { href: '/referrals', label: 'Referrals', icon: Gift },
+    { href: '/rewards', label: 'Rewards', icon: Gift },
+    { href: '/achievements', label: 'Achievements', icon: Award },
+    { href: '/referrals', label: 'Referrals', icon: UserPlus },
   ];
 
   const commonNavItems = [

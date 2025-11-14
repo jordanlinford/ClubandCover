@@ -40,6 +40,7 @@ import { AdminRewardsPage } from './pages/admin/AdminRewards';
 import { SettingsPage } from './pages/Settings';
 import AuthorVerification from './pages/AuthorVerification';
 import AdminAuthorVerifications from './pages/admin/AuthorVerifications';
+import { AchievementsPage } from './pages/Achievements';
 
 export default function App() {
   return (
@@ -77,6 +78,7 @@ export default function App() {
       <Route path="/messages" component={MessageList} />
       <Route path="/messages/:id" component={MessageThread} />
       <Route path="/rewards" component={RewardsPage} />
+      <Route path="/achievements" component={AchievementsPage} />
       <Route path="/author-verification" component={AuthorVerification} />
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/admin/moderation" component={ModerationQueue} />
