@@ -28,6 +28,8 @@ import pointsRoutes from './points.js';
 import { authRoutes } from './auth.js';
 import { adminRoutes } from './admin.js';
 import { userRoutes } from './users.js';
+import { rewardRoutes } from './rewards.js';
+import { adminRewardRoutes } from './adminRewards.js';
 
 export async function routes(fastify: FastifyInstance) {
   fastify.get('/health', async () => {
@@ -79,6 +81,9 @@ export async function routes(fastify: FastifyInstance) {
   // Points & Badges v1
   await fastify.register(pointsRoutes);
   
+  // Rewards & Redemptions
+  await fastify.register(rewardRoutes, { prefix: '/rewards' });
+  
   // Authentication (email verification, password reset)
   await fastify.register(authRoutes, { prefix: '/auth' });
   
@@ -90,6 +95,7 @@ export async function routes(fastify: FastifyInstance) {
   
   // Admin routes (STAFF only)
   await fastify.register(adminRoutes, { prefix: '/admin' });
+  await fastify.register(adminRewardRoutes, { prefix: '/admin' });
   
   // Test support routes (only enabled in test environment)
   await fastify.register(testSupportRoutes, { prefix: '/test' });

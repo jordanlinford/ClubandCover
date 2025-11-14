@@ -110,6 +110,8 @@ enum PointType {
   MESSAGE_POSTED
   PITCH_CREATED
   SWAP_COMPLETED
+  REWARD_REDEEMED     // Points spent on rewards
+  REWARD_REFUNDED     // Points refunded from declined redemption
 }
 
 enum ReferralStatus {
@@ -123,6 +125,21 @@ enum InviteStatus {
   ACTIVE
   REVOKED
   EXPIRED
+}
+
+enum RewardType {
+  PLATFORM      // Managed by platform (gift cards, etc.)
+  AUTHOR_CONTRIBUTED // Authors provide the reward
+  FEATURE       // Platform features (boosts, badges, etc.)
+  DIGITAL       // Digital items (ebooks, etc.)
+}
+
+enum RedemptionStatus {
+  PENDING
+  APPROVED
+  DECLINED
+  FULFILLED
+  CANCELLED
 }
 
 enum NotificationType {
@@ -197,12 +214,15 @@ model User {
   settings           UserSetting?
   checklistProgress  ChecklistProgress[]
   emailLogs          EmailLog[]
-  clubMessages       ClubMessage[]
-  badges             UserBadge[]
-  dailyCounters      DailyPointCounter[]
-  creditTransactions CreditTransaction[]
-  sponsoredPitches   SponsoredPitch[]
-  clubInvitesCreated ClubInvite[]        @relation("ClubInviteCreator")
+  clubMessages        ClubMessage[]
+  badges              UserBadge[]
+  dailyCounters       DailyPointCounter[]
+  creditTransactions  CreditTransaction[]
+  sponsoredPitches    SponsoredPitch[]
+  clubInvitesCreated  ClubInvite[]          @relation("ClubInviteCreator")
+  rewardContributions RewardItem[]          @relation("RewardContributor")
+  redemptions         RedemptionRequest[]   @relation("UserRedemptions")
+  reviewedRedemptions RedemptionRequest[]   @relation("RedemptionReviewer")
 
   @@index([roles])
   @@index([tier])
@@ -851,4 +871,53 @@ model SponsoredPitch {
   @@index([isActive])
   @@index([startDate, endDate])
   @@map("sponsored_pitches")
+}
+
+model RewardItem {
+  id                String              @id @default(uuid())
+  name              String
+  description       String?             @db.Text
+  pointsCost        Int
+  rewardType        RewardType          @default(PLATFORM)
+  contributorId     String?             // Author who contributed this reward (if author_contributed)
+  copiesAvailable   Int?                // For limited quantity items
+  copiesRedeemed    Int                 @default(0)
+  imageUrl          String?
+  isActive          Boolean             @default(true)
+  sortOrder         Int                 @default(0)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  // Relations
+  contributor  User?               @relation("RewardContributor", fields: [contributorId], references: [id], onDelete: SetNull)
+  redemptions  RedemptionRequest[]
+
+  @@index([isActive, sortOrder])
+  @@index([contributorId])
+  @@map("reward_items")
+}
+
+model RedemptionRequest {
+  id              String            @id @default(uuid())
+  userId          String
+  rewardItemId    String
+  pointsSpent     Int
+  status          RedemptionStatus  @default(PENDING)
+  reviewedBy      String?           // Admin who approved/declined
+  reviewedAt      DateTime?
+  rejectionReason String?           @db.Text
+  fulfilledAt     DateTime?
+  notes           String?           @db.Text
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  // Relations
+  user       User       @relation("UserRedemptions", fields: [userId], references: [id], onDelete: Cascade)
+  rewardItem RewardItem @relation(fields: [rewardItemId], references: [id], onDelete: Cascade)
+  reviewer   User?      @relation("RedemptionReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
+
+  @@index([userId, status])
+  @@index([rewardItemId])
+  @@index([status, createdAt])
+  @@map("redemption_requests")
 }
