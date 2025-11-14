@@ -201,4 +201,69 @@ export default async function clubMessagesRoutes(app: FastifyInstance) {
       }
     }
   );
+
+  // Delete club message - author or club admin/host only
+  app.delete(
+    '/api/clubs/:clubId/messages/:messageId',
+    { preHandler: [ensureUser] },
+    async (request, reply) => {
+      try {
+        const { clubId, messageId } = request.params as { clubId: string; messageId: string };
+        const userId = (request as any).user.id;
+
+        // Get the message
+        const message = await prisma.clubMessage.findUnique({
+          where: { id: messageId },
+        });
+
+        if (!message || message.clubId !== clubId) {
+          return reply.status(404).send({
+            success: false,
+            error: 'Message not found',
+          });
+        }
+
+        // Check if user can delete this message
+        // 1. Message author can delete their own message
+        // 2. Club admin/owner can delete any message
+        const membership = await prisma.membership.findUnique({
+          where: { clubId_userId: { clubId, userId } },
+        });
+
+        if (!membership || membership.status !== 'ACTIVE') {
+          return reply.status(403).send({
+            success: false,
+            error: 'You must be an active member',
+          });
+        }
+
+        const canDelete = 
+          message.userId === userId || 
+          ['ADMIN', 'OWNER'].includes(membership.role);
+
+        if (!canDelete) {
+          return reply.status(403).send({
+            success: false,
+            error: 'You do not have permission to delete this message',
+          });
+        }
+
+        // Delete the message
+        await prisma.clubMessage.delete({
+          where: { id: messageId },
+        });
+
+        return reply.send({
+          success: true,
+          data: { id: messageId },
+        });
+      } catch (error: any) {
+        request.log.error(error);
+        return reply.status(500).send({
+          success: false,
+          error: 'Failed to delete message',
+        });
+      }
+    }
+  );
 }
