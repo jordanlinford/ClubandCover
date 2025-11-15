@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { createTestMessageThread, createTestRewardItem } from './helpers/testFactories.js';
 import { prisma } from '../lib/prisma.js';
 
 /**
@@ -83,16 +84,9 @@ describe('Universal Suspension Enforcement', () => {
 
     beforeAll(async () => {
       // Create a test thread with both users as members
-      const thread = await prisma.thread.create({
-        data: {
-          title: 'Test Thread',
-          members: {
-            create: [
-              { userId: activeUserId },
-              { userId: suspendedUserId },
-            ],
-          },
-        },
+      const thread = await createTestMessageThread({
+        userId1: activeUserId,
+        userId2: suspendedUserId,
       });
       threadId = thread.id;
     });
@@ -260,15 +254,10 @@ describe('Universal Suspension Enforcement', () => {
 
     beforeAll(async () => {
       // Create a test reward item
-      const reward = await prisma.rewardItem.create({
-        data: {
-          title: 'Test Reward',
-          description: 'A test reward for integration testing',
-          pointsCost: 100,
-          isActive: true,
-          copiesAvailable: 10,
-          copiesRedeemed: 0,
-        },
+      const reward = await createTestRewardItem({
+        name: 'Test Reward',
+        pointsCost: 100,
+        copiesAvailable: 10,
       });
       rewardItemId = reward.id;
 

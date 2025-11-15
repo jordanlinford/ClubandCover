@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 import request from 'supertest';
 import { startTestServer, stopTestServer } from './helpers/server.js';
 import { createTestAuthor, getAuthHeaders, deleteTestUser } from './helpers/auth.js';
+import { createTestBook } from './helpers/testFactories.js';
 import { prisma } from '../lib/prisma.js';
 import type { FastifyInstance } from 'fastify';
 
@@ -159,19 +160,11 @@ describe('Author Tier Limit Enforcement', () => {
         bio: 'Target for swap tests',
       });
 
-      // Update author profile to accept swaps
-      await prisma.authorProfile.update({
-        where: { userId: targetAuthor.user.id },
-        data: { openToSwaps: true },
-      });
-
       // Create a book for target author
-      const book = await prisma.book.create({
-        data: {
-          title: 'Target Book',
-          ownerId: targetAuthor.user.id,
-          status: 'AVAILABLE',
-        },
+      const book = await createTestBook({
+        ownerId: targetAuthor.user.id,
+        title: 'Target Book',
+        author: 'Swap Target',
       });
       targetBookId = book.id;
     });
@@ -184,12 +177,10 @@ describe('Author Tier Limit Enforcement', () => {
       // Create books for FREE author
       const books = [];
       for (let i = 0; i < 4; i++) {
-        const book = await prisma.book.create({
-          data: {
-            title: `FREE Author Book ${i + 1}`,
-            ownerId: freeAuthor.user.id,
-            status: 'AVAILABLE',
-          },
+        const book = await createTestBook({
+          ownerId: freeAuthor.user.id,
+          title: `FREE Author Book ${i + 1}`,
+          author: 'Free Author',
         });
         books.push(book);
       }

@@ -346,7 +346,7 @@ describe('FREE Tier Reader Access', () => {
       expect(response.body.success).toBe(true);
 
       // Cleanup
-      await prisma.redemptionRequest.deleteMany({ where: { rewardId: reward.id } });
+      await prisma.redemptionRequest.deleteMany({ where: { rewardItemId: reward.id } });
       await prisma.rewardItem.delete({ where: { id: reward.id } });
     });
   });
