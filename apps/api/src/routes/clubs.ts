@@ -467,7 +467,7 @@ export async function clubRoutes(fastify: FastifyInstance) {
         }
       }
 
-      reply.code(201);
+      reply.code(200);
       return { success: true, data: club };
     } catch (error) {
       reply.code(400);

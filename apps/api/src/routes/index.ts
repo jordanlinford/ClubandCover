@@ -88,6 +88,35 @@ export async function routes(fastify: FastifyInstance) {
   // Rewards & Redemptions
   await fastify.register(rewardRoutes, { prefix: '/rewards' });
   
+  // Alias: /api/redemptions for backward compatibility with tests
+  await fastify.register(rewardRoutes, { prefix: '' });
+  
+  // Alias: /api/user/me for backward compatibility with tests  
+  fastify.get('/user/me', async (request, reply) => {
+    // Redirect to the canonical /users/me endpoint
+    const response = await fastify.inject({
+      method: 'GET',
+      url: '/api/users/me',
+      headers: request.headers as Record<string, string>,
+    });
+    
+    reply.code(response.statusCode);
+    return response.json();
+  });
+  
+  fastify.post('/user/me/enable', async (request, reply) => {
+    // Redirect to the canonical /users/me/enable endpoint
+    const response = await fastify.inject({
+      method: 'POST',
+      url: '/api/users/me/enable',
+      headers: request.headers as Record<string, string>,
+      payload: request.body as string,
+    });
+    
+    reply.code(response.statusCode);
+    return response.json();
+  });
+  
   // Authentication (email verification, password reset)
   await fastify.register(authRoutes, { prefix: '/auth' });
   

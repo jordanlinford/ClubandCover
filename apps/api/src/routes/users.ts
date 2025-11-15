@@ -27,6 +27,7 @@ export async function userRoutes(fastify: FastifyInstance) {
           avatarUrl: true,
           emailVerified: true,
           createdAt: true,
+          accountStatus: true,
         },
       });
 
@@ -35,7 +36,7 @@ export async function userRoutes(fastify: FastifyInstance) {
         return { success: false, error: 'User not found' } as ApiResponse;
       }
 
-      return { success: true, data: user } as ApiResponse;
+      return { success: true, user } as ApiResponse;
     } catch (error) {
       reply.code(500);
       return {

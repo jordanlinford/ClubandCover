@@ -61,23 +61,48 @@ export default async function pitchesRoutes(app: FastifyInstance) {
       }
     };
 
-    // Validate request body
+    // Validate request body - support both existing bookId and inline book creation
     const schema = z.object({
-      bookId: z.string().uuid(),
+      // Existing book reference
+      bookId: z.string().uuid().optional(),
+      
+      // OR inline book creation (for simple pitch flows)
+      bookTitle: z.string().min(1).max(200).optional(),
+      bookBlurb: z.string().optional(),
+      authorBio: z.string().optional(),
+      targetGenres: z.array(z.string()).optional(),
+      whyGoodFit: z.string().optional(),
+      
+      // Pitch-specific fields
       targetClubId: z.string().uuid().optional(),
-      title: z.string().min(1).max(200),
+      title: z.string().min(1).max(200).optional(),
       synopsis: z.string().optional(),
       sampleUrl: z.string().url().optional(),
       genres: z.array(z.string()).max(3, 'Maximum 3 genres allowed').optional(),
       theme: z.string().max(500, 'Theme must be 500 characters or less').optional(),
       imageUrl: z.string().url('Must be a valid URL').optional(),
       videoUrl: z.string().optional(),
-      availableFormats: z.array(z.enum(['PAPERBACK', 'HARDCOVER', 'EBOOK', 'AUDIOBOOK']))
-        .min(1, 'At least one format must be selected'),
+      availableFormats: z.array(z.enum(['PAPERBACK', 'HARDCOVER', 'EBOOK', 'AUDIOBOOK'])).optional(),
       offerFreeIfChosen: z.boolean().optional(),
     });
 
-    const body = schema.parse(request.body);
+    let body;
+    try {
+      body = schema.parse(request.body);
+    } catch (error) {
+      return reply.code(400).send({
+        success: false,
+        error: error instanceof Error ? error.message : 'Invalid request body',
+      });
+    }
+    
+    // Validate: must provide either bookId OR inline book data
+    if (!body.bookId && !body.bookTitle) {
+      return reply.code(400).send({
+        success: false,
+        error: 'Either bookId or bookTitle must be provided',
+      });
+    }
     
     // Validate format and free offer combination
     if (body.offerFreeIfChosen && body.availableFormats && body.availableFormats.length > 0) {
@@ -108,23 +133,44 @@ export default async function pitchesRoutes(app: FastifyInstance) {
       }
     }
 
-    // Verify the book exists and belongs to the user
-    const book = await prisma.book.findUnique({
-      where: { id: body.bookId },
-    });
-
-    if (!book) {
-      return reply.code(404).send({
-        success: false,
-        error: 'Book not found',
+    // Handle book reference: either verify existing book or create one inline
+    let bookId: string;
+    
+    if (body.bookId) {
+      // Verify the book exists and belongs to the user
+      const book = await prisma.book.findUnique({
+        where: { id: body.bookId },
       });
-    }
 
-    if (book.ownerId !== userId) {
-      return reply.code(403).send({
-        success: false,
-        error: 'You can only pitch your own books',
+      if (!book) {
+        return reply.code(404).send({
+          success: false,
+          error: 'Book not found',
+        });
+      }
+
+      if (book.ownerId !== userId) {
+        return reply.code(403).send({
+          success: false,
+          error: 'You can only pitch your own books',
+        });
+      }
+      
+      bookId = body.bookId;
+    } else {
+      // Create a book on-the-fly from inline data
+      const newBook = await prisma.book.create({
+        data: {
+          title: body.bookTitle!,
+          description: body.bookBlurb || '',
+          author: body.authorBio || '',
+          genres: body.targetGenres || [],
+          ownerId: userId,
+          status: 'FOR_PITCH',
+        },
       });
+      
+      bookId = newBook.id;
     }
 
     // If targetClubId is provided, verify the club exists
@@ -187,16 +233,16 @@ export default async function pitchesRoutes(app: FastifyInstance) {
     const pitch = await prisma.pitch.create({
       data: {
         authorId: userId,
-        bookId: body.bookId,
+        bookId: bookId,
         targetClubId: body.targetClubId || null,
-        title: body.title,
-        synopsis: body.synopsis || null,
+        title: body.title || body.bookTitle || 'Untitled',
+        synopsis: body.synopsis || body.bookBlurb || null,
         sampleUrl: body.sampleUrl || null,
-        genres: body.genres || [],
-        theme: body.theme || null,
+        genres: body.genres || body.targetGenres || [],
+        theme: body.theme || body.whyGoodFit || null,
         imageUrl: body.imageUrl || null,
         videoUrl: normalizedVideoUrl,
-        availableFormats: body.availableFormats,
+        availableFormats: body.availableFormats || ['PAPERBACK'],
         offerFreeIfChosen: body.offerFreeIfChosen || false,
         status: 'SUBMITTED',
         authorTier: user.tier, // Set author tier for visibility boost sorting
@@ -245,14 +291,14 @@ export default async function pitchesRoutes(app: FastifyInstance) {
         data: followers.map(follow => ({
           userId: follow.followerId,
           type: 'AUTHOR_NEW_PITCH',
-          message: `${pitch.author.name} just pitched a new book: ${pitch.title}`,
-          link: `/pitches/${pitch.id}`,
-          metadata: {
+          data: {
             authorId: userId,
             authorName: pitch.author.name,
             pitchId: pitch.id,
             pitchTitle: pitch.title,
           },
+          message: `${pitch.author.name} just pitched a new book: ${pitch.title}`,
+          link: `/pitches/${pitch.id}`,
         })),
       }).catch(err => {
         request.log.error(err, 'Failed to notify followers of new pitch');

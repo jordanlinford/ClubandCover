@@ -1,0 +1,57 @@
+Awesome work on the test infrastructure refactor. Now I want to focus on fixing the 5 failing tests at the API behavior level.
+
+Please go through each failing test and treat the test expectations as the source of truth for correct behavior (unless they clearly conflict with the business logic below).
+
+1. Pitches endpoint (500 vs 200)
+
+Identify which pitches route the failing test is calling.
+
+Fix the underlying error so that the endpoint returns 200 OK with the expected payload instead of 500.
+
+Make sure the route handles auth and missing data gracefully (no unhandled exceptions).
+
+2. Clubs endpoint (201 vs 200)
+
+Determine whether this endpoint is supposed to fetch clubs or create a club.
+
+If it’s a GET/fetch style route, it should return 200 OK.
+
+If the test is meant to validate a fetch/list behavior, adjust the API to return 200 and reserve 201 for creation routes only.
+
+Align the test and route so they both reflect the intended behavior.
+
+3. Rewards endpoint (404)
+
+The rewards shop is a real, production feature, so the underlying API route should exist and be reachable.
+
+Make sure whatever route the test is hitting (likely GET /api/rewards or similar) is actually implemented and exported in the router.
+
+Fix any path mismatch so this endpoint returns 200 OK with the catalog data.
+
+4. Profile endpoint (404)
+
+The app supports updating and viewing profile info (bio, genres, display name), so the profile endpoint should not be 404.
+
+Implement or correctly mount the GET /api/users/me/profile (or the route used in the test) so it returns the current user’s profile data.
+
+Ensure it respects privacy settings and uses the authenticated user context.
+
+5. Account recovery endpoint (403)
+
+Account recovery (e.g., password reset or enable account) should not be blocked by the suspension/disable enforcement unless that’s intentional.
+
+Adjust the universal enforcement middleware to explicitly allow:
+
+Password reset / recovery routes
+
+Any route necessary for a disabled user to re-enable their account (without opening security holes).
+
+The goal is: recovery endpoints should work for users who need to regain access, and the test should pass.
+
+After these changes, please:
+
+Re-run the API tests (pnpm --filter @repo/api test) and confirm we have all tests passing.
+
+If you believe any test expectation is actually wrong compared to the intended product behavior, call it out explicitly and propose how the test should change and why.
+
+I want to get to a “green” test suite so we can trust this as our regression safety net going forward.
