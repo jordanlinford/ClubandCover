@@ -1,11 +1,11 @@
 import { prisma } from '../../lib/prisma.js';
 import { supabase } from '../../lib/supabase.js';
-import type { User, AccountStatus, Role, Tier } from '@prisma/client';
+import type { User, AccountStatus, Tier, UserRole } from '@prisma/client';
 
 interface CreateTestUserOptions {
   email: string;
   name: string;
-  roles?: Role[];
+  roles?: UserRole[];
   tier?: Tier;
   accountStatus?: AccountStatus;
   password?: string;
@@ -99,7 +99,7 @@ export async function createTestReader(
 
   return {
     ...testUser,
-    userProfileId: userProfile.id,
+    userProfileId: userProfile.userId,
   };
 }
 
@@ -149,22 +149,52 @@ export async function createTestClubAdmin(options: Omit<CreateTestUserOptions, '
 
 export async function deleteTestUser(userId: string): Promise<void> {
   // Delete in reverse foreign key order
+  
+  // First, delete thread members to avoid FK constraints
+  await prisma.threadMember.deleteMany({ where: { userId } });
+  
+  // Delete pitch nominations
+  await prisma.pitchNomination.deleteMany({ where: { userId } });
+  
+  // Delete messages
+  await prisma.message.deleteMany({ where: { senderId: userId } });
+  
+  // Delete votes
   await prisma.vote.deleteMany({ where: { userId } });
-  await prisma.message.deleteMany({ where: { userId } });
+  
+  // Delete memberships
   await prisma.membership.deleteMany({ where: { userId } });
+  
+  // Delete pitches (as author)
   await prisma.pitch.deleteMany({ where: { authorId: userId } });
+  
+  // Delete swaps
   await prisma.swap.deleteMany({
     where: {
       OR: [{ requesterId: userId }, { responderId: userId }],
     },
   });
+  
+  // Delete books
   await prisma.book.deleteMany({ where: { ownerId: userId } });
+  
+  // Delete point ledger entries
   await prisma.pointLedger.deleteMany({ where: { userId } });
+  
+  // Delete redemption requests
   await prisma.redemptionRequest.deleteMany({ where: { userId } });
+  
+  // Delete user badges
   await prisma.userBadge.deleteMany({ where: { userId } });
+  
+  // Delete clubs created by user
+  await prisma.club.deleteMany({ where: { createdById: userId } });
+  
+  // Delete profiles
   await prisma.authorProfile.deleteMany({ where: { userId } });
   await prisma.userProfile.deleteMany({ where: { userId } });
-  await prisma.club.deleteMany({ where: { createdById: userId } });
+  
+  // Finally, delete the user
   await prisma.user.delete({ where: { id: userId } });
 }
 

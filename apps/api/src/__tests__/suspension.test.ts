@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 import { createTestMessageThread, createTestRewardItem } from './helpers/testFactories.js';
+import { createTestUser, deleteTestUser, getAuthHeaders } from './helpers/auth.js';
 import { prisma } from '../lib/prisma.js';
 
 /**
@@ -17,34 +18,19 @@ let activeUserToken: string;
 let suspendedUserToken: string;
 
 beforeAll(async () => {
-  // Create test users
-  const activeUser = await prisma.user.create({
-    data: {
-      id: crypto.randomUUID(),
-      email: 'active-test@test.com',
-      name: 'Active Test User',
-      roles: ['READER', 'AUTHOR'],
-      tier: 'FREE',
-      accountStatus: 'ACTIVE',
-    },
-  });
-  activeUserId = activeUser.id;
-  activeUserToken = `test-token-${activeUserId}`;
+  // Generate unique emails for test repeatability
+  const testRunId = Date.now();
 
-  const suspendedUser = await prisma.user.create({
-    data: {
-      id: crypto.randomUUID(),
-      email: 'suspended-test@test.com',
-      name: 'Suspended Test User',
-      roles: ['READER', 'AUTHOR'],
-      tier: 'FREE',
-      accountStatus: 'SUSPENDED',
-      suspendedAt: new Date(),
-      suspendedBy: activeUserId,
-    },
+  // Create active user with AUTHOR role
+  const activeUser = await createTestUser({
+    email: `active-suspension-${testRunId}@test.com`,
+    name: 'Active Test User',
+    roles: ['READER', 'AUTHOR'],
+    tier: 'FREE',
+    accountStatus: 'ACTIVE',
   });
-  suspendedUserId = suspendedUser.id;
-  suspendedUserToken = `test-token-${suspendedUserId}`;
+  activeUserId = activeUser.user.id;
+  activeUserToken = activeUser.token;
 
   // Create verified author profile for active user (needed for pitches)
   await prisma.authorProfile.create({
@@ -53,6 +39,26 @@ beforeAll(async () => {
       penName: 'Active Author',
       bio: 'Test bio',
       verificationStatus: 'VERIFIED',
+    },
+  });
+
+  // Create suspended user
+  const suspendedUser = await createTestUser({
+    email: `suspended-${testRunId}@test.com`,
+    name: 'Suspended Test User',
+    roles: ['READER', 'AUTHOR'],
+    tier: 'FREE',
+    accountStatus: 'SUSPENDED',
+  });
+  suspendedUserId = suspendedUser.user.id;
+  suspendedUserToken = suspendedUser.token;
+
+  // Update suspended user with suspension metadata
+  await prisma.user.update({
+    where: { id: suspendedUserId },
+    data: {
+      suspendedAt: new Date(),
+      suspendedBy: activeUserId,
     },
   });
 
@@ -68,13 +74,9 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  // Cleanup test data
-  await prisma.authorProfile.deleteMany({
-    where: { userId: { in: [activeUserId, suspendedUserId] } },
-  });
-  await prisma.user.deleteMany({
-    where: { id: { in: [activeUserId, suspendedUserId] } },
-  });
+  // Use shared cleanup utilities
+  await deleteTestUser(activeUserId);
+  await deleteTestUser(suspendedUserId);
   await prisma.$disconnect();
 });
 
@@ -331,24 +333,29 @@ describe('Universal Suspension Enforcement', () => {
     let disabledUserToken: string;
 
     beforeAll(async () => {
+      // Generate unique email for test repeatability
+      const testRunId = Date.now();
+      
       // Create a disabled user
-      const disabledUser = await prisma.user.create({
-        data: {
-          id: crypto.randomUUID(),
-          email: 'disabled-test@test.com',
-          name: 'Disabled Test User',
-          roles: ['READER'],
-          tier: 'FREE',
-          accountStatus: 'DISABLED',
-          disabledAt: new Date(),
-        },
+      const disabledUser = await createTestUser({
+        email: `disabled-recovery-${testRunId}@test.com`,
+        name: 'Disabled Test User',
+        roles: ['READER'],
+        tier: 'FREE',
+        accountStatus: 'DISABLED',
       });
-      disabledUserId = disabledUser.id;
-      disabledUserToken = `test-token-${disabledUserId}`;
+      disabledUserId = disabledUser.user.id;
+      disabledUserToken = disabledUser.token;
+
+      // Update with disabled metadata
+      await prisma.user.update({
+        where: { id: disabledUserId },
+        data: { disabledAt: new Date() },
+      });
     });
 
     afterAll(async () => {
-      await prisma.user.delete({ where: { id: disabledUserId } });
+      await deleteTestUser(disabledUserId);
     });
 
     it('should allow DISABLED user to reactivate their account', async () => {

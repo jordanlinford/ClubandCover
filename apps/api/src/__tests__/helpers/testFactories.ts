@@ -191,8 +191,16 @@ export async function createTestMessageThread(params: {
       type: 'DM',
       members: {
         create: [
-          { userId: params.userId1 },
-          { userId: params.userId2 },
+          { 
+            user: {
+              connect: { id: params.userId1 }
+            }
+          },
+          { 
+            user: {
+              connect: { id: params.userId2 }
+            }
+          },
         ],
       },
     },
