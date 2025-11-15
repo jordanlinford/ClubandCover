@@ -5,7 +5,13 @@ let app: FastifyInstance | null = null;
 
 export async function startTestServer(): Promise<FastifyInstance> {
   if (!app) {
-    app = await build();
+    // Build server with test configuration
+    app = await build({
+      enableStatic: false, // Skip static files in tests
+      ensureStripe: false, // Skip Stripe product initialization
+      enableAdminMigrations: false, // Skip admin migrations
+      logger: false, // Disable logging in tests
+    });
     await app.ready();
   }
   return app;
