@@ -125,9 +125,9 @@ export async function createTestClubAdmin(options: Omit<CreateTestUserOptions, '
     data: {
       name: clubName,
       description: clubDescription,
-      hostId: testUser.user.id,
-      visibility: 'PUBLIC',
-      joinRule: 'OPEN',
+      createdById: testUser.user.id,
+      isPublic: true,
+      joinRules: 'OPEN',
     },
   });
 
@@ -164,7 +164,7 @@ export async function deleteTestUser(userId: string): Promise<void> {
   await prisma.userBadge.deleteMany({ where: { userId } });
   await prisma.authorProfile.deleteMany({ where: { userId } });
   await prisma.userProfile.deleteMany({ where: { userId } });
-  await prisma.club.deleteMany({ where: { hostId: userId } });
+  await prisma.club.deleteMany({ where: { createdById: userId } });
   await prisma.user.delete({ where: { id: userId } });
 }
 

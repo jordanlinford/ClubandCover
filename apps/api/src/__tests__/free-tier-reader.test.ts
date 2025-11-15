@@ -45,19 +45,20 @@ describe('FREE Tier Reader Access', () => {
       data: {
         name: 'Private Test Club',
         description: 'Requires approval',
-        hostId: clubAdmin.user.id,
-        visibility: 'PUBLIC',
-        joinRule: 'APPROVAL_REQUIRED',
+        createdById: clubAdmin.user.id,
+        isPublic: true,
+        joinRules: 'APPROVAL',
       },
     });
     privateClubId = privateClub.id;
 
     // Add club admin as member
-    await prisma.clubMember.create({
+    await prisma.membership.create({
       data: {
         clubId: privateClubId,
         userId: clubAdmin.user.id,
-        role: 'HOST',
+        role: 'OWNER',
+        status: 'ACTIVE',
       },
     });
   });
@@ -110,8 +111,8 @@ describe('FREE Tier Reader Access', () => {
         .send({
           name: 'Reader Created Club',
           description: 'Proving readers can create clubs',
-          visibility: 'PUBLIC',
-          joinRule: 'OPEN',
+          isPublic: true,
+          joinRules: 'OPEN',
         })
         .expect(201);
 
@@ -128,7 +129,7 @@ describe('FREE Tier Reader Access', () => {
 
     beforeAll(async () => {
       // Ensure reader is a member of the club
-      await prisma.clubMember.upsert({
+      await prisma.membership.upsert({
         where: {
           clubId_userId: {
             clubId: publicClubId,
@@ -139,6 +140,7 @@ describe('FREE Tier Reader Access', () => {
           clubId: publicClubId,
           userId: freeReader.user.id,
           role: 'MEMBER',
+          status: 'ACTIVE',
         },
         update: {},
       });
@@ -147,24 +149,35 @@ describe('FREE Tier Reader Access', () => {
       const poll = await prisma.poll.create({
         data: {
           clubId: publicClubId,
-          title: 'Test Poll',
-          description: 'Vote for a book',
+          type: 'BOOK_SELECTION',
           status: 'ACTIVE',
-          endsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          createdBy: clubAdmin.user.id,
+          opensAt: new Date(),
+          closesAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         },
       });
       pollId = poll.id;
     });
 
     it('should allow FREE tier user to vote in polls', async () => {
-      // Create poll options first
+      // Create a book first (required for pitch)
+      const book = await prisma.book.create({
+        data: {
+          title: 'Test Book for Poll',
+          ownerId: clubAdmin.user.id,
+          isbn: '978-0-123456-78-9',
+        },
+      });
+
+      // Create pitch with bookId
       const pitch = await prisma.pitch.create({
         data: {
           title: 'Test Book for Poll',
           synopsis: 'A test synopsis',
           authorId: clubAdmin.user.id,
+          bookId: book.id,
           genres: ['FICTION'],
-          status: 'ACTIVE',
+          status: 'SUBMITTED',
         },
       });
 
@@ -188,13 +201,14 @@ describe('FREE Tier Reader Access', () => {
 
       // Cleanup
       await prisma.pitch.delete({ where: { id: pitch.id } });
+      await prisma.book.delete({ where: { id: book.id } });
     });
   });
 
   describe('Messaging Access', () => {
     beforeAll(async () => {
       // Ensure reader is a member
-      await prisma.clubMember.upsert({
+      await prisma.membership.upsert({
         where: {
           clubId_userId: {
             clubId: publicClubId,
@@ -205,6 +219,7 @@ describe('FREE Tier Reader Access', () => {
           clubId: publicClubId,
           userId: freeReader.user.id,
           role: 'MEMBER',
+          status: 'ACTIVE',
         },
         update: {},
       });
