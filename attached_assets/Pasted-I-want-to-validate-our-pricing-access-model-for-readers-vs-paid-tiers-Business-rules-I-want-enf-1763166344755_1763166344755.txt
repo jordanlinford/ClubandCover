@@ -1,0 +1,80 @@
+I want to validate our pricing / access model for readers vs. paid tiers.
+
+Business rules I want enforced:
+
+Readers should always be free.
+
+A user on the FREE tier should be able to:
+
+Sign up and log in
+
+Join public clubs
+
+Request to join private clubs (if allowed)
+
+Vote in polls
+
+Read pitches and author profiles
+
+Post messages in clubs
+
+Earn points and redeem rewards (as long as they have points)
+
+Paid packages should only affect:
+
+Authors (PRO_AUTHOR, PUBLISHER)
+
+Power club hosts (PRO_CLUB)
+
+Credits / boosts
+
+Please do the following in the codebase:
+
+Identify all places where access is gated by tier/plan
+
+Search for tier checks like PRO_AUTHOR, PRO_CLUB, PUBLISHER, FREE, etc.
+
+List each feature or route that is restricted by tier.
+
+Tell me: does any core reader action (join club, vote, read pitches, post in club) require a paid tier?
+
+Confirm reader flows are NOT paywalled
+Specifically confirm that a FREE user can:
+
+Join a public club
+
+Request to join a private club (if that’s how it’s designed)
+
+Vote in a club poll
+
+View club pages and messages
+
+View public author profiles and pitches
+
+Use the points shop if they have points
+
+Confirm what PRO_CLUB actually unlocks
+
+What features are ONLY available to PRO_CLUB that are not available to FREE users?
+
+Is PRO_CLUB ever required just to participate in a club (vs. host/upgrade one)?
+
+Confirm what PRO_AUTHOR and PUBLISHER unlock
+
+What restrictions apply to FREE authors (pitch limits, boosts, analytics, etc.)?
+
+What additional capabilities do PRO_AUTHOR and PUBLISHER get?
+
+Make sure no reading/joining/voting actions are behind these tiers.
+
+Report back in this format:
+
+A. Free Reader Capabilities: List everything a FREE user can do and confirm there is no Stripe/tier check blocking them.
+
+B. Paid Author Features: List features unlocked by PRO_AUTHOR and PUBLISHER.
+
+C. Paid Club Host Features: List features unlocked by PRO_CLUB.
+
+D. Any Conflicts: If you find any place where a reader’s normal behavior is paywalled or blocked based on tier, call it out and recommend a fix.
+
+If possible, also suggest 2–3 automated tests we should add to guarantee that FREE users can always join clubs, vote, and read pitches without hitting a paywall.
