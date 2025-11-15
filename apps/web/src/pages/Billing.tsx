@@ -19,17 +19,8 @@ const PLANS = [
       'Author insights dashboard',
     ],
   },
-  {
-    id: 'PRO_CLUB',
-    name: 'Pro Club',
-    price: '$19.99/mo',
-    features: [
-      'Unlimited club members',
-      'Private club discussions',
-      'Advanced moderation tools',
-      'Custom club branding',
-    ],
-  },
+  // PRO_CLUB tier hidden from UI until premium club features are implemented
+  // Tier still exists in backend for existing subscribers
 ];
 
 const TIER_LABELS: Record<string, string> = {
