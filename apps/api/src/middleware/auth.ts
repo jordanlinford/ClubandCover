@@ -150,6 +150,8 @@ export async function requireActiveAccount(request: FastifyRequest, reply: Fasti
 
   const allowedRoutes = [
     '/api/users/me/enable',    // Allow reactivation
+    '/api/user/me/enable',     // Alias for reactivation
+    '/api/me/enable',          // Alias for reactivation
     '/api/users/me/delete',    // Allow deletion confirmation
   ];
 

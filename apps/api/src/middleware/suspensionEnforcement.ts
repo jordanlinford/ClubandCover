@@ -8,6 +8,17 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 export async function enforceSuspensionPolicy(request: FastifyRequest, reply: FastifyReply) {
   // Only enforce on mutating HTTP methods
   const mutatingMethods = ['POST', 'PATCH', 'PUT', 'DELETE'];
+  
+  // Debug: log all requests
+  if (mutatingMethods.includes(request.method)) {
+    request.log.info({ 
+      url: request.url, 
+      method: request.method,
+      hasUser: !!request.user,
+      accountStatus: request.user?.accountStatus,
+    }, '[SUSPENSION] Middleware running');
+  }
+  
   if (!mutatingMethods.includes(request.method)) {
     return; // Allow all GET/HEAD/OPTIONS requests
   }
@@ -37,13 +48,6 @@ export async function enforceSuspensionPolicy(request: FastifyRequest, reply: Fa
   if (!request.user) {
     return;
   }
-
-  // Debug: log user status
-  request.log.info({
-    url: request.url,
-    accountStatus: request.user.accountStatus,
-    userId: request.user.id,
-  }, '[SUSPENSION] Checking account status');
 
   // Block SUSPENDED users from all mutating operations
   if (request.user.accountStatus === 'SUSPENDED') {

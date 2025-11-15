@@ -1,4 +1,6 @@
 import type { FastifyInstance } from 'fastify';
+import type { ApiResponse } from '@repo/types';
+import { prisma } from '../lib/prisma.js';
 import { bookRoutes } from './books.js';
 import { clubRoutes } from './clubs.js';
 import { membershipRoutes } from './memberships.js';
@@ -91,44 +93,154 @@ export async function routes(fastify: FastifyInstance) {
   // Alias: /api/redemptions for backward compatibility with tests
   await fastify.register(rewardRoutes, { prefix: '' });
   
-  // Alias: /api/user/me for backward compatibility with tests  
+  // Backward compatibility aliases for userRoutes
+  // Alias: GET /api/user/me -> /api/users/me
   fastify.get('/user/me', async (request, reply) => {
-    // Redirect to the canonical /users/me endpoint
-    const response = await fastify.inject({
-      method: 'GET',
-      url: '/api/users/me',
-      headers: request.headers as Record<string, string>,
-    });
-    
-    reply.code(response.statusCode);
-    return response.json();
+    if (!request.user) {
+      reply.code(401);
+      return { success: false, error: 'Please sign in to view your profile' } as ApiResponse;
+    }
+
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: request.user.id },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          roles: true,
+          tier: true,
+          avatarUrl: true,
+          emailVerified: true,
+          createdAt: true,
+          accountStatus: true,
+        },
+      });
+
+      if (!user) {
+        reply.code(404);
+        return { success: false, error: 'User not found' } as ApiResponse;
+      }
+
+      return { success: true, user } as ApiResponse;
+    } catch (error) {
+      reply.code(500);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch user',
+      } as ApiResponse;
+    }
   });
-  
-  fastify.post('/user/me/enable', async (request, reply) => {
-    // Redirect to the canonical /users/me/enable endpoint
-    const response = await fastify.inject({
-      method: 'POST',
-      url: '/api/users/me/enable',
-      headers: request.headers as Record<string, string>,
-      payload: request.body as string,
+
+  // Alias: POST /api/me/enable -> /api/users/me/enable
+  // Note: This endpoint doesn't require a request body, so we use a scoped content type parser
+  // to accept empty JSON bodies without affecting other routes
+  await fastify.register(async function (instance) {
+    // Add route-specific content type parser that accepts empty JSON bodies
+    instance.addContentTypeParser(
+      'application/json',
+      { parseAs: 'string' },
+      function (request, body, done) {
+        try {
+          // Parse non-empty bodies as JSON, default to empty object for empty bodies
+          const json = body.length > 0 ? JSON.parse(body) : {};
+          done(null, json);
+        } catch (err: any) {
+          err.statusCode = 400;
+          done(err, undefined);
+        }
+      }
+    );
+
+    instance.post('/me/enable', async (request, reply) => {
+    if (!request.user) {
+      reply.code(401);
+      return { success: false, error: 'Authentication required' } as ApiResponse;
+    }
+
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: request.user.id },
+        select: { 
+          accountStatus: true,
+          stripeSubscriptionId: true,
+        },
+      });
+
+      if (!user) {
+        reply.code(404);
+        return { success: false, error: 'User not found' } as ApiResponse;
+      }
+
+      if (user.accountStatus === 'ACTIVE') {
+        return { success: true, message: 'Account is already active' } as ApiResponse;
+      }
+
+      if (user.accountStatus === 'SUSPENDED') {
+        reply.code(403);
+        return { success: false, error: 'Your account is suspended. Only administrators can unsuspend accounts. Please contact support.' } as ApiResponse;
+      }
+
+      if (user.accountStatus === 'DELETED') {
+        reply.code(400);
+        return { success: false, error: 'Cannot enable a deleted account' } as ApiResponse;
+      }
+
+      // Resume Stripe subscription if exists
+      if (user.stripeSubscriptionId) {
+        try {
+          const { stripe } = await import('../lib/stripe.js');
+          await stripe.subscriptions.update(user.stripeSubscriptionId, {
+            pause_collection: null,
+          });
+          request.log.info({ userId: request.user.id, subscriptionId: user.stripeSubscriptionId }, 'Resumed Stripe subscription on account enable');
+        } catch (stripeError) {
+          request.log.error({ error: stripeError }, 'Failed to resume Stripe subscription');
+          // Continue with enable even if Stripe fails
+        }
+      }
+
+      const oldStatus = user.accountStatus;
+      const newStatus = 'ACTIVE';
+
+      await prisma.$transaction(async (tx) => {
+        // Update user status
+        await tx.user.update({
+          where: { id: request.user.id },
+          data: {
+            accountStatus: newStatus,
+            disabledAt: null,
+          },
+        });
+
+        // Create audit log entry
+        await tx.accountStatusLog.create({
+          data: {
+            userId: request.user.id,
+            changedBy: request.user.id,
+            oldStatus,
+            newStatus,
+            reason: 'User reactivated their account',
+            metadata: {
+              action: 'SELF_ENABLE',
+              timestamp: new Date().toISOString(),
+            },
+          },
+        });
+      });
+
+      return {
+        success: true,
+        message: 'Account has been reactivated successfully!',
+      } as ApiResponse;
+    } catch (error) {
+      reply.code(500);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to enable account',
+      } as ApiResponse;
+    }
     });
-    
-    reply.code(response.statusCode);
-    return response.json();
-  });
-  
-  // Alias: /api/me/enable for backward compatibility with tests
-  fastify.post('/me/enable', async (request, reply) => {
-    // Redirect to the canonical /users/me/enable endpoint
-    const response = await fastify.inject({
-      method: 'POST',
-      url: '/api/users/me/enable',
-      headers: request.headers as Record<string, string>,
-      payload: request.body as string,
-    });
-    
-    reply.code(response.statusCode);
-    return response.json();
   });
   
   // Authentication (email verification, password reset)

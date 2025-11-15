@@ -174,6 +174,15 @@ export async function build(options: BuildOptions = {}): Promise<FastifyInstance
 
   // Suspension enforcement
   fastify.addHook('onRequest', async (request, reply) => {
+    // Debug logging for all POST requests
+    if (request.method === 'POST' && request.url.includes('enable')) {
+      request.log.info({
+        url: request.url,
+        startsWithApi: request.url.startsWith('/api'),
+        method: request.method,
+      }, '[APP] Checking if URL starts with /api');
+    }
+    
     if (request.url.startsWith('/api')) {
       await enforceSuspensionPolicy(request, reply);
     }
