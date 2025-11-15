@@ -52,6 +52,15 @@ The project is a monorepo using pnpm workspaces for frontend, backend, and share
 -   **Backend:** Fastify, Prisma, Zod, Stripe SDK, Helmet.js, `@fastify/csrf-protection`.
 
 ## Recent Changes
+**November 2025 - Test Infrastructure Refactor:**
+-   **Factory Pattern Implementation:** Created comprehensive testFactories.ts with enum constants (TestEnums) and type-safe factory functions for all models (Book, Poll, Pitch, PitchNomination, PointLedger, RewardItem, RedemptionRequest, MessageThread), ensuring schema-aligned test data creation
+-   **Test Suite Refactoring:** Migrated all 3 test files (free-tier-reader, author-tier-limits, suspension) from raw Prisma calls to factory pattern, fixing 23+ schema mismatches and TypeScript compilation errors
+-   **Repeatability Fixes:** Implemented unique email generation using timestamps for all test users, preventing unique constraint violations across test runs
+-   **Enhanced Cleanup:** Extended deleteTestUser() helper to handle all FK relations (threadMember, pitchNomination, clubs, messages, votes, etc.) in proper deletion order
+-   **Auth Helper Improvements:** Fixed UserRole typing, UserProfile.userId usage, and Message.senderId references in auth.ts
+-   **Test Status:** Tests compile cleanly (0 TypeScript errors), run repeatably (14 tests total, 9 passing), with 5 behavioral failures related to API endpoint implementation (not test infrastructure issues)
+-   **Stripe API Version:** Updated to 2025-10-29.clover for compatibility with latest Stripe SDK
+
 **November 2025 - Account Management & Privacy (Phase 1):**
 -   **Password Change While Logged In:** Implemented POST /api/users/me/change-password endpoint with current password verification via Supabase auth, strength validation (8+ chars, uppercase, lowercase, number), rate limiting (max 3 attempts/hour including failures), audit logging with IP/user agent for all attempts, and email notifications upon successful changes
 -   **Display Name Updates:** Extended PATCH /api/users/me/profile to support User.name changes with character validation (2-50 chars, alphanumeric + spaces/dots/underscores/hyphens), profanity filtering via blocklist, rate limiting (max 3 changes/day), and audit logging (old name → new name with timestamps)
