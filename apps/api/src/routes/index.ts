@@ -117,6 +117,20 @@ export async function routes(fastify: FastifyInstance) {
     return response.json();
   });
   
+  // Alias: /api/me/enable for backward compatibility with tests
+  fastify.post('/me/enable', async (request, reply) => {
+    // Redirect to the canonical /users/me/enable endpoint
+    const response = await fastify.inject({
+      method: 'POST',
+      url: '/api/users/me/enable',
+      headers: request.headers as Record<string, string>,
+      payload: request.body as string,
+    });
+    
+    reply.code(response.statusCode);
+    return response.json();
+  });
+  
   // Authentication (email verification, password reset)
   await fastify.register(authRoutes, { prefix: '/auth' });
   

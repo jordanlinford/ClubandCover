@@ -38,6 +38,13 @@ export async function enforceSuspensionPolicy(request: FastifyRequest, reply: Fa
     return;
   }
 
+  // Debug: log user status
+  request.log.info({
+    url: request.url,
+    accountStatus: request.user.accountStatus,
+    userId: request.user.id,
+  }, '[SUSPENSION] Checking account status');
+
   // Block SUSPENDED users from all mutating operations
   if (request.user.accountStatus === 'SUSPENDED') {
     return reply.code(403).send({
@@ -51,9 +58,18 @@ export async function enforceSuspensionPolicy(request: FastifyRequest, reply: Fa
   if (request.user.accountStatus === 'DISABLED') {
     const recoveryEndpoints = [
       '/api/me/enable',
+      '/api/users/me/enable',
+      '/api/user/me/enable', // Alias for backward compatibility
     ];
     
     const isRecoveryEndpoint = recoveryEndpoints.some(endpoint => request.url.startsWith(endpoint));
+    
+    // Debug logging
+    request.log.info({ 
+      url: request.url, 
+      recoveryEndpoints, 
+      isRecoveryEndpoint 
+    }, '[SUSPENSION] Checking recovery endpoint for DISABLED user');
     
     if (isRecoveryEndpoint) {
       return; // Allow DISABLED users to reactivate themselves

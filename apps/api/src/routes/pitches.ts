@@ -166,7 +166,6 @@ export default async function pitchesRoutes(app: FastifyInstance) {
           author: body.authorBio || '',
           genres: body.targetGenres || [],
           ownerId: userId,
-          status: 'FOR_PITCH',
         },
       });
       

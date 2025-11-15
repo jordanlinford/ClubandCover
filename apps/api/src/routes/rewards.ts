@@ -145,7 +145,7 @@ export async function rewardRoutes(fastify: FastifyInstance) {
         });
       });
 
-      reply.code(201);
+      reply.code(200);
       return { success: true, data: redemption };
     } catch (error) {
       if (error instanceof Error) {
