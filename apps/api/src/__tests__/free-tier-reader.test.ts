@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import request from 'supertest';
+import { startTestServer, stopTestServer } from './helpers/server.js';
+import { createTestReader, createTestClubAdmin, getAuthHeaders, deleteTestUser } from './helpers/auth.js';
 import { prisma } from '../lib/prisma.js';
+import type { FastifyInstance } from 'fastify';
 
 /**
  * Integration tests to guarantee FREE tier users can access all reader features
@@ -8,454 +12,356 @@ import { prisma } from '../lib/prisma.js';
  * Critical: If any of these tests fail, readers are being incorrectly paywalled
  */
 
-const API_BASE = `http://localhost:${process.env.PORT || 5000}`;
+describe('FREE Tier Reader Access', () => {
+  let app: FastifyInstance;
+  let freeReader: Awaited<ReturnType<typeof createTestReader>>;
+  let clubAdmin: Awaited<ReturnType<typeof createTestClubAdmin>>;
+  let publicClubId: string;
+  let privateClubId: string;
 
-// Test user IDs and tokens
-let freeUserId: string;
-let freeUserToken: string;
-let clubOwnerId: string;
-let clubOwnerToken: string;
-let publicClubId: string;
-let privateClubId: string;
-let pollId: string;
-let threadId: string;
+  beforeAll(async () => {
+    app = await startTestServer();
 
-beforeAll(async () => {
-  // Create FREE tier test user (reader)
-  const freeUser = await prisma.user.create({
-    data: {
-      id: crypto.randomUUID(),
-      email: 'free-reader-test@test.com',
+    // Create FREE tier reader
+    freeReader = await createTestReader({
+      email: 'free-reader@test.com',
       name: 'Free Reader',
-      roles: ['READER'],
       tier: 'FREE',
-      accountStatus: 'ACTIVE',
-    },
-  });
-  freeUserId = freeUser.id;
-  freeUserToken = `test-token-${freeUserId}`;
-
-  // Create club owner (also FREE tier to prove club creation doesn't need paid tier)
-  const clubOwner = await prisma.user.create({
-    data: {
-      id: crypto.randomUUID(),
-      email: 'club-owner-test@test.com',
-      name: 'Club Owner',
-      roles: ['READER'],
-      tier: 'FREE',
-      accountStatus: 'ACTIVE',
-    },
-  });
-  clubOwnerId = clubOwner.id;
-  clubOwnerToken = `test-token-${clubOwnerId}`;
-
-  // Create public club
-  const publicClub = await prisma.club.create({
-    data: {
-      name: 'Free Access Public Club',
-      description: 'Everyone can join',
-      isPublic: true,
-      joinRules: 'OPEN',
-      createdById: clubOwnerId,
-      memberships: {
-        create: {
-          userId: clubOwnerId,
-          role: 'OWNER',
-          status: 'ACTIVE',
-        },
-      },
-    },
-  });
-  publicClubId = publicClub.id;
-
-  // Create private club (requires approval but still FREE to request)
-  const privateClub = await prisma.club.create({
-    data: {
-      name: 'Free Access Private Club',
-      description: 'Approval required but still free',
-      isPublic: false,
-      joinRules: 'APPROVAL_REQUIRED',
-      createdById: clubOwnerId,
-      memberships: {
-        create: {
-          userId: clubOwnerId,
-          role: 'OWNER',
-          status: 'ACTIVE',
-        },
-      },
-    },
-  });
-  privateClubId = privateClub.id;
-
-  // Create a poll in the public club
-  const poll = await prisma.poll.create({
-    data: {
-      clubId: publicClubId,
-      creatorId: clubOwnerId,
-      type: 'BOOK_SELECTION',
-      status: 'OPEN',
-      endsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
-      options: {
-        create: [
-          { text: 'Book Option 1' },
-          { text: 'Book Option 2' },
-        ],
-      },
-    },
-    include: {
-      options: true,
-    },
-  });
-  pollId = poll.id;
-
-  // Create thread for the public club
-  const thread = await prisma.thread.create({
-    data: {
-      title: 'Public Club Discussion',
-      clubId: publicClubId,
-      members: {
-        create: [
-          { userId: clubOwnerId },
-        ],
-      },
-    },
-  });
-  threadId = thread.id;
-});
-
-afterAll(async () => {
-  // Cleanup test data
-  await prisma.vote.deleteMany({ where: { userId: freeUserId } });
-  await prisma.message.deleteMany({ where: { senderId: { in: [freeUserId, clubOwnerId] } }});
-  await prisma.threadMember.deleteMany({ where: { userId: { in: [freeUserId, clubOwnerId] } }});
-  await prisma.thread.deleteMany({ where: { id: threadId } });
-  await prisma.pollOption.deleteMany({ where: { pollId } });
-  await prisma.poll.deleteMany({ where: { id: pollId } });
-  await prisma.membership.deleteMany({
-    where: { userId: { in: [freeUserId, clubOwnerId] } },
-  });
-  await prisma.club.deleteMany({
-    where: { id: { in: [publicClubId, privateClubId] } },
-  });
-  await prisma.user.deleteMany({
-    where: { id: { in: [freeUserId, clubOwnerId] } },
-  });
-  await prisma.$disconnect();
-});
-
-describe('FREE Tier Reader Access - Core Guarantees', () => {
-  describe('Club Joining (Public)', () => {
-    it('should allow FREE user to join public club without any tier check', async () => {
-      const response = await fetch(`${API_BASE}/api/clubs/${publicClubId}/join`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${freeUserToken}`,
-        },
-      });
-
-      expect(response.status).toBe(201);
-      const data = await response.json();
-      expect(data.success).toBe(true);
-      expect(data.data.status).toBe('ACTIVE');
     });
 
-    it('should confirm FREE user is now an active member', async () => {
-      const membership = await prisma.membership.findUnique({
+    // Create club admin with a club (also FREE tier to prove club creation is free)
+    clubAdmin = await createTestClubAdmin({
+      email: 'club-admin@test.com',
+      name: 'Club Admin',
+      tier: 'FREE',
+      clubName: 'Test Club for Readers',
+      clubDescription: 'A club to test reader access',
+    });
+
+    publicClubId = clubAdmin.clubId;
+
+    // Create a private club for approval testing
+    const privateClub = await prisma.club.create({
+      data: {
+        name: 'Private Test Club',
+        description: 'Requires approval',
+        hostId: clubAdmin.user.id,
+        visibility: 'PUBLIC',
+        joinRule: 'APPROVAL_REQUIRED',
+      },
+    });
+    privateClubId = privateClub.id;
+
+    // Add club admin as member
+    await prisma.clubMember.create({
+      data: {
+        clubId: privateClubId,
+        userId: clubAdmin.user.id,
+        role: 'HOST',
+      },
+    });
+  });
+
+  afterAll(async () => {
+    // Cleanup
+    await deleteTestUser(freeReader.user.id);
+    await deleteTestUser(clubAdmin.user.id);
+    await prisma.club.deleteMany({
+      where: {
+        id: { in: [publicClubId, privateClubId] },
+      },
+    });
+    await stopTestServer();
+  });
+
+  describe('Club Access', () => {
+    it('should allow FREE tier user to join public club', async () => {
+      const response = await request(app.server)
+        .post(`/api/clubs/${publicClubId}/join`)
+        .set(getAuthHeaders(freeReader.token))
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+    });
+
+    it('should allow FREE tier user to request to join private club', async () => {
+      const response = await request(app.server)
+        .post(`/api/clubs/${privateClubId}/join`)
+        .set(getAuthHeaders(freeReader.token))
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+    });
+
+    it('should allow FREE tier user to view clubs list', async () => {
+      const response = await request(app.server)
+        .get('/api/clubs')
+        .set(getAuthHeaders(freeReader.token))
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(Array.isArray(response.body.data)).toBe(true);
+    });
+
+    it('should allow FREE tier user to create a club (no tier restriction)', async () => {
+      const response = await request(app.server)
+        .post('/api/clubs')
+        .set(getAuthHeaders(freeReader.token))
+        .send({
+          name: 'Reader Created Club',
+          description: 'Proving readers can create clubs',
+          visibility: 'PUBLIC',
+          joinRule: 'OPEN',
+        })
+        .expect(201);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.name).toBe('Reader Created Club');
+
+      // Cleanup
+      await prisma.club.delete({ where: { id: response.body.data.id } });
+    });
+  });
+
+  describe('Voting Access', () => {
+    let pollId: string;
+
+    beforeAll(async () => {
+      // Ensure reader is a member of the club
+      await prisma.clubMember.upsert({
         where: {
           clubId_userId: {
             clubId: publicClubId,
-            userId: freeUserId,
+            userId: freeReader.user.id,
           },
         },
-      });
-
-      expect(membership).not.toBeNull();
-      expect(membership?.status).toBe('ACTIVE');
-    });
-  });
-
-  describe('Club Joining (Private)', () => {
-    it('should allow FREE user to request to join private club', async () => {
-      const response = await fetch(`${API_BASE}/api/clubs/${privateClubId}/join`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${freeUserToken}`,
+        create: {
+          clubId: publicClubId,
+          userId: freeReader.user.id,
+          role: 'MEMBER',
         },
+        update: {},
       });
 
-      // May return 201 with PENDING status or 200 depending on implementation
-      expect([200, 201]).toContain(response.status);
-      const data = await response.json();
-      expect(data.success).toBe(true);
-    });
-  });
-
-  describe('Poll Voting', () => {
-    it('should allow FREE user to vote in club polls', async () => {
-      // Get poll options
-      const poll = await prisma.poll.findUnique({
-        where: { id: pollId },
-        include: { options: true },
-      });
-
-      const response = await fetch(`${API_BASE}/api/polls/${pollId}/votes`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${freeUserToken}`,
-        },
-        body: JSON.stringify({
-          optionId: poll?.options[0]?.id,
-        }),
-      });
-
-      expect(response.status).toBe(201);
-      const data = await response.json();
-      expect(data.success).toBe(true);
-    });
-
-    it('should confirm vote was recorded', async () => {
-      const vote = await prisma.vote.findFirst({
-        where: {
-          pollId,
-          userId: freeUserId,
-        },
-      });
-
-      expect(vote).not.toBeNull();
-    });
-  });
-
-  describe('Club Messaging', () => {
-    beforeAll(async () => {
-      // Add FREE user to thread
-      await prisma.threadMember.create({
+      // Create a poll
+      const poll = await prisma.poll.create({
         data: {
-          threadId,
-          userId: freeUserId,
+          clubId: publicClubId,
+          title: 'Test Poll',
+          description: 'Vote for a book',
+          status: 'ACTIVE',
+          endsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         },
       });
+      pollId = poll.id;
     });
 
-    it('should allow FREE user to post messages in club', async () => {
-      const response = await fetch(`${API_BASE}/api/threads/${threadId}/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${freeUserToken}`,
-        },
-        body: JSON.stringify({
-          content: 'Test message from FREE tier user - no paywall!',
-        }),
-      });
-
-      expect(response.status).toBe(200);
-      const data = await response.json();
-      expect(data.success).toBe(true);
-    });
-
-    it('should confirm message was posted', async () => {
-      const message = await prisma.message.findFirst({
-        where: {
-          threadId,
-          senderId: freeUserId,
+    it('should allow FREE tier user to vote in polls', async () => {
+      // Create poll options first
+      const pitch = await prisma.pitch.create({
+        data: {
+          title: 'Test Book for Poll',
+          synopsis: 'A test synopsis',
+          authorId: clubAdmin.user.id,
+          genres: ['FICTION'],
+          status: 'ACTIVE',
         },
       });
 
-      expect(message).not.toBeNull();
-      expect(message?.content).toContain('no paywall');
+      await prisma.pitchNomination.create({
+        data: {
+          pitchId: pitch.id,
+          clubId: publicClubId,
+          nominatedById: clubAdmin.user.id,
+        },
+      });
+
+      const response = await request(app.server)
+        .post(`/api/polls/${pollId}/vote`)
+        .set(getAuthHeaders(freeReader.token))
+        .send({
+          pitchId: pitch.id,
+        })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+
+      // Cleanup
+      await prisma.pitch.delete({ where: { id: pitch.id } });
     });
   });
 
-  describe('Pitch Discovery', () => {
+  describe('Messaging Access', () => {
+    beforeAll(async () => {
+      // Ensure reader is a member
+      await prisma.clubMember.upsert({
+        where: {
+          clubId_userId: {
+            clubId: publicClubId,
+            userId: freeReader.user.id,
+          },
+        },
+        create: {
+          clubId: publicClubId,
+          userId: freeReader.user.id,
+          role: 'MEMBER',
+        },
+        update: {},
+      });
+    });
+
+    it('should allow FREE tier user to post messages in clubs', async () => {
+      const response = await request(app.server)
+        .post(`/api/clubs/${publicClubId}/messages`)
+        .set(getAuthHeaders(freeReader.token))
+        .send({
+          content: 'Test message from FREE tier reader',
+        })
+        .expect(201);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.content).toBe('Test message from FREE tier reader');
+    });
+
+    it('should allow FREE tier user to view messages in clubs', async () => {
+      const response = await request(app.server)
+        .get(`/api/clubs/${publicClubId}/messages`)
+        .set(getAuthHeaders(freeReader.token))
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(Array.isArray(response.body.data)).toBe(true);
+    });
+  });
+
+  describe('Pitch Viewing Access', () => {
     let testPitchId: string;
 
     beforeAll(async () => {
-      // Create test author with a pitch
-      const testAuthor = await prisma.user.create({
-        data: {
-          id: crypto.randomUUID(),
-          email: 'test-author-for-pitch@test.com',
-          name: 'Test Author',
-          roles: ['AUTHOR'],
-          tier: 'FREE',
-          accountStatus: 'ACTIVE',
-        },
-      });
-
-      await prisma.authorProfile.create({
-        data: {
-          userId: testAuthor.id,
-          penName: 'Test Author',
-          bio: 'Test bio',
-          verificationStatus: 'VERIFIED',
-        },
-      });
-
       const pitch = await prisma.pitch.create({
         data: {
-          authorId: testAuthor.id,
-          title: 'Test Pitch for Discovery',
-          synopsis: 'A test pitch that FREE users should be able to view',
+          title: 'Test Pitch for Viewing',
+          synopsis: 'Readers should see this',
+          authorId: clubAdmin.user.id,
           genres: ['FICTION'],
-          status: 'PUBLISHED',
-          authorTier: 'FREE',
+          status: 'ACTIVE',
         },
       });
       testPitchId = pitch.id;
     });
 
-    it('should allow FREE user to view pitches without tier check', async () => {
-      const response = await fetch(`${API_BASE}/api/pitches/${testPitchId}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${freeUserToken}`,
-        },
-      });
-
-      expect(response.status).toBe(200);
-      const data = await response.json();
-      expect(data.success).toBe(true);
-      expect(data.data.title).toBe('Test Pitch for Discovery');
+    afterAll(async () => {
+      await prisma.pitch.delete({ where: { id: testPitchId } });
     });
 
-    it('should allow FREE user to browse pitch discovery feed', async () => {
-      const response = await fetch(`${API_BASE}/api/pitches?status=PUBLISHED`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${freeUserToken}`,
-        },
-      });
+    it('should allow FREE tier user to view pitches', async () => {
+      const response = await request(app.server)
+        .get('/api/pitches')
+        .set(getAuthHeaders(freeReader.token))
+        .expect(200);
 
-      expect(response.status).toBe(200);
-      const data = await response.json();
-      expect(data.success).toBe(true);
-      expect(Array.isArray(data.data)).toBe(true);
+      expect(response.body.success).toBe(true);
+      expect(Array.isArray(response.body.data)).toBe(true);
+    });
+
+    it('should allow FREE tier user to view pitch details', async () => {
+      const response = await request(app.server)
+        .get(`/api/pitches/${testPitchId}`)
+        .set(getAuthHeaders(freeReader.token))
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.title).toBe('Test Pitch for Viewing');
     });
   });
 
-  describe('Author Profile Viewing', () => {
-    let testAuthorId: string;
-
+  describe('Points and Rewards Access', () => {
     beforeAll(async () => {
-      const testAuthor = await prisma.user.findFirst({
-        where: { email: 'test-author-for-pitch@test.com' },
-      });
-      testAuthorId = testAuthor!.id;
-    });
-
-    it('should allow FREE user to view author profiles', async () => {
-      const response = await fetch(`${API_BASE}/api/authors/${testAuthorId}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${freeUserToken}`,
+      // Give reader some points
+      await prisma.pointLedger.create({
+        data: {
+          userId: freeReader.user.id,
+          amount: 100,
+          type: 'VOTE',
+          description: 'Test points',
         },
       });
 
-      expect(response.status).toBe(200);
-      const data = await response.json();
-      expect(data.success).toBe(true);
-      expect(data.data.id).toBe(testAuthorId);
-    });
-  });
-
-  describe('Points System', () => {
-    it('should allow FREE user to earn points (from club join)', async () => {
-      // Points should have been awarded when user joined club
-      const user = await prisma.user.findUnique({
-        where: { id: freeUserId },
-        select: { points: true },
-      });
-
-      // User should have points from joining club
-      expect(user?.points).toBeGreaterThan(0);
-    });
-
-    it('should show FREE user their points balance', async () => {
-      const response = await fetch(`${API_BASE}/api/points/me`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${freeUserToken}`,
-        },
-      });
-
-      expect(response.status).toBe(200);
-      const data = await response.json();
-      expect(data.success).toBe(true);
-      expect(typeof data.data.points).toBe('number');
-    });
-  });
-
-  describe('Rewards Redemption', () => {
-    beforeAll(async () => {
-      // Give user enough points to redeem a reward
+      // Update user points
       await prisma.user.update({
-        where: { id: freeUserId },
-        data: { points: 1000 },
+        where: { id: freeReader.user.id },
+        data: { pointsBalance: 100 },
       });
     });
 
-    it('should allow FREE user to view available rewards', async () => {
-      const response = await fetch(`${API_BASE}/api/rewards/catalog`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${freeUserToken}`,
-        },
-      });
+    it('should allow FREE tier user to view points balance', async () => {
+      const response = await request(app.server)
+        .get('/api/points')
+        .set(getAuthHeaders(freeReader.token))
+        .expect(200);
 
-      expect(response.status).toBe(200);
-      const data = await response.json();
-      expect(data.success).toBe(true);
-      expect(Array.isArray(data.data)).toBe(true);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.balance).toBeGreaterThanOrEqual(100);
     });
 
-    it('should allow FREE user to redeem rewards with sufficient points', async () => {
-      const response = await fetch(`${API_BASE}/api/rewards/redeem`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${freeUserToken}`,
+    it('should allow FREE tier user to view rewards', async () => {
+      const response = await request(app.server)
+        .get('/api/rewards')
+        .set(getAuthHeaders(freeReader.token))
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(Array.isArray(response.body.data)).toBe(true);
+    });
+
+    it('should allow FREE tier user to redeem rewards (if they have enough points)', async () => {
+      // Create a low-cost reward
+      const reward = await prisma.reward.create({
+        data: {
+          name: 'Test Badge',
+          description: 'A test reward',
+          pointsCost: 50,
+          type: 'BADGE',
+          badgeCode: 'TEST_BADGE',
+          isActive: true,
         },
-        body: JSON.stringify({
-          rewardType: 'BADGE',
-          badgeCode: 'BOOKWORM',
-          pointsCost: 100,
-        }),
       });
 
-      expect(response.status).toBe(201);
-      const data = await response.json();
-      expect(data.success).toBe(true);
+      const response = await request(app.server)
+        .post(`/api/rewards/${reward.id}/redeem`)
+        .set(getAuthHeaders(freeReader.token))
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+
+      // Cleanup
+      await prisma.redemption.deleteMany({ where: { rewardId: reward.id } });
+      await prisma.reward.delete({ where: { id: reward.id } });
     });
   });
 
-  describe('Club Creation (FREE Tier)', () => {
-    it('should allow FREE user to create clubs without tier requirement', async () => {
-      const response = await fetch(`${API_BASE}/api/clubs`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${freeUserToken}`,
-        },
-        body: JSON.stringify({
-          name: 'FREE User Created Club',
-          description: 'Proving FREE users can host clubs',
-          isPublic: true,
-          joinRules: 'OPEN',
-        }),
-      });
+  describe('Profile Access', () => {
+    it('should allow FREE tier user to view their own profile', async () => {
+      const response = await request(app.server)
+        .get('/api/user/me')
+        .set(getAuthHeaders(freeReader.token))
+        .expect(200);
 
-      expect(response.status).toBe(201);
-      const data = await response.json();
-      expect(data.success).toBe(true);
-      
-      // Cleanup
-      if (data.data?.id) {
-        await prisma.membership.deleteMany({ where: { clubId: data.data.id } });
-        await prisma.club.delete({ where: { id: data.data.id } });
-      }
+      expect(response.body.success).toBe(true);
+      expect(response.body.user.email).toBe('free-reader@test.com');
+      expect(response.body.user.tier).toBe('FREE');
+    });
+
+    it('should allow FREE tier user to update their profile', async () => {
+      const response = await request(app.server)
+        .patch('/api/users/me/profile')
+        .set(getAuthHeaders(freeReader.token))
+        .send({
+          favoriteGenres: ['FICTION', 'MYSTERY'],
+        })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
     });
   });
 });

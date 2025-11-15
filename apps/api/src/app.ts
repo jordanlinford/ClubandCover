@@ -23,6 +23,7 @@ export interface BuildOptions {
   enableTestRoutes?: boolean;
   enableAdminMigrations?: boolean;
   logger?: boolean | object;
+  testMode?: boolean;
 }
 
 export async function build(options: BuildOptions = {}): Promise<FastifyInstance> {
@@ -31,6 +32,7 @@ export async function build(options: BuildOptions = {}): Promise<FastifyInstance
     ensureStripe = true,
     enableTestRoutes = process.env.ENABLE_TEST_ROUTES === '1',
     enableAdminMigrations = true,
+    testMode = false,
     logger = {
       level: process.env.LOG_LEVEL || 'info',
     },
@@ -144,19 +146,31 @@ export async function build(options: BuildOptions = {}): Promise<FastifyInstance
     });
   }
 
-  // Auth middleware for API routes
-  fastify.addHook('onRequest', async (request, reply) => {
-    if (request.url.startsWith('/api')) {
-      await supabaseAuth(request, reply);
-    }
-  });
-
-  // Require active account
-  fastify.addHook('onRequest', async (request, reply) => {
-    if (request.url.startsWith('/api')) {
-      await requireActiveAccount(request, reply);
-    }
-  });
+  // Auth middleware for API routes (use test auth in test mode)
+  if (testMode) {
+    const { testAuth, testRequireActiveAccount } = await import('./middleware/testAuth.js');
+    fastify.addHook('onRequest', async (request, reply) => {
+      if (request.url.startsWith('/api')) {
+        await testAuth(request, reply);
+      }
+    });
+    fastify.addHook('onRequest', async (request, reply) => {
+      if (request.url.startsWith('/api')) {
+        await testRequireActiveAccount(request, reply);
+      }
+    });
+  } else {
+    fastify.addHook('onRequest', async (request, reply) => {
+      if (request.url.startsWith('/api')) {
+        await supabaseAuth(request, reply);
+      }
+    });
+    fastify.addHook('onRequest', async (request, reply) => {
+      if (request.url.startsWith('/api')) {
+        await requireActiveAccount(request, reply);
+      }
+    });
+  }
 
   // Suspension enforcement
   fastify.addHook('onRequest', async (request, reply) => {

@@ -132,11 +132,12 @@ export async function createTestClubAdmin(options: Omit<CreateTestUserOptions, '
   });
 
   // Add user as club member
-  await prisma.clubMember.create({
+  await prisma.membership.create({
     data: {
       clubId: club.id,
       userId: testUser.user.id,
-      role: 'HOST',
+      role: 'OWNER',
+      status: 'ACTIVE',
     },
   });
 
@@ -150,7 +151,7 @@ export async function deleteTestUser(userId: string): Promise<void> {
   // Delete in reverse foreign key order
   await prisma.vote.deleteMany({ where: { userId } });
   await prisma.message.deleteMany({ where: { userId } });
-  await prisma.clubMember.deleteMany({ where: { userId } });
+  await prisma.membership.deleteMany({ where: { userId } });
   await prisma.pitch.deleteMany({ where: { authorId: userId } });
   await prisma.swap.deleteMany({
     where: {
@@ -159,7 +160,7 @@ export async function deleteTestUser(userId: string): Promise<void> {
   });
   await prisma.book.deleteMany({ where: { ownerId: userId } });
   await prisma.pointLedger.deleteMany({ where: { userId } });
-  await prisma.redemption.deleteMany({ where: { userId } });
+  await prisma.redemptionRequest.deleteMany({ where: { userId } });
   await prisma.userBadge.deleteMany({ where: { userId } });
   await prisma.authorProfile.deleteMany({ where: { userId } });
   await prisma.userProfile.deleteMany({ where: { userId } });

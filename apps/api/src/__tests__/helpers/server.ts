@@ -7,6 +7,7 @@ export async function startTestServer(): Promise<FastifyInstance> {
   if (!app) {
     // Build server with test configuration
     app = await build({
+      testMode: true, // Enable test auth bypass
       enableStatic: false, // Skip static files in tests
       ensureStripe: false, // Skip Stripe product initialization
       enableAdminMigrations: false, // Skip admin migrations

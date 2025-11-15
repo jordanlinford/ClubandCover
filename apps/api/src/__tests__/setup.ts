@@ -17,12 +17,12 @@ global.testUtils = {
     await prisma.vote.deleteMany({});
     await prisma.poll.deleteMany({});
     await prisma.message.deleteMany({});
-    await prisma.clubMember.deleteMany({});
+    await prisma.membership.deleteMany({});
     await prisma.pitch.deleteMany({});
     await prisma.swap.deleteMany({});
     await prisma.book.deleteMany({});
     await prisma.pointLedger.deleteMany({});
-    await prisma.redemption.deleteMany({});
+    await prisma.redemptionRequest.deleteMany({});
     await prisma.userBadge.deleteMany({});
     await prisma.authorProfile.deleteMany({});
     await prisma.userProfile.deleteMany({});
