@@ -52,11 +52,12 @@ The project is a monorepo using pnpm workspaces for frontend, backend, and share
 -   **Backend:** Fastify, Prisma, Zod, Stripe SDK, Helmet.js, `@fastify/csrf-protection`.
 
 ## Recent Changes
-**November 2025 - Account Management (Phase 1):**
+**November 2025 - Account Management & Privacy (Phase 1):**
 -   **Password Change While Logged In:** Implemented POST /api/users/me/change-password endpoint with current password verification via Supabase auth, strength validation (8+ chars, uppercase, lowercase, number), rate limiting (max 3 attempts/hour including failures), audit logging with IP/user agent for all attempts, and email notifications upon successful changes
 -   **Display Name Updates:** Extended PATCH /api/users/me/profile to support User.name changes with character validation (2-50 chars, alphanumeric + spaces/dots/underscores/hyphens), profanity filtering via blocklist, rate limiting (max 3 changes/day), and audit logging (old name → new name with timestamps)
 -   **Enhanced Settings UI:** Added password change form with current/new/confirm password fields, inline strength validation, show/hide toggles, and display name change form with current name display and rate limit notifications
 -   **Audit Tables:** Added PasswordChangeLog (tracks all password change attempts with timestamp, IP, user agent) and DisplayNameChangeLog (tracks name changes with old/new values and timestamp)
+-   **Privacy Controls Enforcement:** Fixed public club detail endpoint (GET /clubs/:id) to respect showClubs privacy setting - only members who have showClubs enabled appear in public member lists. Clarified privacy architecture: UserProfile privacy settings (showClubs, showBadges, showGenres) control reader profile visibility, while AuthorProfile.genres remain public for author discovery. Club admin member endpoint (/clubs/:id/members) intentionally shows all members for management purposes.
 
 **November 2025:**
 -   **Production-Ready Suspension System:** Implemented comprehensive abuse control and safety features:
