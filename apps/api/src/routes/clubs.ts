@@ -167,6 +167,7 @@ export async function clubRoutes(fastify: FastifyInstance) {
   });
 
   // Get single club (enhanced for Sprint-6)
+  // Privacy: Respects showClubs setting - only members with showClubs enabled (or no profile, defaulting to true) appear in public member list
   fastify.get('/:id', async (request, reply) => {
     try {
       const { id } = request.params as { id: string };
@@ -176,7 +177,20 @@ export async function clubRoutes(fastify: FastifyInstance) {
           createdBy: { select: { id: true, name: true, avatarUrl: true } },
           memberships: {
             where: { status: 'ACTIVE' },
-            include: { user: { select: { id: true, name: true, avatarUrl: true } } },
+            include: { 
+              user: { 
+                select: { 
+                  id: true, 
+                  name: true, 
+                  avatarUrl: true,
+                  profile: {
+                    select: {
+                      showClubs: true,
+                    },
+                  },
+                } 
+              } 
+            },
           },
           _count: { select: { memberships: true } },
         },
@@ -187,10 +201,13 @@ export async function clubRoutes(fastify: FastifyInstance) {
         return { success: false, error: 'Club not found' };
       }
 
-      // Get co-hosts (ADMIN role members)
-      const coHosts = club.memberships
+      // Filter memberships to only include users who have showClubs enabled (or have no profile set, defaulting to true)
+      const visibleMemberships = club.memberships.filter(m => m.user.profile?.showClubs !== false);
+
+      // Get co-hosts (ADMIN role members who have showClubs enabled)
+      const coHosts = visibleMemberships
         .filter((m) => m.role === 'ADMIN')
-        .map((m) => m.user);
+        .map((m) => ({ id: m.user.id, name: m.user.name, avatarUrl: m.user.avatarUrl }));
 
       // Get current OPEN poll
       const currentPoll = await prisma.poll.findFirst({
@@ -232,6 +249,15 @@ export async function clubRoutes(fastify: FastifyInstance) {
         ...club,
         owner: club.createdBy,
         coHosts,
+        // Replace memberships with privacy-filtered version, removing profile data from response
+        memberships: visibleMemberships.map(m => ({
+          ...m,
+          user: {
+            id: m.user.id,
+            name: m.user.name,
+            avatarUrl: m.user.avatarUrl,
+          },
+        })),
         currentPoll: currentPoll
           ? {
               id: currentPoll.id,
@@ -292,6 +318,7 @@ export async function clubRoutes(fastify: FastifyInstance) {
   });
 
   // Get club members (for management - owner/admin only)
+  // Privacy: Returns ALL members regardless of showClubs setting - club admins need full roster visibility for management
   fastify.get('/:id/members', async (request, reply) => {
     try {
       const { id } = request.params as { id: string };

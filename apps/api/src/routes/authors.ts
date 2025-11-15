@@ -4,6 +4,7 @@ import type { ApiResponse } from '@repo/types';
 
 export async function authorPublicRoutes(fastify: FastifyInstance) {
   // Get public author profile
+  // Privacy: AuthorProfile.genres are always public for author discovery (separate from UserProfile.showGenres for reader preferences)
   fastify.get('/:userId', async (request, reply) => {
     try {
       const { userId } = request.params as { userId: string };
