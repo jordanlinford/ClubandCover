@@ -2,6 +2,16 @@ import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 import request from 'supertest';
 import { startTestServer, stopTestServer } from './helpers/server.js';
 import { createTestReader, createTestClubAdmin, getAuthHeaders, deleteTestUser } from './helpers/auth.js';
+import { 
+  createTestBook, 
+  createTestPoll, 
+  createTestPitch, 
+  createTestPitchNomination,
+  createTestPointEntry,
+  createTestRewardItem,
+  createTestRedemptionRequest,
+  TestEnums 
+} from './helpers/testFactories.js';
 import { prisma } from '../lib/prisma.js';
 import type { FastifyInstance } from 'fastify';
 
@@ -146,47 +156,34 @@ describe('FREE Tier Reader Access', () => {
       });
 
       // Create a poll
-      const poll = await prisma.poll.create({
-        data: {
-          clubId: publicClubId,
-          type: 'BOOK_SELECTION',
-          status: 'ACTIVE',
-          createdBy: clubAdmin.user.id,
-          opensAt: new Date(),
-          closesAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        },
+      const poll = await createTestPoll({
+        clubId: publicClubId,
+        createdBy: clubAdmin.user.id,
+        type: TestEnums.PollType.PITCH,
+        status: TestEnums.PollStatus.OPEN,
       });
       pollId = poll.id;
     });
 
     it('should allow FREE tier user to vote in polls', async () => {
-      // Create a book first (required for pitch)
-      const book = await prisma.book.create({
-        data: {
-          title: 'Test Book for Poll',
-          ownerId: clubAdmin.user.id,
-          isbn: '978-0-123456-78-9',
-        },
+      // Create a book and pitch for voting
+      const book = await createTestBook({
+        ownerId: clubAdmin.user.id,
+        title: 'Test Book for Poll',
+        author: 'Test Author',
+        isbn: '978-0-123456-78-9',
       });
 
-      // Create pitch with bookId
-      const pitch = await prisma.pitch.create({
-        data: {
-          title: 'Test Book for Poll',
-          synopsis: 'A test synopsis',
-          authorId: clubAdmin.user.id,
-          bookId: book.id,
-          genres: ['FICTION'],
-          status: 'SUBMITTED',
-        },
+      const pitch = await createTestPitch({
+        authorId: clubAdmin.user.id,
+        bookId: book.id,
+        title: 'Test Book for Poll',
+        synopsis: 'A test synopsis',
       });
 
-      await prisma.pitchNomination.create({
-        data: {
-          pitchId: pitch.id,
-          clubId: publicClubId,
-          nominatedById: clubAdmin.user.id,
-        },
+      await createTestPitchNomination({
+        pitchId: pitch.id,
+        userId: clubAdmin.user.id,
       });
 
       const response = await request(app.server)
@@ -251,22 +248,29 @@ describe('FREE Tier Reader Access', () => {
 
   describe('Pitch Viewing Access', () => {
     let testPitchId: string;
+    let testBookId: string;
 
     beforeAll(async () => {
-      const pitch = await prisma.pitch.create({
-        data: {
-          title: 'Test Pitch for Viewing',
-          synopsis: 'Readers should see this',
-          authorId: clubAdmin.user.id,
-          genres: ['FICTION'],
-          status: 'ACTIVE',
-        },
+      const book = await createTestBook({
+        ownerId: clubAdmin.user.id,
+        title: 'Test Book for Viewing',
+        author: 'Test Author',
+      });
+      testBookId = book.id;
+
+      const pitch = await createTestPitch({
+        authorId: clubAdmin.user.id,
+        bookId: book.id,
+        title: 'Test Pitch for Viewing',
+        synopsis: 'Readers should see this',
+        status: TestEnums.PitchStatus.SUBMITTED,
       });
       testPitchId = pitch.id;
     });
 
     afterAll(async () => {
       await prisma.pitch.delete({ where: { id: testPitchId } });
+      await prisma.book.delete({ where: { id: testBookId } });
     });
 
     it('should allow FREE tier user to view pitches', async () => {
@@ -293,19 +297,16 @@ describe('FREE Tier Reader Access', () => {
   describe('Points and Rewards Access', () => {
     beforeAll(async () => {
       // Give reader some points
-      await prisma.pointLedger.create({
-        data: {
-          userId: freeReader.user.id,
-          amount: 100,
-          type: 'VOTE',
-          description: 'Test points',
-        },
+      await createTestPointEntry({
+        userId: freeReader.user.id,
+        amount: 100,
+        type: TestEnums.PointType.VOTE_PARTICIPATION,
       });
 
       // Update user points
       await prisma.user.update({
         where: { id: freeReader.user.id },
-        data: { pointsBalance: 100 },
+        data: { points: 100 },
       });
     });
 
@@ -331,15 +332,10 @@ describe('FREE Tier Reader Access', () => {
 
     it('should allow FREE tier user to redeem rewards (if they have enough points)', async () => {
       // Create a low-cost reward
-      const reward = await prisma.reward.create({
-        data: {
-          name: 'Test Badge',
-          description: 'A test reward',
-          pointsCost: 50,
-          type: 'BADGE',
-          badgeCode: 'TEST_BADGE',
-          isActive: true,
-        },
+      const reward = await createTestRewardItem({
+        name: 'Test Badge',
+        pointsCost: 50,
+        copiesAvailable: 10,
       });
 
       const response = await request(app.server)
@@ -350,8 +346,8 @@ describe('FREE Tier Reader Access', () => {
       expect(response.body.success).toBe(true);
 
       // Cleanup
-      await prisma.redemption.deleteMany({ where: { rewardId: reward.id } });
-      await prisma.reward.delete({ where: { id: reward.id } });
+      await prisma.redemptionRequest.deleteMany({ where: { rewardId: reward.id } });
+      await prisma.rewardItem.delete({ where: { id: reward.id } });
     });
   });
 
